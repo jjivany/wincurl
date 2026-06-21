@@ -1,7 +1,7 @@
 🥌 "WinCurl" version 3.0
 
 
-📋 Overview
+📋 Overview:
   
 
 WinCurl is a high-performance, Python-based curling simulation built with Pygame. Experience the thrill of the ice with realistic physics, networking capabilities, and a retro-inspired aesthetics.
