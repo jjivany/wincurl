@@ -1,0 +1,3 @@
+.buildozer/
+.venv/
+__pycache__/
