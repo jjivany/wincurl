@@ -19,6 +19,6 @@ android.api = 33
 # (int) Minimum API required
 android.minapi = 24
 # (str) Android NDK version to use
-android.ndk = 25b
+android.ndk = 28c
 # (bool) Use AndroidX
 android.enable_androidx = True
