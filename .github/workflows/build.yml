@@ -1,30 +1,32 @@
 name: Build Android APK
 on: [push]
 
+# Global license acceptance
+env:
+  BUILDOZER_ACCEPT_SDK_LICENSE: 1
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Setup Java (Required for Android)
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      # 2. Setup Android SDK (This handles installation and licenses automatically)
-      - uses: android-actions/setup-android@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
 
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
       - name: Build with Buildozer
         run: |
-          # Buildozer will now use the SDK provided by setup-android
+          # Nuke the old environment to ensure no "ghost" files remain
+          rm -rf .buildozer
+          
+          # Buildozer will automatically download the correct SDK, NDK, and build-tools
+          # because the license is accepted via the env variable above.
           buildozer android debug
-        env:
-          BUILDOZER_ACCEPT_SDK_LICENSE: 1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
