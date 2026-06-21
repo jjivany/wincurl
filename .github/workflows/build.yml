@@ -15,19 +15,33 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
-      - name: Build with Buildozer
+      - name: Prepare Android SDK
         run: |
-          # 1. Clean environment
+          # 1. Clean the environment
           rm -rf .buildozer
           
-          # 2. Trigger SDK download (this will fail quickly, but it creates the folders we need)
-          buildozer android debug || true
+          # 2. Trigger SDK setup so folders exist
+          buildozer android update || true
           
-          # 3. Inject the licenses directly into the newly created SDK folder
+          # 3. Inject licenses
           mkdir -p /home/runner/.android/licenses
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > /home/runner/.android/licenses/android-sdk-license
           
-          # 4. Now run the build for real
+          # 4. Explicitly install the missing build-tools (this creates the folder Buildozer is looking for)
+          # We locate the sdkmanager in the cmdline-tools path
+          SDK_MANAGER=$(find /home/runner/.buildozer/android/platform/android-sdk -name sdkmanager | head -n 1)
+          $SDK_MANAGER "build-tools;33.0.0" "platform-tools"
+        env:
+          BUILDOZER_ACCEPT_SDK_LICENSE: 1
+
+      - name: Build with Buildozer
+        run: |
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-apk
+          path: bin/*.apk
