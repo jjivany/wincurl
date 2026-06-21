@@ -7,6 +7,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer/
+            /home/runner/.buildozer/
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -17,10 +27,9 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # This pipes 'y' into buildozer to automatically accept all licenses
+          # Use the environment variable to accept licenses
           yes | buildozer android debug
         env:
-          # This tells buildozer to be less interactive
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
 
       - name: Upload APK
