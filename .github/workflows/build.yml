@@ -7,16 +7,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Buildozer
-        uses: actions/cache@v4
-        with:
-          path: |
-            .buildozer/
-            /home/runner/.buildozer/
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-${{ runner.os }}-
-
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -27,10 +17,9 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # Force remove corrupted build artifacts to clear the poisoned config
-          rm -rf .buildozer/android/platform/build-*
-          rm -rf .buildozer/android/platform/android-sdk/
-          rm -rf .buildozer/android/app/
+          # Nuke the entire platform and cache directories to ensure no corrupted files persist
+          rm -rf .buildozer
+          rm -rf /home/runner/.buildozer
           
           # Run buildozer with license acceptance
           yes | buildozer android debug
