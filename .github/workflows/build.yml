@@ -17,12 +17,12 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # Nuke everything to ensure no corrupted configs remain
+          # Clean environment
           rm -rf .buildozer
-          
-          # Run buildozer with license acceptance
-          yes | buildozer android debug
+          # Run buildozer with debug level
+          buildozer android debug
         env:
+          # Pass the license acceptance via env
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
 
       - name: Upload APK
