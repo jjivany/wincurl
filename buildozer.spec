@@ -1,3 +1,6 @@
+# (int) log_level = 0 (silent), 1 (info), 2 (debug)
+log_level = 2
+
 [app]
 title = WinCurl
 package.name = wincurl
