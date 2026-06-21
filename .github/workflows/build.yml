@@ -12,7 +12,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
@@ -20,23 +20,10 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
-      - name: Force Install SDK Tools
-        run: |
-          # 1. Trigger the download/creation of the SDK folder
-          buildozer android update || true
-          
-          # 2. Define the path to the manager Buildozer just downloaded
-          SDK_MANAGER="/home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager"
-          
-          # 3. Force install the specific build-tools (this contains aidl)
-          # We have to give it the license command first, then the install command
-          yes | $SDK_MANAGER --licenses
-          $SDK_MANAGER "build-tools;33.0.0"
-        env:
-          BUILDOZER_ACCEPT_SDK_LICENSE: 1
-
       - name: Build with Buildozer
         run: |
+          # We do not touch the SDK. We do not use 'yes'.
+          # We let Buildozer download exactly what it needs.
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
