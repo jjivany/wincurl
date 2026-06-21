@@ -27,11 +27,12 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # The surgical strike: remove corrupted platform cache that contains invalid config
+          # 1. Force remove all build artifacts to clear the poisoned config
           rm -rf .buildozer/android/platform/build-*
-          rm -rf .buildozer/android/platform/android-ndk-r25b
+          rm -rf .buildozer/android/platform/android-sdk/
+          rm -rf .buildozer/android/app/
           
-          # Run buildozer with license acceptance
+          # 2. Run buildozer
           yes | buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
