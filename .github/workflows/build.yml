@@ -7,35 +7,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
+      # 1. Setup Java (Required for Android)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 2. Setup Android SDK (This handles installation and licenses automatically)
+      - uses: android-actions/setup-android@v3
 
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
-      - name: Prepare Android SDK
-        run: |
-          # 1. Clean the environment
-          rm -rf .buildozer
-          
-          # 2. Trigger SDK setup so folders exist
-          buildozer android update || true
-          
-          # 3. Inject licenses
-          mkdir -p /home/runner/.android/licenses
-          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > /home/runner/.android/licenses/android-sdk-license
-          
-          # 4. Explicitly install the missing build-tools (this creates the folder Buildozer is looking for)
-          # We locate the sdkmanager in the cmdline-tools path
-          SDK_MANAGER=$(find /home/runner/.buildozer/android/platform/android-sdk -name sdkmanager | head -n 1)
-          $SDK_MANAGER "build-tools;33.0.0" "platform-tools"
-        env:
-          BUILDOZER_ACCEPT_SDK_LICENSE: 1
-
       - name: Build with Buildozer
         run: |
+          # Buildozer will now use the SDK provided by setup-android
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
