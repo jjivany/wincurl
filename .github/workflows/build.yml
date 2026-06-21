@@ -20,28 +20,20 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
-      - name: Bridge the SDK gap
+      - name: Fix Path Mismatch (The Bridge)
         run: |
-          # Create the exact path Buildozer is looking for
+          # Create the folder Buildozer expects
           mkdir -p /home/runner/.buildozer/android/platform/android-sdk
           
-          # Install the command line tools so we have an sdkmanager to use
-          # We are manually doing what buildozer is failing to do
-          cd /home/runner/.buildozer/android/platform/android-sdk
-          wget https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
-          unzip commandlinetools-linux-12266719_latest.zip
-          mkdir -p cmdline-tools/latest
-          mv cmdline-tools/* cmdline-tools/latest/ || true
+          # Force buildozer to download/initialize the SDK structure so the folders exist
+          buildozer android update || true
           
-          # Accept licenses and install build-tools
-          yes | ./cmdline-tools/latest/bin/sdkmanager --licenses
-          ./cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platforms;android-33"
-        env:
-          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          # Create a link from the modern location to the legacy location Buildozer expects
+          # This maps: .../android-sdk/tools/bin/sdkmanager -> .../android-sdk/cmdline-tools/latest/bin/sdkmanager
+          ln -s /home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest /home/runner/.buildozer/android/platform/android-sdk/tools || true
 
       - name: Build with Buildozer
         run: |
-          # Now that the SDK is pre-populated, buildozer will find the tools
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
