@@ -27,7 +27,9 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # Use the environment variable to accept licenses
+          # Clean up any potentially corrupted build folders from previous failures
+          rm -rf .buildozer/android/platform/build-*
+          # Pipe 'yes' to handle any interactive license prompts
           yes | buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
