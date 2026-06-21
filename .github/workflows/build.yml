@@ -5,41 +5,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      # This action encapsulates EVERYTHING. 
+      # It spins up a container with the exact Java, SDK, and NDK versions Buildozer expects.
+      - name: Build with Buildozer Action
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          command: buildozer android debug
+          buildozer_version: stable
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
-
-      - name: Install Buildozer
-        run: pip3 install --user --upgrade buildozer
-
-      - name: Fix Path Mismatch (The Bridge)
-        run: |
-          # Create the folder Buildozer expects
-          mkdir -p /home/runner/.buildozer/android/platform/android-sdk
-          
-          # Force buildozer to download/initialize the SDK structure so the folders exist
-          buildozer android update || true
-          
-          # Create a link from the modern location to the legacy location Buildozer expects
-          # This maps: .../android-sdk/tools/bin/sdkmanager -> .../android-sdk/cmdline-tools/latest/bin/sdkmanager
-          ln -s /home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest /home/runner/.buildozer/android/platform/android-sdk/tools || true
-
-      - name: Build with Buildozer
-        run: |
-          buildozer android debug
-        env:
-          BUILDOZER_ACCEPT_SDK_LICENSE: 1
-
+      # The action automatically tracks the exact path of the generated APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: wincurl-apk
-          path: bin/*.apk
+          path: ${{ steps.buildozer.outputs.filename }}
