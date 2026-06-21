@@ -15,16 +15,13 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
-      - name: Accept Android Licenses
-        run: |
-          # This command creates the license folder and accepts all licenses automatically
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          yes | sdkmanager --licenses || true
-        shell: bash
-
       - name: Build with Buildozer
-        run: buildozer android debug
+        run: |
+          # This pipes 'y' into buildozer to automatically accept all licenses
+          yes | buildozer android debug
+        env:
+          # This tells buildozer to be less interactive
+          BUILDOZER_ACCEPT_SDK_LICENSE: 1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
