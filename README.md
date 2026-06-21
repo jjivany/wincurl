@@ -39,7 +39,7 @@ WinCurl is a high-performance, Python-based curling simulation built with Pygame
 
 This project is configured for automated Android deployment via GitHub Actions.
 
-    Build Status: Download the build12 .apk file from the repoistory.  Build 13 will fix the rock throwing slideshow and low frame rate.
+    Build Status: Download the build12 .apk file from the repoistory.  Build 13 will have better performance.
 
 🤝 Contributing
 
