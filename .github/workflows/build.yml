@@ -12,7 +12,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
@@ -20,10 +20,28 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
+      - name: Bridge the SDK gap
+        run: |
+          # Create the exact path Buildozer is looking for
+          mkdir -p /home/runner/.buildozer/android/platform/android-sdk
+          
+          # Install the command line tools so we have an sdkmanager to use
+          # We are manually doing what buildozer is failing to do
+          cd /home/runner/.buildozer/android/platform/android-sdk
+          wget https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
+          unzip commandlinetools-linux-12266719_latest.zip
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ || true
+          
+          # Accept licenses and install build-tools
+          yes | ./cmdline-tools/latest/bin/sdkmanager --licenses
+          ./cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platforms;android-33"
+        env:
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+
       - name: Build with Buildozer
         run: |
-          # We do not touch the SDK. We do not use 'yes'.
-          # We let Buildozer download exactly what it needs.
+          # Now that the SDK is pre-populated, buildozer will find the tools
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
