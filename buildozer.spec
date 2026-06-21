@@ -14,6 +14,7 @@ orientation = portrait
 fullscreen = 0
 
 [android]
+android.sdk_path = /usr/local/lib/android/sdk
 # (int) Android API to use
 android.api = 33
 # (int) Minimum API required
