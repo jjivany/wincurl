@@ -15,14 +15,27 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
+      - name: Pre-initialize Buildozer
+        run: |
+          # This triggers the initial SDK download setup without building
+          yes | buildozer android update
+        env:
+          BUILDOZER_ACCEPT_SDK_LICENSE: 1
+
+      - name: Accept Licenses
+        run: |
+          # Manually accept licenses for any remaining components
+          yes | sdkmanager --licenses || true
+        env:
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          PATH: /home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$PATH
+          BUILDOZER_ACCEPT_SDK_LICENSE: 1
+
       - name: Build with Buildozer
         run: |
-          # Clean environment
-          rm -rf .buildozer
-          # Run buildozer with debug level
+          # Now that SDK is setup and licenses accepted, run the build
           buildozer android debug
         env:
-          # Pass the license acceptance via env
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
 
       - name: Upload APK
