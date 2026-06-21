@@ -45,4 +45,4 @@ This project is configured for automated Android deployment via GitHub Actions, 
 
 Contributions are welcome! Please open an issue or submit a pull request if you'd like to improve the physics engine or add new features.
 
-Developed with ❤️ using Arch Linux and some help from Gemini 3.5 Pro.
+Developed with ❤️ using Arch Linux and some help from Gemini 3.1 Pro.
