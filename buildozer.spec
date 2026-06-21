@@ -9,8 +9,7 @@ package.domain = org.test
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 0.1
-requirements = python3,pygame-ce
-orientation = portrait
+requirements = python3==3.10.12,hostpython3==3.10.12,pygameorientation = portrait
 fullscreen = 0
 
 [android]
