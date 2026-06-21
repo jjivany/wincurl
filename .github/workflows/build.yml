@@ -27,12 +27,12 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # 1. Force remove all build artifacts to clear the poisoned config
+          # Force remove corrupted build artifacts to clear the poisoned config
           rm -rf .buildozer/android/platform/build-*
           rm -rf .buildozer/android/platform/android-sdk/
           rm -rf .buildozer/android/app/
           
-          # 2. Run buildozer
+          # Run buildozer with license acceptance
           yes | buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
