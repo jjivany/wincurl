@@ -1,7 +1,6 @@
 🥌 "WinCurl" version 3.0
 
 
-     
 📋 Overview
   
 
@@ -29,12 +28,10 @@ WinCurl is a high-performance, Python-based curling simulation built with Pygame
     Clone the repository.
 
     Install dependencies:
-    Bash
 
     pip install pygame
 
     Run the game:
-    Bash
 
     python main.py
 
