@@ -112,7 +112,7 @@ fullscreen = 1
 #android.api = 33
 
 # (int) Minimum API your APK / AAB will support.
-#android.minapi = 24
+android.minapi = 24
 
 # (int) Android SDK version to use
 #android.sdk = 20
@@ -213,7 +213,7 @@ android.ndk = 25b
 
 # (bool) Enable AndroidX support. Enable when 'android.gradle_dependencies'
 # contains an 'androidx' package, or any package from Kotlin source.
-# android.enable_androidx requires android.api >= 28
+ android.enable_androidx requires android.api >= 28
 #android.enable_androidx = True
 
 # (list) add java compile options
