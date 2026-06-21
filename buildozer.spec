@@ -1,3 +1,4 @@
+[buildozer]
 # (int) log_level = 0 (silent), 1 (info), 2 (debug)
 log_level = 2
 
@@ -5,7 +6,6 @@ log_level = 2
 title = WinCurl
 package.name = wincurl
 package.domain = org.test
-# This tells Buildozer that your main.py is in the current directory
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 0.1
