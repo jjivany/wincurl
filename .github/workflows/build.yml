@@ -17,9 +17,8 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # Nuke the entire platform and cache directories to ensure no corrupted files persist
+          # Nuke everything to ensure no corrupted configs remain
           rm -rf .buildozer
-          rm -rf /home/runner/.buildozer
           
           # Run buildozer with license acceptance
           yes | buildozer android debug
