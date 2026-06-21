@@ -27,9 +27,11 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # Clean up any potentially corrupted build folders from previous failures
+          # The surgical strike: remove corrupted platform cache that contains invalid config
           rm -rf .buildozer/android/platform/build-*
-          # Pipe 'yes' to handle any interactive license prompts
+          rm -rf .buildozer/android/platform/android-ndk-r25b
+          
+          # Run buildozer with license acceptance
           yes | buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
