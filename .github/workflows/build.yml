@@ -7,7 +7,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Buildozer needs Java 17 to run modern Android SDK tools
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -21,11 +20,23 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
+      - name: Force Install SDK Tools
+        run: |
+          # 1. Trigger the download/creation of the SDK folder
+          buildozer android update || true
+          
+          # 2. Define the path to the manager Buildozer just downloaded
+          SDK_MANAGER="/home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager"
+          
+          # 3. Force install the specific build-tools (this contains aidl)
+          # We have to give it the license command first, then the install command
+          yes | $SDK_MANAGER --licenses
+          $SDK_MANAGER "build-tools;33.0.0"
+        env:
+          BUILDOZER_ACCEPT_SDK_LICENSE: 1
+
       - name: Build with Buildozer
         run: |
-          # The absolute simplest way to build.
-          # We let Buildozer download its own SDK, NDK, and build-tools.
-          # It will now see Java 17 and be happy.
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
