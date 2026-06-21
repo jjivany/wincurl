@@ -9,7 +9,7 @@ WinCurl is a high-performance, Python-based curling simulation built with Pygame
 
     Physics Engine: Precision curling stone mechanics.
 
-    Multiplayer: Built-in IRC-style networking for competitive play.
+    Multiplayer: Built-in IRC-based network matchmaking for competitive play.
 
     Visuals: Clean, responsive UI with procedural graphics.
 
@@ -39,7 +39,7 @@ WinCurl is a high-performance, Python-based curling simulation built with Pygame
 
 This project is configured for automated Android deployment via GitHub Actions.
 
-    Build Status: 
+    Build Status: Download the build12 .apk file from the repoistory.
 
 🤝 Contributing
 
