@@ -15,29 +15,19 @@ jobs:
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
-      - name: Manually Accept Android Licenses
-        run: |
-          # Create the license directory
-          mkdir -p /home/runner/.android/licenses
-          
-          # Inject the license acceptance hashes
-          # These are the standard hash signatures for the Android SDK
-          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > /home/runner/.android/licenses/android-sdk-license
-          echo "d56f5187473751e9e1a877a3266148b308eff67d" > /home/runner/.android/licenses/android-sdk-preview-license
-          echo "24333f8a63b6825ea9c5514f83e2829b006d65d6" >> /home/runner/.android/licenses/android-sdk-license
-
       - name: Build with Buildozer
         run: |
-          # Clean old build artifacts to ensure a fresh start
+          # 1. Clean environment
           rm -rf .buildozer
           
-          # Run buildozer without the 'yes' pipe
+          # 2. Trigger SDK download (this will fail quickly, but it creates the folders we need)
+          buildozer android debug || true
+          
+          # 3. Inject the licenses directly into the newly created SDK folder
+          mkdir -p /home/runner/.android/licenses
+          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > /home/runner/.android/licenses/android-sdk-license
+          
+          # 4. Now run the build for real
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: wincurl-apk
-          path: bin/*.apk
