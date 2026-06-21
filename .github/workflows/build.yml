@@ -10,11 +10,18 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # Using a cleaner list of dependencies that exists in modern Ubuntu
           sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
 
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
+
+      - name: Accept Android Licenses
+        run: |
+          # This command creates the license folder and accepts all licenses automatically
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | sdkmanager --licenses || true
+        shell: bash
 
       - name: Build with Buildozer
         run: buildozer android debug
