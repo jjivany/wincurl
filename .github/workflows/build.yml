@@ -7,23 +7,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Force the environment to use Java 11, which includes the missing library
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Install dependencies
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Build-Tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
+          # Explicitly install the specific build-tools version
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0"
 
       - name: Install Buildozer
         run: pip3 install --user --upgrade buildozer
 
       - name: Build with Buildozer
         run: |
-          # Buildozer will now run using Java 11, satisfying the SDK tools
+          # Buildozer will now use the SDK path we defined in buildozer.spec
           buildozer android debug
         env:
           BUILDOZER_ACCEPT_SDK_LICENSE: 1
