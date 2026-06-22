@@ -5,7 +5,7 @@ package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav
 version = 0.1
-requirements = python3,pygame
+requirements = python3==3.10.14,pygame
 orientation = portrait
 fullscreen = 1
 android.archs = arm64-v8a
