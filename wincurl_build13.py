@@ -15,14 +15,6 @@ if IS_ANDROID:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import sys
 
-
-# --- 4K / High-DPI Awareness (Prevents Windows Blurriness) ---
-try:
-    import ctypes
-    ctypes.windll.user32.SetProcessDPIAware()
-except Exception:
-    pass
-
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
 print("     [SYSTEM] WINCURL 3 BUILD 13 (PUBLIC RELEASE)")
