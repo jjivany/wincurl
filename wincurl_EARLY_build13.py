@@ -410,7 +410,7 @@ class WinCurl3:
         # This is called only when we are sure the activity is ready
         pygame.display.init()
         if IS_ANDROID:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.SCALED)
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             self.screen = pygame.display.set_mode((1200, 1800), 0)
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
@@ -418,7 +418,7 @@ class WinCurl3:
 
         # Now your existing initialization continues normally
         if IS_ANDROID:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.SCALED)
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             self.screen = pygame.display.set_mode((1200, 1800), 0)
             
@@ -505,7 +505,7 @@ class WinCurl3:
 # 2. Determine flags based on hardware
         if IS_ANDROID:
             # Android: Always SCALED + FULLSCREEN
-            flags = pygame.FULLSCREEN | pygame.SCALED
+            flags = pygame.FULLSCREEN
         else:
             # Desktop: Toggle between FULLSCREEN and 0 (Windowed)
             flags = pygame.FULLSCREEN if self.is_fullscreen else 0
