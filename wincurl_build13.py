@@ -26,7 +26,7 @@ except Exception:
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
 print("     [SYSTEM] WINCURL 3 BUILD 13 (PUBLIC RELEASE)")
-print("     (NOTO SANS | GRANITE 3D STONE | SPRITE UI | BOT JSON)")
+print("     (DYNAMIC RESOLUTION ON ANDROID | FIXES | NOTO SANS | GRANITE 3D STONE | SPRITE UI | BOT JSON)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
