@@ -26,7 +26,7 @@ except Exception:
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
 print("     [SYSTEM] WINCURL 3 BUILD 13 (PUBLIC RELEASE)")
-print("     (DYNAMIC RESOLUTION ON ANDROID | FIXES | NOTO SANS | GRANITE 3D STONE | SPRITE UI | BOT JSON)")
+print("     (DYNAMIC RESOLUTION ON ANDROID | NOTO SANS | GRANITE 3D STONE | SPRITE UI | BOT JSON)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -409,16 +409,26 @@ class AnimatedCurler:
 # --- Main Engine ---
 class WinCurl3: # Or whatever your class name is
     def __init__(self):
-        # 1. Initialization of the screen (Hybrid)
+        # --- PATCH START: Android Video Wait-Loop ---
         if IS_ANDROID:
-            flags = pygame.FULLSCREEN | pygame.SCALED
-            pygame.event.set_allowed([QUIT, MOUSEBUTTONDOWN, MOUSEBUTTONUP, MOUSEMOTION, KEYDOWN])
-            screen_res = (BASE_WIDTH, BASE_HEIGHT)
+            import time
+            pygame.display.init()
+            # Wait for the Android surface to mount
+            for i in range(50):
+                if pygame.display.get_init():
+                    break
+                time.sleep(0.1)
         else:
-            flags = 0
-            screen_res = (1200, 1800)
-        
-        self.screen = pygame.display.set_mode(screen_res, flags)
+            pygame.display.init()
+        # --- PATCH END ---
+
+        # Now your existing initialization continues normally
+        if IS_ANDROID:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.SCALED)
+        else:
+            self.screen = pygame.display.set_mode((1200, 1800), 0)
+            
+        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
         
         # 2. DEFINITIVELY DEFINE ALL STATE VARIABLES HERE
         self.app_state = "MENU"        # <--- THIS IS THE MISSING LINK
