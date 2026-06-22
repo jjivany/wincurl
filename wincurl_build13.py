@@ -407,20 +407,22 @@ class AnimatedCurler:
         surface.blit(shadow_surf, (0, 0)); self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld)
 
 # --- Main Engine ---
-class WinCurl3: # Or whatever your class name is
+class WinCurl3:
     def __init__(self):
-        # --- PATCH START: Android Video Wait-Loop ---
+        # Define variables here, but don't touch hardware
+        self.screen = None
+        self.canvas = None
+        # ... your other variable assignments ...
+
+    def setup_display(self):
+        # This is called only when we are sure the activity is ready
+        pygame.display.init()
         if IS_ANDROID:
-            import time
-            pygame.display.init()
-            # Wait for the Android surface to mount
-            for i in range(50):
-                if pygame.display.get_init():
-                    break
-                time.sleep(0.1)
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.SCALED)
         else:
-            pygame.display.init()
-        # --- PATCH END ---
+            self.screen = pygame.display.set_mode((1200, 1800), 0)
+        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
+        self.clock = pygame.time.Clock()
 
         # Now your existing initialization continues normally
         if IS_ANDROID:
@@ -1291,4 +1293,6 @@ class IRCNetworkManager:
             except: pass
 
 if __name__ == "__main__":
-    WinCurl3().run()
+    game = WinCurl3()
+    game.setup_display()  # Now it's safe to touch hardware
+    game.run()
