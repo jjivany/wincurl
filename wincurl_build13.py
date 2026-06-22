@@ -9,9 +9,12 @@ import queue
 import threading
 import os
 from pygame.locals import *
-import os
+# Define this immediately after imports
+IS_ANDROID = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ
+if IS_ANDROID:
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import sys
-IS_ANDROID = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ
+
 
 # --- 4K / High-DPI Awareness (Prevents Windows Blurriness) ---
 try:
