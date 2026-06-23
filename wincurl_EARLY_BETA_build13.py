@@ -19,8 +19,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13 (PROCEDURAL/ANDROID OPTIMIZED)")
-print("     (DYNAMIC RESOLUTION | HARDWARE ALIGNED SURFACES | RAM AUDIO)")
+print("     [SYSTEM] WINCURL 3 BUILD 13 (ANDROID ULTRA-OPTIMIZED)")
+print("     (CACHE ALIGNED | FPS BOOST | ALPHA COMPOSITE FIX)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -57,25 +57,35 @@ def draw_hammer_icon(surface, x, y, color):
     pygame.draw.rect(surface, color, (x, y, 16, 8), border_radius=2)
     pygame.draw.rect(surface, color, (x+6, y+8, 4, 12))
 
-def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False):
-    # OPTIMIZATION: convert_alpha() prevents mobile CPU from translating formats every frame
-    shadow = pygame.Surface((rect.w+10, rect.h+10), pygame.SRCALPHA).convert_alpha()
-    pygame.draw.rect(shadow, (0, 0, 0, 50), (5, 5, rect.w, rect.h), border_radius=border_radius)
-    surface.blit(shadow, (rect.x-5, rect.y-5))
+# OPTIMIZATION: Cache glass buttons to save ~500 Surface allocations per second on mobile
+class UICache:
+    glass_surfs = {}
     
-    btn_surf = pygame.Surface(rect.size, pygame.SRCALPHA).convert_alpha()
-    c = pygame.Color(*base_color[:3], 180)
-    pygame.draw.rect(btn_surf, c, (0, 0, rect.w, rect.h), border_radius=border_radius)
-    pygame.draw.rect(btn_surf, (255, 255, 255, 30), (0, 0, rect.w, rect.h//2), border_top_left_radius=border_radius, border_top_right_radius=border_radius)
-    pygame.draw.ellipse(btn_surf, (255, 255, 255, 55), (rect.w*0.05, 2, rect.w*0.9, rect.h*0.45))
-    pygame.draw.rect(btn_surf, (0, 0, 0, 30), (0, rect.h//2, rect.w, rect.h//2), border_bottom_left_radius=border_radius, border_bottom_right_radius=border_radius)
+    @classmethod
+    def get_glass(cls, w, h, base_color, radius, hovered):
+        key = (w, h, base_color, radius, hovered)
+        if key not in cls.glass_surfs:
+            shadow = pygame.Surface((w+10, h+10), pygame.SRCALPHA).convert_alpha()
+            pygame.draw.rect(shadow, (0, 0, 0, 50), (5, 5, w, h), border_radius=radius)
+            
+            btn_surf = pygame.Surface((w, h), pygame.SRCALPHA).convert_alpha()
+            c = pygame.Color(*base_color[:3], 180)
+            pygame.draw.rect(btn_surf, c, (0, 0, w, h), border_radius=radius)
+            pygame.draw.rect(btn_surf, (255, 255, 255, 30), (0, 0, w, h//2), border_top_left_radius=radius, border_top_right_radius=radius)
+            pygame.draw.ellipse(btn_surf, (255, 255, 255, 55), (w*0.05, 2, w*0.9, h*0.45))
+            pygame.draw.rect(btn_surf, (0, 0, 0, 30), (0, h//2, w, h//2), border_bottom_left_radius=radius, border_bottom_right_radius=radius)
 
-    if is_hovered:
-        pygame.draw.rect(btn_surf, (255, 255, 255, 240), (0, 0, rect.w, rect.h), 3, border_radius=border_radius)
-        pygame.draw.rect(btn_surf, (255, 255, 255, 50), (0, 0, rect.w, rect.h), 0, border_radius=border_radius)
-    else:
-        pygame.draw.rect(btn_surf, (255, 255, 255, 100), (0, 0, rect.w, rect.h), 2, border_radius=border_radius)
-    
+            if hovered:
+                pygame.draw.rect(btn_surf, (255, 255, 255, 240), (0, 0, w, h), 3, border_radius=radius)
+                pygame.draw.rect(btn_surf, (255, 255, 255, 50), (0, 0, w, h), 0, border_radius=radius)
+            else:
+                pygame.draw.rect(btn_surf, (255, 255, 255, 100), (0, 0, w, h), 2, border_radius=radius)
+            cls.glass_surfs[key] = (shadow, btn_surf)
+        return cls.glass_surfs[key]
+
+def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False):
+    shadow, btn_surf = UICache.get_glass(rect.w, rect.h, base_color, border_radius, is_hovered)
+    surface.blit(shadow, (rect.x-5, rect.y-5))
     surface.blit(btn_surf, rect.topleft)
 
 # --- Audio Synthesis Engine ---
@@ -106,8 +116,6 @@ class WinCurlAudioEngine:
         self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
         self.ch_sfx.play(self.snd_speech); self.last_call = 0
 
-    # OPTIMIZATION: Converts raw PCM byte arrays to valid WAV structures in RAM.
-    # This prevents Android's SDL_mixer from panicking and dropping frames when reading the buffer.
     def _create_wav_sound(self, byte_buffer, sample_rate=44100):
         wav_io = io.BytesIO()
         with wave.open(wav_io, 'wb') as wav_file:
@@ -284,47 +292,66 @@ class Starfield:
             self.stars[i] = (x, y, s)
             c = int(min(255, 30 + s*60)); pygame.draw.circle(surface, (c, c, c), (int(x), int(y)), max(1, int(s)))
 
+# OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
 class ThreeDStone:
-    def draw(self, surface, center_x, center_y, mouse_pos):
-        bx, by = center_x + (mouse_pos[0] - center_x)*0.03, center_y + (mouse_pos[1] - center_y)*0.03; r_max = 140
-        shadow_surf = pygame.Surface((r_max*2+40, r_max*2+40), pygame.SRCALPHA).convert_alpha()
-        pygame.draw.ellipse(shadow_surf, (10, 15, 20, 100), (20, 40, r_max*2, r_max*2-20)) 
-        surface.blit(shadow_surf, (bx - r_max + 10, by - r_max + 15))
+    cached_surf = None
 
+    @classmethod
+    def render_cache(cls):
+        if cls.cached_surf is not None: return
+        r_max = 140
+        surf = pygame.Surface((r_max*2+40, r_max*2+40), pygame.SRCALPHA).convert_alpha()
+        bx, by = r_max + 10, r_max + 15
+        
+        pygame.draw.ellipse(surf, (10, 15, 20, 100), (bx - r_max + 10, by - r_max + 15, r_max*2, r_max*2-20))
         for r in range(r_max, 75, -1):
             t = (r_max - r) / (r_max - 75)
             col = lerp_color((90, 95, 100), (140, 145, 150), t)
-            pygame.draw.circle(surface, col, (int(bx), int(by)), r)
-
-        pygame.draw.circle(surface, (60, 65, 70), (int(bx), int(by)), 80)
-        
+            pygame.draw.circle(surf, col, (int(bx), int(by)), r)
+            
+        pygame.draw.circle(surf, (60, 65, 70), (int(bx), int(by)), 80)
         for r in range(75, 40, -1):
             t = (75 - r) / 35.0
             col = lerp_color(HOUSE_RED, (140, 20, 30), t)
-            pygame.draw.circle(surface, col, (int(bx), int(by)), r)
-
-        draw_maple_leaf(surface, bx, by + 6, 1.25, WHITE)
-
+            pygame.draw.circle(surf, col, (int(bx), int(by)), r)
+            
+        draw_maple_leaf(surf, bx, by + 6, 1.25, WHITE)
         hx_start, hy_start, hx_end, hy_end = bx - 65, by + 35, bx + 65, by - 35
         for i in range(120):
             p = i / 120.0; px, py = hx_start + (hx_end - hx_start)*p, hy_start + (hy_end - hy_start)*p
             h_col = lerp_color(BLACK, (70, 75, 80), 1.0 - abs(p - 0.5)*2)
-            pygame.draw.circle(surface, h_col, (int(px), int(py - math.sin(p*math.pi)*45)), 16) 
-            pygame.draw.circle(surface, HOUSE_RED, (int(px), int(py - math.sin(p*math.pi)*45)), 12) 
-
-        for x, y in [(hx_start, hy_start), (hx_end, hy_end)]:
-            pygame.draw.circle(surface, BLACK, (int(x), int(y)), 18); pygame.draw.circle(surface, HOUSE_RED, (int(x), int(y)), 14)
-        pygame.draw.circle(surface, BLACK, (int(hx_start), int(hy_start)), 5); pygame.draw.circle(surface, WHITE, (int(hx_start), int(hy_start)), 2)
+            pygame.draw.circle(surf, h_col, (int(px), int(py - math.sin(p*math.pi)*45)), 16) 
+            pygame.draw.circle(surf, HOUSE_RED, (int(px), int(py - math.sin(p*math.pi)*45)), 12) 
         
+        for x, y in [(hx_start, hy_start), (hx_end, hy_end)]:
+            pygame.draw.circle(surf, BLACK, (int(x), int(y)), 18); pygame.draw.circle(surf, HOUSE_RED, (int(x), int(y)), 14)
+        pygame.draw.circle(surf, BLACK, (int(hx_start), int(hy_start)), 5); pygame.draw.circle(surf, WHITE, (int(hx_start), int(hy_start)), 2)
+        
+        # PROPER FIX: Blit the highlight to composite the alpha, instead of directly overriding the pixels
         glare = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(glare, (255, 255, 255, 30), (r_max*0.2, r_max*0.1, r_max*1.6, r_max*0.6))
-        surface.blit(glare, (bx - r_max, by - r_max))
+        surf.blit(glare, (bx - r_max, by - r_max))
+        cls.cached_surf = surf
+
+    def draw(self, surface, center_x, center_y, mouse_pos):
+        bx, by = center_x + (mouse_pos[0] - center_x)*0.03, center_y + (mouse_pos[1] - center_y)*0.03
+        if self.cached_surf: surface.blit(self.cached_surf, (bx - 150, by - 155))
 
 # --- Game Entities ---
 class Stone:
+    # OPTIMIZATION: Class-level caching for shadows and highlights
+    cached_shadow = None
+    cached_hl = None
+
     def __init__(self, x, y, team):
         self.pos = pygame.math.Vector2(x, y); self.vel = pygame.math.Vector2(0, 0)
         self.team, self.radius, self.mass, self.is_moving, self.curl, self.rotation = team, 32, 1.0, False, 0.0, 0.0
+        
+        if Stone.cached_shadow is None:
+            Stone.cached_shadow = pygame.Surface((self.radius*2+10, self.radius*2+10), pygame.SRCALPHA).convert_alpha()
+            pygame.draw.ellipse(Stone.cached_shadow, (0,0,0,60), (4,8,self.radius*2,self.radius*2-4))
+            Stone.cached_hl = pygame.Surface((self.radius*2, self.radius*2), pygame.SRCALPHA).convert_alpha()
+            pygame.draw.ellipse(Stone.cached_hl, HIGHLIGHT_COLOR, (self.radius*0.6, self.radius*0.2, self.radius*0.8, self.radius*0.4))
 
     def get_state(self): return [round(self.pos.x, 1), round(self.pos.y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
     def set_state(self, state): self.pos.x, self.pos.y, self.vel.x, self.vel.y, self.team, self.curl, self.rotation, self.is_moving = state
@@ -340,10 +367,7 @@ class Stone:
             self.pos += self.vel
 
     def draw(self, surface):
-        shadow = pygame.Surface((self.radius*2+10, self.radius*2+10), pygame.SRCALPHA).convert_alpha()
-        pygame.draw.ellipse(shadow, (0,0,0,60), (4,8,self.radius*2,self.radius*2-4))
-        surface.blit(shadow, (self.pos.x - self.radius - 2, self.pos.y - self.radius - 2))
-        
+        surface.blit(Stone.cached_shadow, (self.pos.x - self.radius - 2, self.pos.y - self.radius - 2))
         color = HOUSE_RED if self.team == 0 else TEAM_YELLOW
 
         pygame.draw.circle(surface, (160, 165, 170), (int(self.pos.x), int(self.pos.y)), self.radius)
@@ -363,9 +387,7 @@ class Stone:
         for x,y in [(hx_s,hy_s), (hx_e,hy_e)]: pygame.draw.circle(surface, color, (int(x), int(y)), 4)
         pygame.draw.circle(surface, WHITE, (int(hx_s), int(hy_s)), 1)
         
-        hl = pygame.Surface((self.radius*2, self.radius*2), pygame.SRCALPHA).convert_alpha()
-        pygame.draw.ellipse(hl, HIGHLIGHT_COLOR, (self.radius*0.6, self.radius*0.2, self.radius*0.8, self.radius*0.4))
-        surface.blit(hl, (self.pos.x - self.radius, self.pos.y - self.radius))
+        surface.blit(Stone.cached_hl, (self.pos.x - self.radius, self.pos.y - self.radius))
 
 class AnimatedCurler:
     def __init__(self, hack_pos):
@@ -413,7 +435,6 @@ class WinCurl3:
         self.canvas = None
 
     def preload_assets(self):
-        # OPTIMIZATION: Use Pygame's built in procedural font to guarantee it loads on any OS instantly
         self.font = pygame.font.Font(None, 48)
         self.small_font = pygame.font.Font(None, 34)
         self.title_font = pygame.font.Font(None, 105)
@@ -423,10 +444,53 @@ class WinCurl3:
             "medium": {"error_multiplier": 1.0, "takeout_chance": 0.4, "guard_chance": 0.5},
             "hard": {"error_multiplier": 0.2, "takeout_chance": 0.8, "guard_chance": 0.7}
         }
+        
+        # Pre-render rainbow text background
+        self.rainbow_grad = pygame.Surface((1500, 200), pygame.SRCALPHA).convert_alpha()
+        for x in range(1500):
+            c = pygame.Color(0); c.hsva = ((x / 1000.0) * 360 % 360, 85, 100, 100)
+            pygame.draw.line(self.rainbow_grad, c, (x, 0), (x, 200))
+
+        # Pre-render coins for butter-smooth Android coin flip
+        self.coin_red_surf = self._render_coin_surface(True)
+        self.coin_yellow_surf = self._render_coin_surface(False)
+        ThreeDStone.render_cache()
+        
+    def _render_coin_surface(self, is_red):
+        surf = pygame.Surface((280, 280), pygame.SRCALPHA).convert_alpha()
+        cx, cy, r_w, r_h = 140, 140, 120, 120
+        for i in range(15): pygame.draw.ellipse(surf, (150, 110, 10), (cx - r_w, cy - r_h//2 + 15 - i, r_w * 2, r_h))
+        pygame.draw.ellipse(surf, (255, 215, 0), (cx - r_w, cy - r_h//2, r_w * 2, r_h))
+        pygame.draw.ellipse(surf, (220, 170, 20), (cx - int(r_w*0.85), cy - int(r_h*0.85)//2, int(r_w*0.85)*2, int(r_h*0.85)))
+        pygame.draw.ellipse(surf, (255, 215, 0), (cx - int(r_w*0.75), cy - int(r_h*0.75)//2, int(r_w*0.75)*2, int(r_h*0.75)))
+        if is_red: draw_maple_leaf(surf, cx, cy, 2.0, HOUSE_RED)
+        else:
+            rw = 55
+            pygame.draw.ellipse(surf, (90, 95, 100), (cx - rw, cy - 10, rw*2, 30))
+            pygame.draw.ellipse(surf, (150, 155, 160), (cx - rw, cy - 25, rw*2, 35))
+            pygame.draw.ellipse(surf, HOUSE_BLUE, (cx - rw, cy - 15, rw*2, 18))
+            pygame.draw.ellipse(surf, (170, 175, 180), (cx - rw*0.75, cy - 32, rw*1.5, 25))
+            pygame.draw.ellipse(surf, HOUSE_BLUE, (cx - rw*0.25, cy - 35, rw*0.5, 12))
+            pygame.draw.lines(surf, HOUSE_BLUE, False, [(cx - rw*0.4, cy - 25), (cx - rw*0.4, cy - 48), (cx + rw*0.2, cy - 48), (cx + rw*0.4, cy - 25)], 8)
+            
+        # PROPER FIX: Blit the highlight to composite the alpha
+        glare = pygame.Surface((r_w * 2, r_h), pygame.SRCALPHA).convert_alpha()
+        pygame.draw.ellipse(glare, (255, 255, 255, 60), (int(r_w*0.2), int(r_h*0.1), int(r_w*1.6), int(r_h*0.4)))
+        surf.blit(glare, (cx - r_w, cy - r_h//2))
+        return surf
 
     def setup_display(self):
         pygame.display.init()
-        # ABSOLUTELY NO SCALED FLAG ON ANDROID
+        pygame.display.set_caption("WinCurl 3")
+        
+        # Procedural icon generation
+        icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+        pygame.draw.circle(icon, (160, 165, 170), (16, 16), 14)
+        pygame.draw.circle(icon, HOUSE_RED, (16, 16), 10)
+        pygame.draw.line(icon, BLACK, (8, 16), (24, 16), 4)
+        pygame.draw.circle(icon, HOUSE_RED, (16, 16), 2)
+        pygame.display.set_icon(icon)
+
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
@@ -445,7 +509,9 @@ class WinCurl3:
         self.is_fullscreen = False
         self.dragging_slider = False
         
-        self.save_file = os.path.join(os.path.expanduser("~"), ".wincurl3_save.json")
+        # Robust Save System
+        base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
+        self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
         self.load_progress()
         
         self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, 350)
@@ -484,7 +550,7 @@ class WinCurl3:
         ]
         self.last_hovered = None
 
-        # OPTIMIZATION: convert_alpha() on procedural surfaces
+        # Base Ice Setup
         self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         for _ in range(12000):
             px, py = random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)
@@ -505,7 +571,6 @@ class WinCurl3:
             alpha = max(0, 45 - int((dist_from_center / (BASE_WIDTH//2)) * 45))
             pygame.draw.rect(self.ice_env_map, (255, 255, 255, alpha), (x, 0, 15, BASE_HEIGHT))
 
-        # Create a single composite base ice surface for ultra-fast rendering on Android
         self.static_ice_surface = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         for y in range(0, BASE_HEIGHT, 45): pygame.draw.rect(self.static_ice_surface, (max(0, ICE_COLOR[0]-int((y/BASE_HEIGHT)*18)),)*3, (0, y, BASE_WIDTH, 45))
         self.static_ice_surface.blit(self.bg_pebble_layer, (0, 0))
@@ -519,6 +584,15 @@ class WinCurl3:
         self.static_ice_surface.blit(self.fg_pebble_layer, (0, 0))
 
         self.reset_match()
+
+    def set_typing_target(self, target):
+        self.typing_target = target
+        if target is not None:
+            try: pygame.key.start_text_input()
+            except: pass
+        else:
+            try: pygame.key.stop_text_input()
+            except: pass
 
     def toggle_fullscreen(self):
         self.is_fullscreen = not self.is_fullscreen
@@ -552,7 +626,8 @@ class WinCurl3:
         try:
             data = {"challenge": self.challenge_progress, "username": self.username, "color": self.preferred_color, "ends": self.total_ends_pref, "room": self.room_text, "bot_skill": self.ai_difficulty}
             with open(self.save_file, "w") as f: json.dump(data, f)
-        except: pass
+        except Exception as e: 
+            print(f"Game Progress Save Failed: {e}")
 
     def reset_turn_vars(self):
         pygame.event.set_grab(False); pygame.mouse.set_visible(True)
@@ -715,13 +790,13 @@ class WinCurl3:
             if 300 < mx < 900:
                 for b in self.menu_buttons:
                     if b["y"] < my < b["y"] + 110 * b["scale"]:
-                        self.audio.play_click(); self.typing_target = None
+                        self.audio.play_click(); self.set_typing_target(None)
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] in ["host", "join"]:
-                            self.app_state = "ROOM_PROMPT"; self.typing_target = "room"; self.net_action = b["id"]
-                        elif b["id"] == "name": self.typing_target = "name"
+                            self.app_state = "ROOM_PROMPT"; self.set_typing_target("room"); self.net_action = b["id"]
+                        elif b["id"] == "name": self.set_typing_target("name")
                         elif b["id"] == "ends": opts = [1, 2, 4, 8, 10]; self.total_ends_pref = opts[(opts.index(self.total_ends_pref)+1)%len(opts)]; self.save_progress()
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
@@ -735,7 +810,7 @@ class WinCurl3:
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
         elif event.type == KEYDOWN and self.typing_target == "name":
-            if event.key == K_RETURN: self.typing_target = None; self.save_progress()
+            if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]
             elif event.unicode.isprintable() and len(self.username) < 15: self.username += event.unicode
 
@@ -745,11 +820,11 @@ class WinCurl3:
                 self.audio.play_click()
                 self.save_progress()
                 self.app_state = "MENU"
-                self.typing_target = None
+                self.set_typing_target(None)
                 self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
                 self.net.connect(self.username, self.net_action == "host", self.room_text)
             elif event.key == K_ESCAPE:
-                self.app_state = "MENU"; self.typing_target = None
+                self.app_state = "MENU"; self.set_typing_target(None)
             elif event.key == K_BACKSPACE: self.room_text = self.room_text[:-1]
             elif event.unicode.isprintable() and len(self.room_text) < 15: self.room_text += event.unicode
 
@@ -769,6 +844,13 @@ class WinCurl3:
             if self.btn_resume.collidepoint(mx, my): self.audio.play_click(); self.app_state = "PLAY"
             elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.return_to_menu()
                 
+    def handle_match_over_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = self.scale_mouse(pygame.mouse.get_pos())
+            if self.btn_return_menu.collidepoint(mx, my):
+                self.audio.play_click()
+                self.return_to_menu()
+
     def handle_play_events(self, event):
         mouse_pos = self.scale_mouse(pygame.mouse.get_pos())
         
@@ -866,7 +948,6 @@ class WinCurl3:
                     if self.stones_thrown[0] == 1: 
                         self.challenge_attempts += 1; cx, cy = self.house_pos.x, self.house_pos.y
                         
-                        # OPTIMIZATION: 95% RULE HITBOX FOR DRAW/GUARD CHALLENGES
                         if self.c_type in ["DRAW", "GUARD"]: 
                             self.challenge_success = False
                             for s in self.stones:
@@ -929,17 +1010,16 @@ class WinCurl3:
         self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, pygame.mouse.get_pos())
         
         t_text = '"WinCurl" 3'
+        txt_surf = self.title_font.render(t_text, True, WHITE)
         
-        # convert_alpha() prevents format conversion overhead
-        txt_surf = self.title_font.render(t_text, True, WHITE); grad = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
-        for x in range(grad.get_width()):
-            c = pygame.Color(0); c.hsva = (((x / grad.get_width()) * 360 + t_ms*100) % 360, 85, 100, 100)
-            pygame.draw.line(grad, c, (x, 0), (x, grad.get_height()))
-        txt_surf.blit(grad, (0,0), special_flags=pygame.BLEND_RGBA_MULT)
+        grad_surf = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
+        offset = int(t_ms * 100) % 500
+        grad_surf.blit(self.rainbow_grad, (-offset, 0))
+        grad_surf.blit(txt_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         
         bx, by = cx - txt_surf.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
         for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(self.title_font.render(t_text, True, BLACK), (bx+dx, by+dy))
-        self.canvas.blit(txt_surf, (bx, by))
+        self.canvas.blit(grad_surf, (bx, by))
         
         status_string = "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
         lbl_status = self.small_font.render(status_string, True, (140, 165, 200)); self.canvas.blit(lbl_status, (cx - lbl_status.get_width()//2, 210))
@@ -1021,27 +1101,6 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         self.draw_global_ui()
 
-    def draw_coin_face(self, surface, cx, cy, scale, is_red):
-        r_w, r_h = int(120 * scale), 120
-        for i in range(15): pygame.draw.ellipse(surface, (150, 110, 10), (cx - r_w, cy - r_h//2 + 15 - i, r_w * 2, r_h))
-        pygame.draw.ellipse(surface, (255, 215, 0), (cx - r_w, cy - r_h//2, r_w * 2, r_h))
-        pygame.draw.ellipse(surface, (220, 170, 20), (cx - int(r_w*0.85), cy - int(r_h*0.85)//2, int(r_w*0.85)*2, int(r_h*0.85)))
-        pygame.draw.ellipse(surface, (255, 215, 0), (cx - int(r_w*0.75), cy - int(r_h*0.75)//2, int(r_w*0.75)*2, int(r_h*0.75)))
-        
-        if is_red: draw_maple_leaf(surface, cx, cy, 2.0 * scale, HOUSE_RED)
-        else:
-            rw = int(55 * scale)
-            pygame.draw.ellipse(surface, (90, 95, 100), (cx - rw, cy - 10, rw*2, 30))
-            pygame.draw.ellipse(surface, (150, 155, 160), (cx - rw, cy - 25, rw*2, 35))
-            pygame.draw.ellipse(surface, HOUSE_BLUE, (cx - rw, cy - 15, rw*2, 18))
-            pygame.draw.ellipse(surface, (170, 175, 180), (cx - rw*0.75, cy - 32, rw*1.5, 25))
-            pygame.draw.ellipse(surface, HOUSE_BLUE, (cx - rw*0.25, cy - 35, rw*0.5, 12))
-            pygame.draw.lines(surface, HOUSE_BLUE, False, [(cx - rw*0.4, cy - 25), (cx - rw*0.4, cy - 48), (cx + rw*0.2, cy - 48), (cx + rw*0.4, cy - 25)], max(2, int(8 * scale)))
-            
-        glare = pygame.Surface((r_w * 2, r_h), pygame.SRCALPHA).convert_alpha()
-        pygame.draw.ellipse(glare, (255, 255, 255, 60), (int(r_w*0.2), int(r_h*0.1), int(r_w*1.6), int(r_h*0.4)))
-        surface.blit(glare, (cx - r_w, cy - r_h//2))
-
     def draw_coin_toss_screen(self):
         self.draw_ice()
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 150)); self.canvas.blit(overlay, (0, 0))
@@ -1052,11 +1111,15 @@ class WinCurl3:
         else:
             is_red = self.coin_flip_result == 0; text = "RED GETS HAMMER" if is_red else "YELLOW GETS HAMMER"
             
-        if scale_x > 0.05: self.draw_coin_face(self.canvas, cx, cy, scale_x, is_red)
-        lbl = self.font.render(text, True, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 120))
+        if scale_x > 0.05: 
+            c_surf = self.coin_red_surf if is_red else self.coin_yellow_surf
+            w, h = c_surf.get_size()
+            scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h))
+            self.canvas.blit(scaled, (cx - scaled.get_width()//2, cy - h//2))
+            
+        lbl = self.font.render(text, True, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 150))
 
     def draw_ice(self):
-        # OPTIMIZATION: One blit call instead of thousands of primitive line draws
         self.canvas.blit(self.static_ice_surface, (0, 0))
         
         if self.game_mode == "CHALLENGE" and self.challenge_target:
@@ -1209,7 +1272,7 @@ class WinCurl3:
                         elif self.app_state == "PAUSED":
                             self.audio.play_click(); self.app_state = "PLAY"
                         elif self.app_state == "ROOM_PROMPT":
-                            self.app_state = "MENU"; self.typing_target = None
+                            self.app_state = "MENU"; self.set_typing_target(None)
                         continue
                     elif event.key == K_f:
                         self.toggle_fullscreen()
@@ -1217,7 +1280,7 @@ class WinCurl3:
                     
                 if event.type == MOUSEBUTTONDOWN and event.button == 1:
                     m_pos = self.scale_mouse(pygame.mouse.get_pos())
-                    if self.app_state in ["MENU", "CHALLENGE_MENU", "ROOM_PROMPT"]:
+                    if self.app_state in ["MENU", "CHALLENGE_MENU", "ROOM_PROMPT", "MATCH_OVER"]:
                         if self.btn_fs.collidepoint(m_pos.x, m_pos.y):
                             self.toggle_fullscreen()
                             continue
@@ -1227,6 +1290,7 @@ class WinCurl3:
                 elif self.app_state == "CHALLENGE_MENU": self.handle_challenge_menu_events(event)
                 elif self.app_state == "PLAY": self.handle_play_events(event)
                 elif self.app_state == "PAUSED": self.handle_pause_events(event)
+                elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
 
             if self.app_state == "MENU": self.update_network(); self.audio.play_music(); self.draw_menu()
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
