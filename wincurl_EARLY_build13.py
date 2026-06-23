@@ -9,15 +9,15 @@ import queue
 import threading
 import os
 from pygame.locals import *
+
 # Define this immediately after imports
 IS_ANDROID = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ
 if IS_ANDROID:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-import sys
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13 (PUBLIC RELEASE)")
+print("     [SYSTEM] WINCURL 3 BUILD 13 (PUBLIC BETA RELEASE)")
 print("     (DYNAMIC RESOLUTION ON ANDROID | NOTO SANS | GRANITE 3D STONE | SPRITE UI | BOT JSON)")
 print("="*60 + "\n")
 
@@ -89,10 +89,14 @@ def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=Fals
 # --- Audio Synthesis Engine ---
 class WinCurlAudioEngine:
     def __init__(self):
+        # We only need to init once
         if IS_ANDROID: pygame.mixer.pre_init(44100, -16, 2, 4096)
         else: pygame.mixer.pre_init(44100, -16, 2, 1024)
         pygame.mixer.init()
-        pygame.mixer.pre_init(44100, -16, 2, 1024); pygame.mixer.init()
+        
+        # INCREASED CHANNELS FOR PERFORMANCE (Avoids thread locking on mobile)
+        pygame.mixer.set_num_channels(16)
+        
         self.ch_slide = pygame.mixer.Channel(0); self.ch_sweep = pygame.mixer.Channel(1)
         self.ch_sfx = pygame.mixer.Channel(2); self.ch_ui = pygame.mixer.Channel(3)
         self.ch_music = pygame.mixer.Channel(4); self.ch_crowd = pygame.mixer.Channel(5)
@@ -244,17 +248,28 @@ class WinCurlAudioEngine:
         now = pygame.time.get_ticks()
         if intensity > 8.0 and (now - self.last_call) > 2500:
             self.last_call = now
-            if random.random() > 0.5: self.ch_voice.play(self.snd_hurry)
-            else: self.ch_voice.play(self.snd_hard)
+            # Prevent thread lock on mobile by checking if channel is busy
+            if not self.ch_voice.get_busy():
+                if random.random() > 0.5: self.ch_voice.play(self.snd_hurry)
+                else: self.ch_voice.play(self.snd_hard)
 
     def stop_all_match_sounds(self):
         self.ch_slide.set_volume(0.0); self.ch_sweep.set_volume(0.0); self.ch_sfx.stop(); self.ch_crowd.stop()
 
-    def play_cheer(self): self.ch_crowd.play(self.snd_cheer)
+    def play_cheer(self): 
+        if not self.ch_crowd.get_busy(): self.ch_crowd.play(self.snd_cheer)
     def update_slide(self, speed): self.ch_slide.set_volume(min(0.15, speed * 0.04) if speed > 0.05 else 0.0)
     def update_sweep(self, intensity): self.ch_sweep.set_volume(min(0.5, intensity * 0.06))
     def play_throw(self): self.ch_sfx.play(self.snd_throw)
-    def play_clack(self, force): self.ch_sfx.play(self.snd_clack); self.ch_sfx.set_volume(min(0.4, force * 0.05))
+    
+    # We pass the force into play_clack, but we don't spam it
+    def play_clack(self, force): 
+        # Find an empty channel to avoid cutting off sounds if multiple rocks hit
+        ch = pygame.mixer.find_channel()
+        if ch:
+            ch.play(self.snd_clack)
+            ch.set_volume(min(0.4, force * 0.05))
+
     def play_hover(self): self.ch_ui.play(self.snd_hover)
     def play_click(self): self.ch_ui.play(self.snd_click)
     def play_music(self): 
@@ -264,9 +279,7 @@ class WinCurlAudioEngine:
 # --- Visual Effects & Geometry ---
 class Starfield:
     def __init__(self):
-        if IS_ANDROID: pygame.mixer.pre_init(44100, -16, 2, 4096)
-        else: pygame.mixer.pre_init(44100, -16, 2, 1024)
-        pygame.mixer.init()
+        # Removed redundant mixer init from here (was causing a bug)
         self.stars = [(random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT), random.uniform(0.5, 3.0)) for _ in range(150)]
     def draw(self, surface, speed_mult=1.0):
         for i in range(len(self.stars)):
@@ -401,34 +414,43 @@ class AnimatedCurler:
 # --- Main Engine ---
 class WinCurl3:
     def __init__(self):
-        # Define variables here, but don't touch hardware
         self.screen = None
         self.canvas = None
-        # ... your other variable assignments ...
+
+    def preload_assets(self):
+        # Prevent the Coin Toss from hanging by pre-caching the fonts we need
+        self.font = pygame.font.SysFont("Trebuchet MS", 48, bold=True)
+        self.small_font = pygame.font.SysFont("Trebuchet MS", 34, bold=True)
+        self.title_font = pygame.font.SysFont("noto sans black, notosansblack, inter, trebuchetms, arial", 105, bold=True)
+        
+        # PRELOAD BOT JSON
+        # Instead of parsing a file during the throw, we construct the bot logic matrix here
+        # so it lives purely in RAM.
+        self.BOT_LOGIC_CACHE = {
+            "easy": {"error_multiplier": 2.5, "takeout_chance": 0.1, "guard_chance": 0.3},
+            "medium": {"error_multiplier": 1.0, "takeout_chance": 0.4, "guard_chance": 0.5},
+            "hard": {"error_multiplier": 0.2, "takeout_chance": 0.8, "guard_chance": 0.7}
+        }
+        
+        # In a real build with image assets, this is where you'd do:
+        # self.ASSETS['coin_heads'] = pygame.image.load("heads.png").convert_alpha()
 
     def setup_display(self):
-        # This is called only when we are sure the activity is ready
         pygame.display.init()
-        if IS_ANDROID:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        else:
-            self.screen = pygame.display.set_mode((1200, 1800), 0)
-        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
-        self.clock = pygame.time.Clock()
-
-        # Now your existing initialization continues normally
+        # ABSOLUTELY NO SCALED FLAG ON ANDROID
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             self.screen = pygame.display.set_mode((1200, 1800), 0)
             
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
-        
-        # 2. DEFINITIVELY DEFINE ALL STATE VARIABLES HERE
-        self.app_state = "MENU"        # <--- THIS IS THE MISSING LINK
-        self.game_mode = "LOCAL"
-        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
         self.clock = pygame.time.Clock()
+        
+        pygame.font.init()
+        self.preload_assets()
+        
+        self.app_state = "MENU"        
+        self.game_mode = "LOCAL"
         self.audio = WinCurlAudioEngine()
         self.net = IRCNetworkManager()
         self.is_fullscreen = False
@@ -452,8 +474,6 @@ class WinCurl3:
         self.shake_amount = 0.0
         self.pause_anim = 0.0
         self.typing_target = None; self.net_action = None
-        pygame.font.init()
-        self.font = pygame.font.SysFont("Trebuchet MS", 48, bold=True); self.small_font = pygame.font.SysFont("Trebuchet MS", 34, bold=True)
         
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
@@ -462,7 +482,6 @@ class WinCurl3:
         
         self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 250, 60)
 
-        # Updated Ends and Name buttons to use slate grey base color
         self.menu_buttons = [
             {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
             {"id": "bot", "y": 600, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
@@ -476,6 +495,7 @@ class WinCurl3:
         ]
         self.last_hovered = None
 
+        # PRE-RENDER ICE SURFACES TO AVOID DRAWING EVERY FRAME
         self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
         for _ in range(12000):
             px, py = random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)
@@ -496,21 +516,28 @@ class WinCurl3:
             alpha = max(0, 45 - int((dist_from_center / (BASE_WIDTH//2)) * 45))
             pygame.draw.rect(self.ice_env_map, (255, 255, 255, alpha), (x, 0, 15, BASE_HEIGHT))
 
+        # Create a single composite base ice surface for ultra-fast rendering on Android
+        self.static_ice_surface = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
+        for y in range(0, BASE_HEIGHT, 45): pygame.draw.rect(self.static_ice_surface, (max(0, ICE_COLOR[0]-int((y/BASE_HEIGHT)*18)),)*3, (0, y, BASE_WIDTH, 45))
+        self.static_ice_surface.blit(self.bg_pebble_layer, (0, 0))
+        for y in range(0, BASE_HEIGHT, 80): pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
+        pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
+        pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
+        pygame.draw.line(self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10)
+        for r, c, w in [(210, HOUSE_BLUE, 0), (140, WHITE, 0), (70, HOUSE_RED, 0), (20, WHITE, 0), (20, BLACK, 2), (6, BLACK, 0), (2, WHITE, 0)]:
+            pygame.draw.circle(self.static_ice_surface, c, (int(self.house_pos.x), int(self.house_pos.y)), r, w)
+        self.static_ice_surface.blit(self.ice_env_map, (0, 0))
+        self.static_ice_surface.blit(self.fg_pebble_layer, (0, 0))
+
         self.reset_match()
 
     def toggle_fullscreen(self):
-        # 1. Update the state
         self.is_fullscreen = not self.is_fullscreen
         self.audio.play_click()
-# 2. Determine flags based on hardware
         if IS_ANDROID:
-            # Android: Always SCALED + FULLSCREEN
             flags = pygame.FULLSCREEN
         else:
-            # Desktop: Toggle between FULLSCREEN and 0 (Windowed)
             flags = pygame.FULLSCREEN if self.is_fullscreen else 0
-            
-        # 3. Re-initialize the display
         self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), flags)
         
     def load_progress(self):
@@ -606,7 +633,7 @@ class WinCurl3:
 
     def reset_end(self):
         self.stones = []; self.stones_thrown = {0: 0, 1: 0}
-        self.current_team = 1 if self.hammer_team == 0 else 0
+        self.current_team = 1 if getattr(self, 'hammer_team', 0) == 0 else 0
         self.reset_turn_vars()
 
     def spawn_next_stone(self): self.active_stone = Stone(self.hack_pos.x, self.hack_pos.y, self.current_team); self.stones.append(self.active_stone)
@@ -633,10 +660,28 @@ class WinCurl3:
         return pygame.math.Vector2((pos[0] - (ww-int(BASE_WIDTH*scale))//2) / scale, (pos[1] - (wh-int(BASE_HEIGHT*scale))//2) / scale)
 
     def execute_ai(self):
-        pygame.time.wait(1000); err = (11 - self.ai_difficulty)
+        # Determine the bot's logic parameters from the pre-loaded dictionary
+        bot_level = "easy" if self.ai_difficulty < 4 else "medium" if self.ai_difficulty < 8 else "hard"
+        params = self.BOT_LOGIC_CACHE[bot_level]
+        
+        # Don't block the thread with time.wait on mobile
+        if not hasattr(self, 'ai_wait_start'):
+            self.ai_wait_start = pygame.time.get_ticks()
+            return
+            
+        if pygame.time.get_ticks() - self.ai_wait_start < 1000:
+            return
+            
+        delattr(self, 'ai_wait_start')
+
+        err = (11 - self.ai_difficulty) * params["error_multiplier"]
         target = self.house_pos + pygame.math.Vector2(random.uniform(-7, 7)*err, random.uniform(-6, 6)*err)
+        
+        # Takeout logic
         p_stones = sorted([s for s in self.stones if s.team == 0 and s != self.active_stone], key=lambda s: (s.pos - self.house_pos).length())
-        if p_stones and (p_stones[0].pos - self.house_pos).length() < 170 and random.random() < (self.ai_difficulty / 10.0): target = p_stones[0].pos + pygame.math.Vector2(random.uniform(-2, 2)*err, 12) 
+        if p_stones and (p_stones[0].pos - self.house_pos).length() < 170 and random.random() < params["takeout_chance"]: 
+            target = p_stones[0].pos + pygame.math.Vector2(random.uniform(-2, 2)*err, 12) 
+            
         req_spd = max(2.5, min(35.0, math.sqrt(2 * FRICTION_BASE * (target - self.hack_pos).length()) + random.uniform(-0.05, 0.05)*err))
         
         self.curler_anim.update("LUNGING"); self.audio.play_throw()
@@ -834,7 +879,18 @@ class WinCurl3:
                 if self.game_mode == "CHALLENGE":
                     if self.stones_thrown[0] == 1: 
                         self.challenge_attempts += 1; cx, cy = self.house_pos.x, self.house_pos.y
-                        if self.c_type in ["DRAW", "GUARD"]: self.challenge_success = any(s.team == 0 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(self.challenge_target[:2])).length() < self.challenge_target[2] for s in self.stones)
+                        
+                        # UPDATED COLLISION LOGIC FOR 95% RULE
+                        if self.c_type in ["DRAW", "GUARD"]: 
+                            self.challenge_success = False
+                            for s in self.stones:
+                                if s.team == 0:
+                                    dist = (pygame.math.Vector2(s.pos) - pygame.math.Vector2(self.challenge_target[:2])).length()
+                                    # Acceptable if any part of the rock (95% radius) is within the target radius
+                                    if dist <= (self.challenge_target[2] + (s.radius * 0.95)):
+                                        self.challenge_success = True
+                                        break
+                                        
                         elif self.c_type == "TAKEOUT": self.challenge_success = (self.challenge_takeout_target not in self.stones) and any(s.team == 0 and s.pos.y < cy + 210 for s in self.stones)
                         elif self.c_type == "DOUBLE": self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0 and any(s.team == 0 for s in self.stones)
                         self.turn_state = "END"
@@ -887,18 +943,16 @@ class WinCurl3:
         self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
         self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, pygame.mouse.get_pos())
         
-        # Noto Sans Black Font Logic with fallbacks
-        title_font = pygame.font.SysFont("noto sans black, notosansblack, inter, trebuchetms, arial", 105, bold=True)
         t_text = '"WinCurl" 3'
         
-        txt_surf = title_font.render(t_text, True, WHITE); grad = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
+        txt_surf = self.title_font.render(t_text, True, WHITE); grad = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
         for x in range(grad.get_width()):
             c = pygame.Color(0); c.hsva = (((x / grad.get_width()) * 360 + t_ms*100) % 360, 85, 100, 100)
             pygame.draw.line(grad, c, (x, 0), (x, grad.get_height()))
         txt_surf.blit(grad, (0,0), special_flags=pygame.BLEND_RGBA_MULT)
         
         bx, by = cx - txt_surf.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
-        for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(title_font.render(t_text, True, BLACK), (bx+dx, by+dy))
+        for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(self.title_font.render(t_text, True, BLACK), (bx+dx, by+dy))
         self.canvas.blit(txt_surf, (bx, by))
         
         status_string = "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
@@ -1018,23 +1072,14 @@ class WinCurl3:
         lbl = self.font.render(text, True, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 120))
 
     def draw_ice(self):
-        for y in range(0, BASE_HEIGHT, 45): pygame.draw.rect(self.canvas, (max(0, ICE_COLOR[0]-int((y/BASE_HEIGHT)*18)),)*3, (0, y, BASE_WIDTH, 45))
-        self.canvas.blit(self.bg_pebble_layer, (0, 0))
+        # FAST RENDERING: Blit the pre-rendered composite ice background instead of drawing lines
+        self.canvas.blit(self.static_ice_surface, (0, 0))
         
-        for y in range(0, BASE_HEIGHT, 80): pygame.draw.line(self.canvas, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
-        pygame.draw.line(self.canvas, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
-        pygame.draw.line(self.canvas, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
-        pygame.draw.line(self.canvas, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10)
-        
-        for r, c, w in [(210, HOUSE_BLUE, 0), (140, WHITE, 0), (70, HOUSE_RED, 0), (20, WHITE, 0), (20, BLACK, 2), (6, BLACK, 0), (2, WHITE, 0)]:
-            pygame.draw.circle(self.canvas, c, (int(self.house_pos.x), int(self.house_pos.y)), r, w)
-            
+        # Only draw dynamic objects over top
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
         
-        self.canvas.blit(self.ice_env_map, (0, 0))
-        self.canvas.blit(self.fg_pebble_layer, (0, 0))
         pygame.draw.rect(self.canvas, BLACK, (self.hack_pos.x - 65, self.hack_pos.y + 35, 130, 25), border_radius=6)
 
     def draw_ui(self):
@@ -1055,8 +1100,8 @@ class WinCurl3:
             tot_x = 120 + (self.total_ends_pref * spacing) + 80; pygame.draw.line(self.canvas, (80, 90, 105), (tot_x - 40, 0), (tot_x - 40, 130), 2)
             self.canvas.blit(self.small_font.render("TOT", True, WHITE), (tot_x, 12))
             self.canvas.blit(self.font.render(str(sum(self.score[0])), True, HOUSE_RED), (tot_x, 44)); self.canvas.blit(self.font.render(str(sum(self.score[1])), True, TEAM_YELLOW), (tot_x, 82))
-            if self.hammer_team == 0: draw_hammer_icon(self.canvas, tot_x + 65, 52, HOUSE_RED)
-            elif self.hammer_team == 1: draw_hammer_icon(self.canvas, tot_x + 65, 90, TEAM_YELLOW)
+            if getattr(self, 'hammer_team', 0) == 0: draw_hammer_icon(self.canvas, tot_x + 65, 52, HOUSE_RED)
+            elif getattr(self, 'hammer_team', 0) == 1: draw_hammer_icon(self.canvas, tot_x + 65, 90, TEAM_YELLOW)
 
         for p in self.particles:
             if p['type'] == 'spark': pygame.draw.circle(self.canvas, lerp_color((255, 200, 50), ICE_COLOR, 1.0-p['life']), (int(p['pos'].x), int(p['pos'].y)), int(p['life']*4))
@@ -1096,14 +1141,14 @@ class WinCurl3:
             overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, 195)); self.canvas.blit(overlay, (0, 0))
             
             if self.game_mode == "CHALLENGE":
-                txt = "SUCCESS! ADVANCING..." if self.challenge_success else "FAILED. RETRYING..."
-                if self.challenge_attempts >= 3 and not self.challenge_success: txt = "FAILED - SKIPPING CHALLENGE"
+                txt = "SUCCESS! ADVANCING..." if getattr(self, 'challenge_success', False) else "FAILED. RETRYING..."
+                if self.challenge_attempts >= 3 and not getattr(self, 'challenge_success', False): txt = "FAILED - SKIPPING CHALLENGE"
             else: txt = "END COMPLETE"
                 
             img_txt = self.font.render(txt, True, WHITE); self.canvas.blit(img_txt, (BASE_WIDTH//2 - img_txt.get_width()//2, BASE_HEIGHT//2 - 50))
             draw_glass_rect(self.canvas, self.btn_next_end, PURPLE_SUIT, self.btn_next_end.h // 2, self.btn_next_end.collidepoint(m_pos.x, m_pos.y))
             
-            btn_txt = "NEXT" if self.game_mode=="CHALLENGE" and (self.challenge_success or self.challenge_attempts >= 3) else "RETRY" if self.game_mode=="CHALLENGE" else "ADVANCE MATCH"
+            btn_txt = "NEXT" if self.game_mode=="CHALLENGE" and (getattr(self, 'challenge_success', False) or self.challenge_attempts >= 3) else "RETRY" if self.game_mode=="CHALLENGE" else "ADVANCE MATCH"
             lbl = self.small_font.render(btn_txt, True, WHITE); self.canvas.blit(lbl, lbl.get_rect(center=self.btn_next_end.center))
 
     def draw_pause_screen(self):
@@ -1286,5 +1331,5 @@ class IRCNetworkManager:
 
 if __name__ == "__main__":
     game = WinCurl3()
-    game.setup_display()  # Now it's safe to touch hardware
+    game.setup_display()
     game.run()
