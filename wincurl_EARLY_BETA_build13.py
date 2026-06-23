@@ -8,6 +8,8 @@ import json
 import queue
 import threading
 import os
+import io
+import wave
 from pygame.locals import *
 
 # Define this immediately after imports
@@ -17,8 +19,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13 (PUBLIC BETA RELEASE)")
-print("     (DYNAMIC RESOLUTION ON ANDROID | NOTO SANS | GRANITE 3D STONE | SPRITE UI | BOT JSON)")
+print("     [SYSTEM] WINCURL 3 BUILD 13 (PROCEDURAL/ANDROID OPTIMIZED)")
+print("     (DYNAMIC RESOLUTION | HARDWARE ALIGNED SURFACES | RAM AUDIO)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -44,7 +46,6 @@ def lerp_color(c1, c2, t):
     return (int(c1[0] + (c2[0] - c1[0]) * t), int(c1[1] + (c2[1] - c1[1]) * t), int(c1[2] + (c2[2] - c1[2]) * t))
 
 def draw_maple_leaf(surface, cx, cy, scale, color):
-    # Perfected 15-point SVG mapping with pronounced top lobe
     points = [
         (0, -28), (7, -11), (4, -7), (14, -10), (21, -2), 
         (14, 6), (2, 8), (3, 21), (-3, 21), (-2, 8), 
@@ -57,30 +58,21 @@ def draw_hammer_icon(surface, x, y, color):
     pygame.draw.rect(surface, color, (x+6, y+8, 4, 12))
 
 def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False):
-    # Drop shadow
-    shadow = pygame.Surface((rect.w+10, rect.h+10), pygame.SRCALPHA)
+    # OPTIMIZATION: convert_alpha() prevents mobile CPU from translating formats every frame
+    shadow = pygame.Surface((rect.w+10, rect.h+10), pygame.SRCALPHA).convert_alpha()
     pygame.draw.rect(shadow, (0, 0, 0, 50), (5, 5, rect.w, rect.h), border_radius=border_radius)
     surface.blit(shadow, (rect.x-5, rect.y-5))
     
-    btn_surf = pygame.Surface(rect.size, pygame.SRCALPHA)
-    
-    # Rich base color (Alpha 180 out of 255 ensures vivid tint)
+    btn_surf = pygame.Surface(rect.size, pygame.SRCALPHA).convert_alpha()
     c = pygame.Color(*base_color[:3], 180)
     pygame.draw.rect(btn_surf, c, (0, 0, rect.w, rect.h), border_radius=border_radius)
-    
-    # Top gradation shine (liquid glass volume)
     pygame.draw.rect(btn_surf, (255, 255, 255, 30), (0, 0, rect.w, rect.h//2), border_top_left_radius=border_radius, border_top_right_radius=border_radius)
-    
-    # Deep inner rim light
     pygame.draw.ellipse(btn_surf, (255, 255, 255, 55), (rect.w*0.05, 2, rect.w*0.9, rect.h*0.45))
-    
-    # Bottom dark shading to simulate depth
     pygame.draw.rect(btn_surf, (0, 0, 0, 30), (0, rect.h//2, rect.w, rect.h//2), border_bottom_left_radius=border_radius, border_bottom_right_radius=border_radius)
 
-    # Hover glow and crisp rim
     if is_hovered:
         pygame.draw.rect(btn_surf, (255, 255, 255, 240), (0, 0, rect.w, rect.h), 3, border_radius=border_radius)
-        pygame.draw.rect(btn_surf, (255, 255, 255, 50), (0, 0, rect.w, rect.h), 0, border_radius=border_radius) # Solid inner glow
+        pygame.draw.rect(btn_surf, (255, 255, 255, 50), (0, 0, rect.w, rect.h), 0, border_radius=border_radius)
     else:
         pygame.draw.rect(btn_surf, (255, 255, 255, 100), (0, 0, rect.w, rect.h), 2, border_radius=border_radius)
     
@@ -89,12 +81,9 @@ def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=Fals
 # --- Audio Synthesis Engine ---
 class WinCurlAudioEngine:
     def __init__(self):
-        # We only need to init once
         if IS_ANDROID: pygame.mixer.pre_init(44100, -16, 2, 4096)
         else: pygame.mixer.pre_init(44100, -16, 2, 1024)
         pygame.mixer.init()
-        
-        # INCREASED CHANNELS FOR PERFORMANCE (Avoids thread locking on mobile)
         pygame.mixer.set_num_channels(16)
         
         self.ch_slide = pygame.mixer.Channel(0); self.ch_sweep = pygame.mixer.Channel(1)
@@ -116,6 +105,18 @@ class WinCurlAudioEngine:
         self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
         self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
         self.ch_sfx.play(self.snd_speech); self.last_call = 0
+
+    # OPTIMIZATION: Converts raw PCM byte arrays to valid WAV structures in RAM.
+    # This prevents Android's SDL_mixer from panicking and dropping frames when reading the buffer.
+    def _create_wav_sound(self, byte_buffer, sample_rate=44100):
+        wav_io = io.BytesIO()
+        with wave.open(wav_io, 'wb') as wav_file:
+            wav_file.setnchannels(2)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(byte_buffer)
+        wav_io.seek(0)
+        return pygame.mixer.Sound(wav_io)
 
     def _synthesize_sega_speech(self):
         steps = int(44100 * 3.0); buf = bytearray(steps * 4)
@@ -146,7 +147,7 @@ class WinCurlAudioEngine:
                 val = (val / 3.0) * env * 1.8
             sample = int(max(-1.0, min(1.0, val)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_vosim_phrase(self, phrase, duration):
         steps = int(44100 * duration); buf = bytearray(steps * 4)
@@ -171,7 +172,7 @@ class WinCurlAudioEngine:
                 val += (math.sin(2*math.pi*get_val(t_norm,f1_env)*phase/f0) + math.sin(2*math.pi*get_val(t_norm,f2_env)*phase/f0)*0.6 + math.sin(2*math.pi*get_val(t_norm,f3_env)*phase/f0)*0.3) * decay
             sample = int(max(-1.0, min(1.0, (val / len(chord)) * env * 2.0)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_end_of_match(self):
         steps = int(44100 * 2.0); buf = bytearray(steps * 4)
@@ -191,7 +192,7 @@ class WinCurlAudioEngine:
             val = (math.sin(2*math.pi*get_val(t,f1_env)*phase/f0) + math.sin(2*math.pi*get_val(t,f2_env)*phase/f0)*0.6 + math.sin(2*math.pi*get_val(t,f3_env)*phase/f0)*0.3) * decay
             sample = int(max(-1.0, min(1.0, (val*0.6 + noise) * env)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_cheer(self):
         duration = 3.5; steps = int(44100 * duration); buf = bytearray(steps * 4); val = 0.0
@@ -199,40 +200,40 @@ class WinCurlAudioEngine:
             t = i / 44100; val += (random.uniform(-1.0, 1.0) - val) * 0.02 
             sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t*12))) 
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_rumble(self):
         buf = bytearray(44100 * 4); v = 0.0
         for i in range(44100):
             v = max(-0.4, min(0.4, (v + random.uniform(-0.08, 0.08)) * 0.98))
             struct.pack_into('<hh', buf, i * 4, int(v * 32767), int(v * 32767))
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_sweep(self):
         buf = bytearray(22050 * 4)
         for i in range(22050): struct.pack_into('<hh', buf, i*4, int(random.uniform(-0.15, 0.15)*32767), int(random.uniform(-0.15, 0.15)*32767))
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 22050)
 
     def _synthesize_throw(self):
         duration = 0.5; steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
             t = i / 44100; sample = int(math.sin(2 * math.pi * (180 - (t * 100)) * t) * (math.sin(t * math.pi / duration) * math.exp(-t * 2)) * 32767 * 0.7)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_clack(self):
         buf = bytearray(11025 * 4)
         for i in range(11025):
             t = i / 11025; sample = int(math.sin(2 * math.pi * (220 + random.uniform(-20, 20)) * t) * math.exp(-t * 25) * 32767)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 11025)
 
     def _synthesize_ui_sound(self, frequency, duration, type="sine"):
         steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
             t = i / 44100; val = math.sin(2 * math.pi * frequency * t) if type == "sine" else (1.0 if math.sin(2 * math.pi * frequency * t) > 0 else -1.0)
             struct.pack_into('<hh', buf, i * 4, int(val * math.exp(-t * (1.0 / duration * 3)) * 12000), int(val * math.exp(-t * (1.0 / duration * 3)) * 12000))
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def _synthesize_theme_song(self):
         bpm = 120; beat_len = 60.0 / bpm; total_beats = 8; duration = beat_len * total_beats; steps = int(44100 * duration); buf = bytearray(steps * 4)
@@ -242,13 +243,12 @@ class WinCurlAudioEngine:
             val = ((2.0 * (t * bass[beat] - math.floor(t * bass[beat] + 0.5))) * 0.15 * math.exp(-b_t * 4.0)) + \
                   ((1.0 if math.sin(2 * math.pi * (mel[(beat * 3) % total_beats] * (1.0 + 0.02 * math.sin(2 * math.pi * 6.0 * t))) * t) > 0 else -1.0) * 0.08 * math.sin(b_t * math.pi / beat_len) * math.exp(-b_t * 2.0))
             struct.pack_into('<hh', buf, i * 4, int(max(-1.0, min(1.0, val)) * 32767), int(max(-1.0, min(1.0, val)) * 32767))
-        return pygame.mixer.Sound(buffer=buf)
+        return self._create_wav_sound(buf, 44100)
 
     def play_curler_call(self, intensity):
         now = pygame.time.get_ticks()
         if intensity > 8.0 and (now - self.last_call) > 2500:
             self.last_call = now
-            # Prevent thread lock on mobile by checking if channel is busy
             if not self.ch_voice.get_busy():
                 if random.random() > 0.5: self.ch_voice.play(self.snd_hurry)
                 else: self.ch_voice.play(self.snd_hard)
@@ -262,9 +262,7 @@ class WinCurlAudioEngine:
     def update_sweep(self, intensity): self.ch_sweep.set_volume(min(0.5, intensity * 0.06))
     def play_throw(self): self.ch_sfx.play(self.snd_throw)
     
-    # We pass the force into play_clack, but we don't spam it
     def play_clack(self, force): 
-        # Find an empty channel to avoid cutting off sounds if multiple rocks hit
         ch = pygame.mixer.find_channel()
         if ch:
             ch.play(self.snd_clack)
@@ -279,7 +277,6 @@ class WinCurlAudioEngine:
 # --- Visual Effects & Geometry ---
 class Starfield:
     def __init__(self):
-        # Removed redundant mixer init from here (was causing a bug)
         self.stars = [(random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT), random.uniform(0.5, 3.0)) for _ in range(150)]
     def draw(self, surface, speed_mult=1.0):
         for i in range(len(self.stars)):
@@ -290,11 +287,10 @@ class Starfield:
 class ThreeDStone:
     def draw(self, surface, center_x, center_y, mouse_pos):
         bx, by = center_x + (mouse_pos[0] - center_x)*0.03, center_y + (mouse_pos[1] - center_y)*0.03; r_max = 140
-        shadow_surf = pygame.Surface((r_max*2+40, r_max*2+40), pygame.SRCALPHA)
+        shadow_surf = pygame.Surface((r_max*2+40, r_max*2+40), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(shadow_surf, (10, 15, 20, 100), (20, 40, r_max*2, r_max*2-20)) 
         surface.blit(shadow_surf, (bx - r_max + 10, by - r_max + 15))
 
-        # Render Authentic Dark Granite Body
         for r in range(r_max, 75, -1):
             t = (r_max - r) / (r_max - 75)
             col = lerp_color((90, 95, 100), (140, 145, 150), t)
@@ -307,7 +303,6 @@ class ThreeDStone:
             col = lerp_color(HOUSE_RED, (140, 20, 30), t)
             pygame.draw.circle(surface, col, (int(bx), int(by)), r)
 
-        # Scaled down and lowered exactly 6 pixels
         draw_maple_leaf(surface, bx, by + 6, 1.25, WHITE)
 
         hx_start, hy_start, hx_end, hy_end = bx - 65, by + 35, bx + 65, by - 35
@@ -321,7 +316,7 @@ class ThreeDStone:
             pygame.draw.circle(surface, BLACK, (int(x), int(y)), 18); pygame.draw.circle(surface, HOUSE_RED, (int(x), int(y)), 14)
         pygame.draw.circle(surface, BLACK, (int(hx_start), int(hy_start)), 5); pygame.draw.circle(surface, WHITE, (int(hx_start), int(hy_start)), 2)
         
-        glare = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA)
+        glare = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(glare, (255, 255, 255, 30), (r_max*0.2, r_max*0.1, r_max*1.6, r_max*0.6))
         surface.blit(glare, (bx - r_max, by - r_max))
 
@@ -345,7 +340,7 @@ class Stone:
             self.pos += self.vel
 
     def draw(self, surface):
-        shadow = pygame.Surface((self.radius*2+10, self.radius*2+10), pygame.SRCALPHA)
+        shadow = pygame.Surface((self.radius*2+10, self.radius*2+10), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(shadow, (0,0,0,60), (4,8,self.radius*2,self.radius*2-4))
         surface.blit(shadow, (self.pos.x - self.radius - 2, self.pos.y - self.radius - 2))
         
@@ -368,7 +363,7 @@ class Stone:
         for x,y in [(hx_s,hy_s), (hx_e,hy_e)]: pygame.draw.circle(surface, color, (int(x), int(y)), 4)
         pygame.draw.circle(surface, WHITE, (int(hx_s), int(hy_s)), 1)
         
-        hl = pygame.Surface((self.radius*2, self.radius*2), pygame.SRCALPHA)
+        hl = pygame.Surface((self.radius*2, self.radius*2), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(hl, HIGHLIGHT_COLOR, (self.radius*0.6, self.radius*0.2, self.radius*0.8, self.radius*0.4))
         surface.blit(hl, (self.pos.x - self.radius, self.pos.y - self.radius))
 
@@ -407,7 +402,7 @@ class AnimatedCurler:
     def draw(self, surface, team_color):
         if self.state == "IDLE" and self.delivery_progress == 0.0: return
         self.tc = team_color; oy = self.delivery_progress*70 if self.state == "BACKSWING" else 0; ld = (1.0 - self.delivery_progress)*-190 if self.state == "LUNGING" else 0
-        shadow_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+        shadow_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         self._draw_char_geometry(shadow_surf, self.hack_pos.x+18, self.hack_pos.y+18, oy, ld, (0,0,0,100))
         surface.blit(shadow_surf, (0, 0)); self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld)
 
@@ -418,22 +413,16 @@ class WinCurl3:
         self.canvas = None
 
     def preload_assets(self):
-        # Prevent the Coin Toss from hanging by pre-caching the fonts we need
-        self.font = pygame.font.SysFont("Trebuchet MS", 48, bold=True)
-        self.small_font = pygame.font.SysFont("Trebuchet MS", 34, bold=True)
-        self.title_font = pygame.font.SysFont("noto sans black, notosansblack, inter, trebuchetms, arial", 105, bold=True)
+        # OPTIMIZATION: Use Pygame's built in procedural font to guarantee it loads on any OS instantly
+        self.font = pygame.font.Font(None, 48)
+        self.small_font = pygame.font.Font(None, 34)
+        self.title_font = pygame.font.Font(None, 105)
         
-        # PRELOAD BOT JSON
-        # Instead of parsing a file during the throw, we construct the bot logic matrix here
-        # so it lives purely in RAM.
         self.BOT_LOGIC_CACHE = {
             "easy": {"error_multiplier": 2.5, "takeout_chance": 0.1, "guard_chance": 0.3},
             "medium": {"error_multiplier": 1.0, "takeout_chance": 0.4, "guard_chance": 0.5},
             "hard": {"error_multiplier": 0.2, "takeout_chance": 0.8, "guard_chance": 0.7}
         }
-        
-        # In a real build with image assets, this is where you'd do:
-        # self.ASSETS['coin_heads'] = pygame.image.load("heads.png").convert_alpha()
 
     def setup_display(self):
         pygame.display.init()
@@ -443,7 +432,7 @@ class WinCurl3:
         else:
             self.screen = pygame.display.set_mode((1200, 1800), 0)
             
-        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
+        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
         
         pygame.font.init()
@@ -495,17 +484,17 @@ class WinCurl3:
         ]
         self.last_hovered = None
 
-        # PRE-RENDER ICE SURFACES TO AVOID DRAWING EVERY FRAME
-        self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+        # OPTIMIZATION: convert_alpha() on procedural surfaces
+        self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         for _ in range(12000):
             px, py = random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)
             pygame.draw.circle(self.bg_pebble_layer, (0, 0, 0, 50), (px+1, py+1), 1)
             pygame.draw.circle(self.bg_pebble_layer, (255, 255, 255, 100), (px, py), 1)
             
-        self.fg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+        self.fg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         for _ in range(8000): pygame.draw.circle(self.fg_pebble_layer, (255, 255, 255, random.randint(30, 90)), (random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)), 1)
         
-        self.ice_env_map = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+        self.ice_env_map = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         pygame.draw.polygon(self.ice_env_map, (255, 255, 255, 18), [(300, 0), (800, 0), (200, BASE_HEIGHT), (-300, BASE_HEIGHT)])
         pygame.draw.polygon(self.ice_env_map, (255, 255, 255, 12), [(900, 0), (1300, 0), (700, BASE_HEIGHT), (300, BASE_HEIGHT)])
         pygame.draw.rect(self.ice_env_map, (0, 0, 0, 30), (0, 0, 100, BASE_HEIGHT))
@@ -517,7 +506,7 @@ class WinCurl3:
             pygame.draw.rect(self.ice_env_map, (255, 255, 255, alpha), (x, 0, 15, BASE_HEIGHT))
 
         # Create a single composite base ice surface for ultra-fast rendering on Android
-        self.static_ice_surface = pygame.Surface((BASE_WIDTH, BASE_HEIGHT))
+        self.static_ice_surface = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         for y in range(0, BASE_HEIGHT, 45): pygame.draw.rect(self.static_ice_surface, (max(0, ICE_COLOR[0]-int((y/BASE_HEIGHT)*18)),)*3, (0, y, BASE_WIDTH, 45))
         self.static_ice_surface.blit(self.bg_pebble_layer, (0, 0))
         for y in range(0, BASE_HEIGHT, 80): pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
@@ -660,11 +649,9 @@ class WinCurl3:
         return pygame.math.Vector2((pos[0] - (ww-int(BASE_WIDTH*scale))//2) / scale, (pos[1] - (wh-int(BASE_HEIGHT*scale))//2) / scale)
 
     def execute_ai(self):
-        # Determine the bot's logic parameters from the pre-loaded dictionary
         bot_level = "easy" if self.ai_difficulty < 4 else "medium" if self.ai_difficulty < 8 else "hard"
         params = self.BOT_LOGIC_CACHE[bot_level]
         
-        # Don't block the thread with time.wait on mobile
         if not hasattr(self, 'ai_wait_start'):
             self.ai_wait_start = pygame.time.get_ticks()
             return
@@ -677,7 +664,6 @@ class WinCurl3:
         err = (11 - self.ai_difficulty) * params["error_multiplier"]
         target = self.house_pos + pygame.math.Vector2(random.uniform(-7, 7)*err, random.uniform(-6, 6)*err)
         
-        # Takeout logic
         p_stones = sorted([s for s in self.stones if s.team == 0 and s != self.active_stone], key=lambda s: (s.pos - self.house_pos).length())
         if p_stones and (p_stones[0].pos - self.house_pos).length() < 170 and random.random() < params["takeout_chance"]: 
             target = p_stones[0].pos + pygame.math.Vector2(random.uniform(-2, 2)*err, 12) 
@@ -701,8 +687,8 @@ class WinCurl3:
 
     def advance_end_logic(self):
         if self.game_mode == "CHALLENGE":
-            if self.challenge_success or self.challenge_attempts >= 3: 
-                if self.challenge_success: self.challenge_progress[self.challenge_level-1] = True; self.save_progress()
+            if getattr(self, 'challenge_success', False) or self.challenge_attempts >= 3: 
+                if getattr(self, 'challenge_success', False): self.challenge_progress[self.challenge_level-1] = True; self.save_progress()
                 self.challenge_level += 1; self.challenge_attempts = 0
             if self.challenge_level > 30: self.app_state = "MATCH_OVER"; self.audio.play_cheer()
             else: self.load_challenge(self.challenge_level)
@@ -880,13 +866,12 @@ class WinCurl3:
                     if self.stones_thrown[0] == 1: 
                         self.challenge_attempts += 1; cx, cy = self.house_pos.x, self.house_pos.y
                         
-                        # UPDATED COLLISION LOGIC FOR 95% RULE
+                        # OPTIMIZATION: 95% RULE HITBOX FOR DRAW/GUARD CHALLENGES
                         if self.c_type in ["DRAW", "GUARD"]: 
                             self.challenge_success = False
                             for s in self.stones:
                                 if s.team == 0:
                                     dist = (pygame.math.Vector2(s.pos) - pygame.math.Vector2(self.challenge_target[:2])).length()
-                                    # Acceptable if any part of the rock (95% radius) is within the target radius
                                     if dist <= (self.challenge_target[2] + (s.radius * 0.95)):
                                         self.challenge_success = True
                                         break
@@ -945,7 +930,8 @@ class WinCurl3:
         
         t_text = '"WinCurl" 3'
         
-        txt_surf = self.title_font.render(t_text, True, WHITE); grad = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
+        # convert_alpha() prevents format conversion overhead
+        txt_surf = self.title_font.render(t_text, True, WHITE); grad = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
         for x in range(grad.get_width()):
             c = pygame.Color(0); c.hsva = (((x / grad.get_width()) * 360 + t_ms*100) % 360, 85, 100, 100)
             pygame.draw.line(grad, c, (x, 0), (x, grad.get_height()))
@@ -973,13 +959,11 @@ class WinCurl3:
             
             draw_glass_rect(self.canvas, rect, btn["color"], rect.h // 2, is_hovered)
             
-            # Draw standard text vs specialized Sprite rendering for "My Team"
             if btn["id"] == "color":
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
                 self.canvas.blit(img, txt_rect)
                 
-                # Draw miniature rock sprite precisely offset to the right
                 rock_x = txt_rect.right + 40
                 rock_y = rect.centery
                 stone_c = TEAM_YELLOW if self.preferred_color else HOUSE_RED
@@ -1007,10 +991,10 @@ class WinCurl3:
 
     def draw_room_prompt(self):
         self.draw_menu()
-        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, 200)); self.canvas.blit(overlay, (0, 0))
+        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 200)); self.canvas.blit(overlay, (0, 0))
         cx, cy = BASE_WIDTH//2, BASE_HEIGHT//2
         
-        lbl_v = pygame.font.SysFont("Trebuchet MS", 62, bold=True).render("ENTER MATCHMAKING ROOM NAME", True, WHITE)
+        lbl_v = pygame.font.Font(None, 62).render("ENTER MATCHMAKING ROOM NAME", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, cy - 150))
         
         prompt_rect = pygame.Rect(cx - 350, cy - 50, 700, 120)
@@ -1023,7 +1007,7 @@ class WinCurl3:
 
     def draw_challenge_menu(self):
         self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
-        lbl_v = pygame.font.SysFont("Trebuchet MS", 72, bold=True).render("SELECT CHALLENGE", True, WHITE)
+        lbl_v = pygame.font.Font(None, 72).render("SELECT CHALLENGE", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
         
         for i in range(30):
@@ -1054,13 +1038,13 @@ class WinCurl3:
             pygame.draw.ellipse(surface, HOUSE_BLUE, (cx - rw*0.25, cy - 35, rw*0.5, 12))
             pygame.draw.lines(surface, HOUSE_BLUE, False, [(cx - rw*0.4, cy - 25), (cx - rw*0.4, cy - 48), (cx + rw*0.2, cy - 48), (cx + rw*0.4, cy - 25)], max(2, int(8 * scale)))
             
-        glare = pygame.Surface((r_w * 2, r_h), pygame.SRCALPHA)
+        glare = pygame.Surface((r_w * 2, r_h), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(glare, (255, 255, 255, 60), (int(r_w*0.2), int(r_h*0.1), int(r_w*1.6), int(r_h*0.4)))
         surface.blit(glare, (cx - r_w, cy - r_h//2))
 
     def draw_coin_toss_screen(self):
         self.draw_ice()
-        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, 150)); self.canvas.blit(overlay, (0, 0))
+        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 150)); self.canvas.blit(overlay, (0, 0))
         cx, cy, t = BASE_WIDTH//2, BASE_HEIGHT//2, 180 - self.coin_timer; scale_x = abs(math.cos(t * 0.1))
         
         if self.coin_timer > 40:
@@ -1072,10 +1056,9 @@ class WinCurl3:
         lbl = self.font.render(text, True, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 120))
 
     def draw_ice(self):
-        # FAST RENDERING: Blit the pre-rendered composite ice background instead of drawing lines
+        # OPTIMIZATION: One blit call instead of thousands of primitive line draws
         self.canvas.blit(self.static_ice_surface, (0, 0))
         
-        # Only draw dynamic objects over top
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
@@ -1138,7 +1121,7 @@ class WinCurl3:
             pygame.draw.rect(self.canvas, (75, 185, 255), (BASE_WIDTH//2 - 200, BASE_HEIGHT - 180, int(self.sweep_power * 33.3), 30), border_radius=6)
 
         elif self.turn_state == "END":
-            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, 195)); self.canvas.blit(overlay, (0, 0))
+            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 195)); self.canvas.blit(overlay, (0, 0))
             
             if self.game_mode == "CHALLENGE":
                 txt = "SUCCESS! ADVANCING..." if getattr(self, 'challenge_success', False) else "FAILED. RETRYING..."
@@ -1153,11 +1136,11 @@ class WinCurl3:
 
     def draw_pause_screen(self):
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
-        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
+        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
         self.starfield.draw(self.canvas, 0.5 * self.pause_anim)
         m_pos = self.scale_mouse(pygame.mouse.get_pos())
         
-        lbl_p = pygame.font.SysFont("Trebuchet MS", 85, bold=True).render("PAUSED", True, WHITE)
+        lbl_p = pygame.font.Font(None, 85).render("PAUSED", True, WHITE)
         self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 250 + int((1.0 - self.pause_anim) * -200)))
         
         res_rect = self.btn_resume.move(-int((1.0 - self.pause_anim) * 400), 0)
@@ -1171,12 +1154,12 @@ class WinCurl3:
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34)); cx = BASE_WIDTH // 2
         if self.game_mode == "CHALLENGE":
-            lbl_v = pygame.font.SysFont("Trebuchet MS", 72, bold=True).render("CHALLENGES COMPLETED!", True, TEAM_YELLOW)
+            lbl_v = pygame.font.Font(None, 72).render("CHALLENGES COMPLETED!", True, TEAM_YELLOW)
             self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 180))
         else:
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
             o_txt, o_col = ("RED TEAM WINS!", HOUSE_RED) if r_tot > y_tot else ("YELLOW TEAM WINS!", TEAM_YELLOW) if y_tot > r_tot else ("TIE MATCH!", WHITE)
-            lbl_victory = pygame.font.SysFont("Trebuchet MS", 72, bold=True).render(o_txt, True, o_col); self.canvas.blit(lbl_victory, (cx - lbl_victory.get_width()//2, 180))
+            lbl_victory = pygame.font.Font(None, 72).render(o_txt, True, o_col); self.canvas.blit(lbl_victory, (cx - lbl_victory.get_width()//2, 180))
             
             b_rect = pygame.Rect(cx - 480, 350, 960, 400)
             pygame.draw.rect(self.canvas, (28, 36, 50), b_rect, border_radius=16); pygame.draw.rect(self.canvas, (55, 70, 95), b_rect, 4, border_radius=16)
