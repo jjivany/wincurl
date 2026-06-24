@@ -452,6 +452,14 @@ class WinCurl3:
         self.screen = None
         self.canvas = None
 
+    def get_pointer_pos(self):
+        if getattr(self, 'used_finger', False): return self.pointer_pos
+        return pygame.mouse.get_pos()
+
+    def get_pointer_pressed(self):
+        if getattr(self, 'used_finger', False): return self.pointer_pressed
+        return pygame.mouse.get_pressed()[0]
+
     def preload_assets(self):
         self.font = pygame.font.Font(None, 48)
         self.small_font = pygame.font.Font(None, 34)
@@ -530,6 +538,10 @@ class WinCurl3:
         self.net = IRCNetworkManager()
         self.is_fullscreen = False
         self.dragging_slider = False
+        
+        self.pointer_pos = (0, 0)
+        self.pointer_pressed = False
+        self.used_finger = False
         
         base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
@@ -807,7 +819,7 @@ class WinCurl3:
         else: self.reset_end()
 
     def handle_menu_events(self, event):
-        mouse_pos = self.scale_mouse(pygame.mouse.get_pos()); mx, my = mouse_pos.x, mouse_pos.y
+        mouse_pos = self.scale_mouse(self.get_pointer_pos()); mx, my = mouse_pos.x, mouse_pos.y
         curr_hov = next((b["id"] for b in self.menu_buttons if 300<mx<900 and b["y"]<my<b["y"]+110*b["scale"]), None)
         if curr_hov != self.last_hovered:
             if curr_hov: self.audio.play_hover()
@@ -842,7 +854,7 @@ class WinCurl3:
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.audio.play_hover()
                 self.save_progress()
-        elif event.type == MOUSEMOTION and pygame.mouse.get_pressed()[0]:
+        elif event.type == MOUSEMOTION and self.get_pointer_pressed():
             if 330 < mx < 870 and 1590 < my < 1670: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
@@ -853,7 +865,7 @@ class WinCurl3:
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
-            mx, my = self.scale_mouse(pygame.mouse.get_pos())
+            mx, my = self.scale_mouse(self.get_pointer_pos())
             if not self.prompt_rect.collidepoint(mx, my):
                 self.app_state = "MENU"; self.set_typing_target(None)
 
@@ -872,7 +884,7 @@ class WinCurl3:
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
-            mx, my = self.scale_mouse(pygame.mouse.get_pos())
+            mx, my = self.scale_mouse(self.get_pointer_pos())
             if self.btn_return_menu.collidepoint(mx, my): self.audio.play_click(); self.app_state = "MENU"; return
             for i in range(25):
                 row, col = i // 5, i % 5; rect = pygame.Rect(BASE_WIDTH//2 - 250 + col*100, 300 + row*100, 90, 90)
@@ -882,19 +894,19 @@ class WinCurl3:
 
     def handle_pause_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
-            mx, my = self.scale_mouse(pygame.mouse.get_pos())
+            mx, my = self.scale_mouse(self.get_pointer_pos())
             if self.btn_resume.collidepoint(mx, my): self.audio.play_click(); self.app_state = "PLAY"
             elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.return_to_menu()
                 
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
-            mx, my = self.scale_mouse(pygame.mouse.get_pos())
+            mx, my = self.scale_mouse(self.get_pointer_pos())
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 self.return_to_menu()
 
     def handle_play_events(self, event):
-        mouse_pos = self.scale_mouse(pygame.mouse.get_pos())
+        mouse_pos = self.scale_mouse(self.get_pointer_pos())
         
         if event.type == MOUSEBUTTONUP and event.button == 1 and self.is_dragging:
             pygame.event.set_grab(False); pygame.mouse.set_visible(True); self.fire_stone(); return
@@ -938,8 +950,8 @@ class WinCurl3:
         if self.turn_state == "LUNGING" or self.curler_anim.state == "LUNGING": self.curler_anim.update("LUNGING")
 
         if self.turn_state == "SLIDING":
-            mouse_pos = self.scale_mouse(pygame.mouse.get_pos())
-            is_mouse_pressed = pygame.mouse.get_pressed()[0]
+            mouse_pos = self.scale_mouse(self.get_pointer_pos())
+            is_mouse_pressed = self.get_pointer_pressed()
             my_team = self.preferred_color if self.game_mode in ["BOT", "HOST", "JOIN"] else self.current_team
             
             can_sweep_legally = False
@@ -1022,7 +1034,7 @@ class WinCurl3:
                         self.current_team = 1 if self.current_team == 0 else 0; self.turn_state = "AIMING"; self.spawn_next_stone()
                     
         elif self.turn_state == "AIMING" and self.game_mode == "BOT" and self.current_team != self.preferred_color: self.execute_ai()
-        self.last_mouse_pos = self.scale_mouse(pygame.mouse.get_pos())
+        self.last_mouse_pos = self.scale_mouse(self.get_pointer_pos())
 
     def update_network(self):
         if self.game_mode not in ["HOST", "JOIN"]: return
@@ -1057,7 +1069,7 @@ class WinCurl3:
 
     def draw_menu(self):
         self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
-        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, pygame.mouse.get_pos())
+        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
         
         t_text = '"WinCurl" 3'
         txt_surf = self.title_font.render(t_text, True, WHITE)
@@ -1141,12 +1153,12 @@ class WinCurl3:
         
         for i in range(25):
             row, col = i // 5, i % 5; rect = pygame.Rect(cx - 250 + col*100, 300 + row*100, 90, 90)
-            is_hov = rect.collidepoint(self.scale_mouse(pygame.mouse.get_pos()))
+            is_hov = rect.collidepoint(self.scale_mouse(self.get_pointer_pos()))
             draw_glass_rect(self.canvas, rect, (40, 120, 60) if self.challenge_progress[i] else PURPLE_SUIT, 16, is_hov)
             txt = self.font.render(str(i+1), True, WHITE); self.canvas.blit(txt, txt.get_rect(center=rect.center))
             if self.challenge_progress[i]: pygame.draw.line(self.canvas, HOUSE_RED, rect.topleft, rect.bottomright, 8)
             
-        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.scale_mouse(pygame.mouse.get_pos())))
+        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.scale_mouse(self.get_pointer_pos())))
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         self.draw_global_ui()
 
@@ -1209,7 +1221,7 @@ class WinCurl3:
             elif p['type'] == 'trail': pygame.draw.circle(self.canvas, lerp_color(WHITE, ICE_COLOR, 1.0-p['life']), (int(p['pos'].x), int(p['pos'].y)), int(p['life']*6))
             elif p['type'] == 'sweep': pygame.draw.circle(self.canvas, lerp_color((200, 240, 255), ICE_COLOR, 1.0-p['life']), (int(p['pos'].x), int(p['pos'].y)), int(p['life']*5))
 
-        m_pos = self.scale_mouse(pygame.mouse.get_pos())
+        m_pos = self.scale_mouse(self.get_pointer_pos())
         draw_glass_rect(self.canvas, self.btn_pause, (50, 55, 65), self.btn_pause.h // 2, self.btn_pause.collidepoint(m_pos.x, m_pos.y))
         lbl_p = self.small_font.render("|| PAUSE", True, WHITE); self.canvas.blit(lbl_p, lbl_p.get_rect(center=self.btn_pause.center))
 
@@ -1260,7 +1272,7 @@ class WinCurl3:
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
         self.starfield.draw(self.canvas, 0.5 * self.pause_anim)
-        m_pos = self.scale_mouse(pygame.mouse.get_pos())
+        m_pos = self.scale_mouse(self.get_pointer_pos())
         
         lbl_p = pygame.font.Font(None, 85).render("PAUSED", True, WHITE)
         self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 250 + int((1.0 - self.pause_anim) * -200)))
@@ -1300,12 +1312,12 @@ class WinCurl3:
             for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.font.render(str(self.score[1][e-1]), True, WHITE), (cx - 320 + (e * spacing), 570))
             self.canvas.blit(self.font.render(str(y_tot), True, TEAM_YELLOW), (cx + 380, 570))
             
-        m_pos = self.scale_mouse(pygame.mouse.get_pos())
+        m_pos = self.scale_mouse(self.get_pointer_pos())
         draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(m_pos.x, m_pos.y))
         lbl_btn = self.font.render("MAIN MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
-        m_pos = self.scale_mouse(pygame.mouse.get_pos())
+        m_pos = self.scale_mouse(self.get_pointer_pos())
         draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
         lbl = self.small_font.render("FULLSCREEN", True, WHITE)
         self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
@@ -1329,6 +1341,14 @@ class WinCurl3:
     def run(self):
         while True:
             for event in pygame.event.get():
+                # --- ANDROID PERFECT TOUCH FIX ---
+                if hasattr(pygame, 'FINGERDOWN') and event.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
+                    ww, wh = self.screen.get_size()
+                    self.pointer_pos = (event.x * ww, event.y * wh)
+                    self.used_finger = True
+                    if event.type == pygame.FINGERDOWN: self.pointer_pressed = True
+                    elif event.type == pygame.FINGERUP: self.pointer_pressed = False
+
                 if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
                 
                 # Resizable logic handling for Desktop Windowed Mode
@@ -1350,7 +1370,7 @@ class WinCurl3:
                         continue
                     
                 if event.type == MOUSEBUTTONDOWN and event.button == 1:
-                    m_pos = self.scale_mouse(pygame.mouse.get_pos())
+                    m_pos = self.scale_mouse(self.get_pointer_pos())
                     if self.app_state in ["MENU", "CHALLENGE_MENU", "ROOM_PROMPT", "MATCH_OVER"]:
                         if self.btn_fs.collidepoint(m_pos.x, m_pos.y):
                             self.toggle_fullscreen()
