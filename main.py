@@ -19,8 +19,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13 (VERSION 3.1)")
-print("     (DESKTOP SCALING FIX | 3D ROCK REFLECTIONS ++)")
+print("     [SYSTEM] WINCURL 3 BUILD 13 (VERSION 3.0)")
+print("     (DESKTOP ASPECT RATIO RESTORED | 3D ROCK REFLECTIONS)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -498,7 +498,7 @@ class WinCurl3:
 
     def setup_display(self):
         pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.1")
+        pygame.display.set_caption("WinCurl version 3.0")
         
         # Placeholder Curling Emoji Icon Fallback logic
         try:
@@ -515,7 +515,8 @@ class WinCurl3:
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
-            self.screen = pygame.display.set_mode((1200, 900), pygame.RESIZABLE | pygame.DOUBLEBUF)
+            # RESTORED TO ORIGINAL CANVAS DIMENSIONS (1200x1800) SO THERE ARE ZERO LETTERBOXES
+            self.screen = pygame.display.set_mode((1200, 1800), pygame.RESIZABLE | pygame.DOUBLEBUF)
             
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
@@ -624,7 +625,7 @@ class WinCurl3:
             if self.is_fullscreen:
                 self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE)
             else:
-                self.screen = pygame.display.set_mode((1200, 900), pygame.RESIZABLE | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((1200, 1800), pygame.RESIZABLE | pygame.DOUBLEBUF)
         
     def load_progress(self):
         try:
