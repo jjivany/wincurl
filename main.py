@@ -1178,31 +1178,31 @@ class WinCurl3:
         pygame.draw.rect(self.canvas, BLACK, (self.hack_pos.x - 65, self.hack_pos.y + 35, 130, 25), border_radius=6)
 
     def draw_ui(self):
-        pygame.draw.rect(self.canvas, (20, 24, 34), (0, 0, BASE_WIDTH, 160)); pygame.draw.line(self.canvas, HOUSE_RED, (0, 158), (BASE_WIDTH, 158), 3)
+        pygame.draw.rect(self.canvas, (20, 24, 34), (0, 0, BASE_WIDTH, 130)); pygame.draw.line(self.canvas, HOUSE_RED, (0, 128), (BASE_WIDTH, 128), 3)
         
         if self.game_mode == "CHALLENGE":
             t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
-            self.canvas.blit(t1, (BASE_WIDTH//2 - t1.get_width()//2, 45)); self.canvas.blit(t2, (BASE_WIDTH//2 - t2.get_width()//2, 100))
+            self.canvas.blit(t1, (BASE_WIDTH//2 - t1.get_width()//2, 30)); self.canvas.blit(t2, (BASE_WIDTH//2 - t2.get_width()//2, 80))
         else:
-            self.canvas.blit(self.font.render("RED", True, HOUSE_RED), (30, 20)); self.canvas.blit(self.font.render("YLW", True, TEAM_YELLOW), (30, 70))
+            self.canvas.blit(self.font.render("RED", True, HOUSE_RED), (30, 15)); self.canvas.blit(self.font.render("YLW", True, TEAM_YELLOW), (30, 65))
             
             # Draw rocks left
             rem_r = self.stones_per_team - self.stones_thrown[0]
             rem_y = self.stones_per_team - self.stones_thrown[1]
-            for i in range(rem_r): pygame.draw.circle(self.canvas, HOUSE_RED, (120 + i*18, 35), 6)
-            for i in range(rem_y): pygame.draw.circle(self.canvas, TEAM_YELLOW, (120 + i*18, 85), 6)
+            for i in range(rem_r): pygame.draw.circle(self.canvas, HOUSE_RED, (120 + i*18, 30), 6)
+            for i in range(rem_y): pygame.draw.circle(self.canvas, TEAM_YELLOW, (120 + i*18, 80), 6)
             
             spacing = min(100, (BASE_WIDTH - 300) // self.total_ends_pref)
             for e in range(1, self.total_ends_pref + 1):
-                cx = 200 + (e * spacing); self.canvas.blit(self.small_font.render(str(e), True, (140, 150, 165)), (cx, 12))
-                self.canvas.blit(self.font.render(str(self.score[0][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 44))
-                self.canvas.blit(self.font.render(str(self.score[1][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 82))
+                cx = 200 + (e * spacing); self.canvas.blit(self.small_font.render(str(e), True, (140, 150, 165)), (cx, 8))
+                self.canvas.blit(self.font.render(str(self.score[0][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 38))
+                self.canvas.blit(self.font.render(str(self.score[1][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 76))
 
-            tot_x = 200 + (self.total_ends_pref * spacing) + 80; pygame.draw.line(self.canvas, (80, 90, 105), (tot_x - 40, 0), (tot_x - 40, 160), 2)
-            self.canvas.blit(self.small_font.render("TOT", True, WHITE), (tot_x, 12))
-            self.canvas.blit(self.font.render(str(sum(self.score[0])), True, HOUSE_RED), (tot_x, 44)); self.canvas.blit(self.font.render(str(sum(self.score[1])), True, TEAM_YELLOW), (tot_x, 82))
-            if getattr(self, 'hammer_team', 0) == 0: draw_hammer_icon(self.canvas, tot_x + 65, 52, HOUSE_RED)
-            elif getattr(self, 'hammer_team', 0) == 1: draw_hammer_icon(self.canvas, tot_x + 65, 90, TEAM_YELLOW)
+            tot_x = 200 + (self.total_ends_pref * spacing) + 80; pygame.draw.line(self.canvas, (80, 90, 105), (tot_x - 40, 0), (tot_x - 40, 130), 2)
+            self.canvas.blit(self.small_font.render("TOT", True, WHITE), (tot_x, 8))
+            self.canvas.blit(self.font.render(str(sum(self.score[0])), True, HOUSE_RED), (tot_x, 38)); self.canvas.blit(self.font.render(str(sum(self.score[1])), True, TEAM_YELLOW), (tot_x, 76))
+            if getattr(self, 'hammer_team', 0) == 0: draw_hammer_icon(self.canvas, tot_x + 65, 48, HOUSE_RED)
+            elif getattr(self, 'hammer_team', 0) == 1: draw_hammer_icon(self.canvas, tot_x + 65, 86, TEAM_YELLOW)
 
         for p in self.particles:
             if p['type'] == 'spark': pygame.draw.circle(self.canvas, lerp_color((255, 200, 50), ICE_COLOR, 1.0-p['life']), (int(p['pos'].x), int(p['pos'].y)), int(p['life']*4))
