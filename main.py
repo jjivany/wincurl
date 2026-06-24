@@ -19,8 +19,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13 (VERSION 3.0)")
-print("     (TEXT CACHING ++ | 3D SHINE FIX | STARFIELD BOUNDS)")
+print("     [SYSTEM] WINCURL 3 BUILD 13 (VERSION 3.1)")
+print("     (DESKTOP SCALING FIX | 3D ROCK REFLECTIONS ++)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -57,19 +57,10 @@ def draw_hammer_icon(surface, x, y, color):
     pygame.draw.rect(surface, color, (x, y, 16, 8), border_radius=2)
     pygame.draw.rect(surface, color, (x+6, y+8, 4, 12))
 
-# OPTIMIZATION: Cache expensive font renderings and UI glass surfaces
-class TextCache:
-    cache = {}
-    @classmethod
-    def render(cls, font, text, color):
-        if isinstance(color, pygame.Color): color = (color.r, color.g, color.b)
-        key = (font, text, color)
-        if key not in cls.cache:
-            cls.cache[key] = font.render(str(text), True, color)
-        return cls.cache[key]
-
+# OPTIMIZATION: Cache glass buttons
 class UICache:
     glass_surfs = {}
+    
     @classmethod
     def get_glass(cls, w, h, base_color, radius, hovered):
         key = (w, h, base_color, radius, hovered)
@@ -294,20 +285,12 @@ class WinCurlAudioEngine:
 # --- Visual Effects & Geometry ---
 class Starfield:
     def __init__(self):
-        # Bound independent 4000x4000 universe 
-        self.stars = [(random.uniform(0, 4000), random.uniform(0, 4000), random.uniform(0.5, 3.0)) for _ in range(600)]
-        
-    def update(self, speed_mult=1.0):
+        self.stars = [(random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT), random.uniform(0.5, 3.0)) for _ in range(150)]
+    def draw(self, surface, speed_mult=1.0):
         for i in range(len(self.stars)):
-            x, y, s = self.stars[i]
-            self.stars[i] = (x, (y + s * speed_mult) % 4000, s)
-            
-    def draw(self, surface):
-        sw, sh = surface.get_size()
-        for x, y, s in self.stars:
-            if x <= sw and y <= sh:
-                c = int(min(255, 30 + s*60))
-                pygame.draw.circle(surface, (c, c, c), (int(x), int(y)), max(1, int(s)))
+            x, y, s = self.stars[i]; y = (y + s * speed_mult) % BASE_HEIGHT
+            self.stars[i] = (x, y, s)
+            c = int(min(255, 30 + s*60)); pygame.draw.circle(surface, (c, c, c), (int(x), int(y)), max(1, int(s)))
 
 # OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
 class ThreeDStone:
@@ -344,11 +327,11 @@ class ThreeDStone:
             pygame.draw.circle(surf, BLACK, (int(x), int(y)), 18); pygame.draw.circle(surf, HOUSE_RED, (int(x), int(y)), 14)
         pygame.draw.circle(surf, BLACK, (int(hx_start), int(hy_start)), 5); pygame.draw.circle(surf, WHITE, (int(hx_start), int(hy_start)), 2)
         
-        # PERFECTED 3D CRESCENT HIGHLIGHT
+        # PROPER 3D CRESCENT GLARE REFLECTION
         glare = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA).convert_alpha()
-        pygame.draw.ellipse(glare, (255, 255, 255, 45), (r_max*0.15, r_max*0.08, r_max*1.7, r_max*0.7))
+        pygame.draw.circle(glare, (255, 255, 255, 80), (r_max, r_max), r_max - 5)
         inner_mask = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA)
-        pygame.draw.ellipse(inner_mask, (255, 255, 255, 255), (r_max*0.22, r_max*0.16, r_max*1.56, r_max*0.7))
+        pygame.draw.circle(inner_mask, (255, 255, 255, 255), (r_max, r_max + 12), r_max - 5)
         glare.blit(inner_mask, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         surf.blit(glare, (bx - r_max, by - r_max))
         cls.cached_surf = surf
@@ -359,7 +342,7 @@ class ThreeDStone:
 
 # --- Game Entities ---
 class Stone:
-    # OPTIMIZATION: Cache full un-rotated bases to save Pygame calls
+    # OPTIMIZATION: Cache full un-rotated bases to save 6000 Pygame calls per second.
     cached_red_base = None
     cached_ylw_base = None
     cached_hl = None
@@ -382,6 +365,15 @@ class Stone:
         pygame.draw.circle(s, (180, 185, 190), (self.radius+2, self.radius+2), self.radius - 8)
         pygame.draw.circle(s, color, (self.radius+2, self.radius+2), 22)
         pygame.draw.circle(s, (max(0, color[0]-50), max(0, color[1]-50), max(0, color[2]-50)), (self.radius+2, self.radius+2), 22, 3)
+        
+        # 3D CRESCENT REFLECTION APPLIED TO ALL ROCKS
+        glare = pygame.Surface((self.radius*2+10, self.radius*2+10), pygame.SRCALPHA).convert_alpha()
+        pygame.draw.circle(glare, (255, 255, 255, 70), (self.radius+2, self.radius+2), self.radius - 2)
+        mask = pygame.Surface((self.radius*2+10, self.radius*2+10), pygame.SRCALPHA)
+        pygame.draw.circle(mask, (255, 255, 255, 255), (self.radius+2, self.radius+6), self.radius - 2)
+        glare.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+        s.blit(glare, (0, 0))
+        
         return s
 
     def get_state(self): return [round(self.pos.x, 1), round(self.pos.y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
@@ -398,9 +390,11 @@ class Stone:
             self.pos += self.vel
 
     def draw(self, surface):
+        # Draw pre-rendered base
         surface.blit(Stone.cached_red_base if self.team == 0 else Stone.cached_ylw_base, (self.pos.x - self.radius - 2, self.pos.y - self.radius - 2))
         color = HOUSE_RED if self.team == 0 else TEAM_YELLOW
         
+        # Dynamically draw rotating handle
         angle = math.radians(self.rotation)
         hx_s, hy_s = self.pos.x - math.cos(angle)*18, self.pos.y - math.sin(angle)*18
         hx_e, hy_e = self.pos.x + math.cos(angle)*22, self.pos.y + math.sin(angle)*22
@@ -461,9 +455,6 @@ class WinCurl3:
     def preload_assets(self):
         self.font = pygame.font.Font(None, 48)
         self.small_font = pygame.font.Font(None, 34)
-        self.med_font = pygame.font.Font(None, 62)
-        self.large_font = pygame.font.Font(None, 72)
-        self.xl_font = pygame.font.Font(None, 85)
         self.title_font = pygame.font.Font(None, 105)
         
         self.BOT_LOGIC_CACHE = {
@@ -507,8 +498,9 @@ class WinCurl3:
 
     def setup_display(self):
         pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.0")
+        pygame.display.set_caption("WinCurl version 3.1")
         
+        # Placeholder Curling Emoji Icon Fallback logic
         try:
             em_font = pygame.font.SysFont("segoe ui emoji", 32)
             icon = em_font.render("🥌", True, HOUSE_RED)
@@ -520,16 +512,12 @@ class WinCurl3:
             pygame.draw.line(icon, BLACK, (8, 16), (24, 16), 4)
             pygame.display.set_icon(icon)
 
-        # FULLSCREEN Android Default Fix
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-            self.is_fullscreen = True
         else:
-            self.screen = pygame.display.set_mode((600, 900), pygame.RESIZABLE)
-            self.is_fullscreen = False
+            self.screen = pygame.display.set_mode((1200, 900), pygame.RESIZABLE | pygame.DOUBLEBUF)
             
-        # Canvas handles its own Alpha compositing over the Starfield
-        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
         
         pygame.font.init()
@@ -539,6 +527,7 @@ class WinCurl3:
         self.game_mode = "LOCAL"
         self.audio = WinCurlAudioEngine()
         self.net = IRCNetworkManager()
+        self.is_fullscreen = False
         self.dragging_slider = False
         
         base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
@@ -627,14 +616,15 @@ class WinCurl3:
             except: pass
 
     def toggle_fullscreen(self):
-        if IS_ANDROID: return 
-        
         self.is_fullscreen = not self.is_fullscreen
         self.audio.play_click()
-        if self.is_fullscreen:
+        if IS_ANDROID:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
-            self.screen = pygame.display.set_mode((600, 900), pygame.RESIZABLE)
+            if self.is_fullscreen:
+                self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE)
+            else:
+                self.screen = pygame.display.set_mode((1200, 900), pygame.RESIZABLE | pygame.DOUBLEBUF)
         
     def load_progress(self):
         try:
@@ -753,10 +743,10 @@ class WinCurl3:
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
 
     def scale_mouse(self, pos):
-        ww, wh = self.screen.get_size()
-        scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
+        # USES MIN TO PROPERLY INVERT LETTERBOXING MATH FROM RENDER()
+        ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
         ox, oy = (ww - int(BASE_WIDTH * scale)) // 2, (wh - int(BASE_HEIGHT * scale)) // 2
-        return pygame.math.Vector2((pos[0] - ox) / scale, (pos[1] - oy) / scale)
+        return pygame.math.Vector2((pos[0] - ox) / scale if scale > 0 else pos[0], (pos[1] - oy) / scale if scale > 0 else pos[1])
 
     def execute_ai(self):
         bot_level = "easy" if self.ai_difficulty < 4 else "medium" if self.ai_difficulty < 8 else "hard"
@@ -787,7 +777,7 @@ class WinCurl3:
     def fire_stone(self):
         pull = pygame.math.Vector2(-self.virtual_pull.x, -self.virtual_pull.y)
         if pull.length() > 5:
-            self.active_stone.vel = pull.normalize() * min(42.0, pull.length() / 10.0)
+            self.active_stone.vel = pull.normalize() * min(42.0, pull.length() / 10.0) # Slower divisor for pixel-perfect pulls
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
@@ -829,6 +819,7 @@ class WinCurl3:
 
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
             if self.typing_target:
+                # Cancel text entry if clicked outside specific bounds
                 if not (300 < mx < 900 and 1000 < my < 1200):
                     self.set_typing_target(None)
 
@@ -993,7 +984,7 @@ class WinCurl3:
             if not moving:
                 self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
                 
-                # Perfect Hog Line rule
+                # Perfect Hog Line logic implementation (MUST cross near hog line to be valid, must not cross back line completely)
                 valid_stones_final = []
                 hog_line_y = self.house_pos.y + 400
                 back_line_y = self.house_pos.y - 210
@@ -1064,13 +1055,11 @@ class WinCurl3:
             self.draw_fractal_house(surf, x + math.cos(angle)*(radius*1.25), y + math.sin(angle)*(radius*1.25), radius*0.44, depth+1, max_depth, morph_time)
 
     def draw_menu(self):
-        # Render over transparent Canvas to allow the global Starfield screen to bleed through
-        self.canvas.fill((0, 0, 0, 0)) 
-        cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
-        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 3, t_ms); self.menu_stone.draw(self.canvas, cx, 300, pygame.mouse.get_pos())
+        self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
+        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, pygame.mouse.get_pos())
         
         t_text = '"WinCurl" 3'
-        txt_surf = TextCache.render(self.title_font, t_text, WHITE)
+        txt_surf = self.title_font.render(t_text, True, WHITE)
         
         grad_surf = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
         offset = int(t_ms * 100) % 500
@@ -1078,11 +1067,11 @@ class WinCurl3:
         grad_surf.blit(txt_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         
         bx, by = cx - txt_surf.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
-        for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(TextCache.render(self.title_font, t_text, BLACK), (bx+dx, by+dy))
+        for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(self.title_font.render(t_text, True, BLACK), (bx+dx, by+dy))
         self.canvas.blit(grad_surf, (bx, by))
         
         status_string = "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
-        lbl_status = TextCache.render(self.small_font, status_string, (140, 165, 200)); self.canvas.blit(lbl_status, (cx - lbl_status.get_width()//2, 210))
+        lbl_status = self.small_font.render(status_string, True, (140, 165, 200)); self.canvas.blit(lbl_status, (cx - lbl_status.get_width()//2, 210))
 
         for btn in self.menu_buttons:
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -1100,7 +1089,7 @@ class WinCurl3:
             draw_glass_rect(self.canvas, rect, btn["color"], rect.h // 2, is_hovered)
             
             if btn["id"] == "color":
-                img = TextCache.render(self.font, text, WHITE)
+                img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
                 self.canvas.blit(img, txt_rect)
                 
@@ -1119,13 +1108,13 @@ class WinCurl3:
                 pygame.draw.circle(self.canvas, stone_c, (rock_x - 12, rock_y), 3)
                 pygame.draw.circle(self.canvas, stone_c, (rock_x + 12, rock_y), 3)
             else:
-                img = TextCache.render(self.font, text, WHITE)
+                img = self.font.render(text, True, WHITE)
                 self.canvas.blit(img, img.get_rect(center=rect.center))
 
         pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1620, 500, 16), border_radius=8)
         handle_x = cx - 250 + int((self.ai_difficulty - 1) / 9.0 * 500)
         pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1628), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1628), 26, 4)
-        diff_lbl = TextCache.render(self.font, f"BOT DIFFICULTY: {self.ai_difficulty}", WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1560))
+        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1560))
         
         self.draw_global_ui()
 
@@ -1134,30 +1123,30 @@ class WinCurl3:
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 200)); self.canvas.blit(overlay, (0, 0))
         cx, cy = BASE_WIDTH//2, BASE_HEIGHT//2
         
-        lbl_v = TextCache.render(self.med_font, "ENTER MATCHMAKING ROOM NAME", WHITE)
+        lbl_v = pygame.font.Font(None, 62).render("ENTER MATCHMAKING ROOM NAME", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, cy - 150))
         
         draw_glass_rect(self.canvas, self.prompt_rect, HOUSE_BLUE, self.prompt_rect.h // 2)
         txt = f"{self.room_text}_"
-        img = TextCache.render(self.font, txt, WHITE); self.canvas.blit(img, img.get_rect(center=(cx, cy + 10)))
+        img = self.font.render(txt, True, WHITE); self.canvas.blit(img, img.get_rect(center=(cx, cy + 10)))
         
-        sub = TextCache.render(self.small_font, "Press ENTER to connect | ESC to cancel", (150, 160, 180)); self.canvas.blit(sub, (cx - sub.get_width()//2, cy + 120))
+        sub = self.small_font.render("Press ENTER to connect | ESC to cancel", True, (150, 160, 180)); self.canvas.blit(sub, (cx - sub.get_width()//2, cy + 120))
         self.draw_global_ui()
 
     def draw_challenge_menu(self):
-        self.canvas.fill((0, 0, 0, 0)); cx = BASE_WIDTH // 2
-        lbl_v = TextCache.render(self.large_font, "SELECT CHALLENGE", WHITE)
+        self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
+        lbl_v = pygame.font.Font(None, 72).render("SELECT CHALLENGE", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
         
         for i in range(25):
             row, col = i // 5, i % 5; rect = pygame.Rect(cx - 250 + col*100, 300 + row*100, 90, 90)
             is_hov = rect.collidepoint(self.scale_mouse(pygame.mouse.get_pos()))
             draw_glass_rect(self.canvas, rect, (40, 120, 60) if self.challenge_progress[i] else PURPLE_SUIT, 16, is_hov)
-            txt = TextCache.render(self.font, str(i+1), WHITE); self.canvas.blit(txt, txt.get_rect(center=rect.center))
+            txt = self.font.render(str(i+1), True, WHITE); self.canvas.blit(txt, txt.get_rect(center=rect.center))
             if self.challenge_progress[i]: pygame.draw.line(self.canvas, HOUSE_RED, rect.topleft, rect.bottomright, 8)
             
         draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.scale_mouse(pygame.mouse.get_pos())))
-        lbl_btn = TextCache.render(self.font, "BACK TO MENU", WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+        lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         self.draw_global_ui()
 
     def draw_coin_toss_screen(self):
@@ -1176,7 +1165,7 @@ class WinCurl3:
             scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h))
             self.canvas.blit(scaled, (cx - scaled.get_width()//2, cy - h//2))
             
-        lbl = TextCache.render(self.font, text, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 150))
+        lbl = self.font.render(text, True, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 150))
 
     def draw_ice(self):
         self.canvas.blit(self.static_ice_surface, (0, 0))
@@ -1191,10 +1180,10 @@ class WinCurl3:
         pygame.draw.rect(self.canvas, (20, 24, 34), (0, 0, BASE_WIDTH, 160)); pygame.draw.line(self.canvas, HOUSE_RED, (0, 158), (BASE_WIDTH, 158), 3)
         
         if self.game_mode == "CHALLENGE":
-            t1, t2 = TextCache.render(self.font, self.challenge_text_1, WHITE), TextCache.render(self.small_font, self.challenge_text_2, TEAM_YELLOW)
+            t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
             self.canvas.blit(t1, (BASE_WIDTH//2 - t1.get_width()//2, 45)); self.canvas.blit(t2, (BASE_WIDTH//2 - t2.get_width()//2, 100))
         else:
-            self.canvas.blit(TextCache.render(self.font, "RED", HOUSE_RED), (30, 20)); self.canvas.blit(TextCache.render(self.font, "YLW", TEAM_YELLOW), (30, 70))
+            self.canvas.blit(self.font.render("RED", True, HOUSE_RED), (30, 20)); self.canvas.blit(self.font.render("YLW", True, TEAM_YELLOW), (30, 70))
             
             # Draw rocks left
             rem_r = self.stones_per_team - self.stones_thrown[0]
@@ -1204,13 +1193,13 @@ class WinCurl3:
             
             spacing = min(100, (BASE_WIDTH - 300) // self.total_ends_pref)
             for e in range(1, self.total_ends_pref + 1):
-                cx = 200 + (e * spacing); self.canvas.blit(TextCache.render(self.small_font, str(e), (140, 150, 165)), (cx, 12))
-                self.canvas.blit(TextCache.render(self.font, str(self.score[0][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", WHITE), (cx, 44))
-                self.canvas.blit(TextCache.render(self.font, str(self.score[1][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", WHITE), (cx, 82))
+                cx = 200 + (e * spacing); self.canvas.blit(self.small_font.render(str(e), True, (140, 150, 165)), (cx, 12))
+                self.canvas.blit(self.font.render(str(self.score[0][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 44))
+                self.canvas.blit(self.font.render(str(self.score[1][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 82))
 
             tot_x = 200 + (self.total_ends_pref * spacing) + 80; pygame.draw.line(self.canvas, (80, 90, 105), (tot_x - 40, 0), (tot_x - 40, 160), 2)
-            self.canvas.blit(TextCache.render(self.small_font, "TOT", WHITE), (tot_x, 12))
-            self.canvas.blit(TextCache.render(self.font, str(sum(self.score[0])), HOUSE_RED), (tot_x, 44)); self.canvas.blit(TextCache.render(self.font, str(sum(self.score[1])), TEAM_YELLOW), (tot_x, 82))
+            self.canvas.blit(self.small_font.render("TOT", True, WHITE), (tot_x, 12))
+            self.canvas.blit(self.font.render(str(sum(self.score[0])), True, HOUSE_RED), (tot_x, 44)); self.canvas.blit(self.font.render(str(sum(self.score[1])), True, TEAM_YELLOW), (tot_x, 82))
             if getattr(self, 'hammer_team', 0) == 0: draw_hammer_icon(self.canvas, tot_x + 65, 52, HOUSE_RED)
             elif getattr(self, 'hammer_team', 0) == 1: draw_hammer_icon(self.canvas, tot_x + 65, 90, TEAM_YELLOW)
 
@@ -1221,18 +1210,18 @@ class WinCurl3:
 
         m_pos = self.scale_mouse(pygame.mouse.get_pos())
         draw_glass_rect(self.canvas, self.btn_pause, (50, 55, 65), self.btn_pause.h // 2, self.btn_pause.collidepoint(m_pos.x, m_pos.y))
-        lbl_p = TextCache.render(self.small_font, "|| PAUSE", WHITE); self.canvas.blit(lbl_p, lbl_p.get_rect(center=self.btn_pause.center))
+        lbl_p = self.small_font.render("|| PAUSE", True, WHITE); self.canvas.blit(lbl_p, lbl_p.get_rect(center=self.btn_pause.center))
 
         if self.turn_state == "AIMING":
             if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
             
             draw_glass_rect(self.canvas, self.btn_curl_l, (255, 180, 180), 16, self.btn_curl_l.collidepoint(m_pos.x, m_pos.y))
-            img_m = TextCache.render(self.small_font, "-", HOUSE_RED); img_cl = TextCache.render(self.small_font, " CURL L", BLACK)
+            img_m = self.small_font.render("-", True, HOUSE_RED); img_cl = self.small_font.render(" CURL L", True, BLACK)
             bx = self.btn_curl_l.centerx - (img_m.get_width() + img_cl.get_width())//2
             self.canvas.blit(img_m, (bx, self.btn_curl_l.centery - img_m.get_height()//2)); self.canvas.blit(img_cl, (bx + img_m.get_width(), self.btn_curl_l.centery - img_cl.get_height()//2))
             
             draw_glass_rect(self.canvas, self.btn_curl_r, (180, 255, 180), 16, self.btn_curl_r.collidepoint(m_pos.x, m_pos.y))
-            img_p = TextCache.render(self.small_font, "+", (40, 160, 40)); img_cr = TextCache.render(self.small_font, " CURL R", BLACK)
+            img_p = self.small_font.render("+", True, (40, 160, 40)); img_cr = self.small_font.render(" CURL R", True, BLACK)
             bx2 = self.btn_curl_r.centerx - (img_p.get_width() + img_cr.get_width())//2
             self.canvas.blit(img_p, (bx2, self.btn_curl_r.centery - img_p.get_height()//2)); self.canvas.blit(img_cr, (bx2 + img_p.get_width(), self.btn_curl_r.centery - img_cr.get_height()//2))
 
@@ -1246,7 +1235,7 @@ class WinCurl3:
                         if svel.length() > 0.4: svel.rotate_ip((1.4 / svel.length()) * self.selected_curl * 0.05)
                         spos += svel
                         if i % 5 == 0: pygame.draw.circle(self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(spos.x), int(spos.y)), 6)
-            self.canvas.blit(TextCache.render(self.small_font, f"CURL BIAS: {self.selected_curl:+.1f}", BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
+            self.canvas.blit(self.small_font.render(f"CURL BIAS: {self.selected_curl:+.1f}", True, BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
             
         elif self.turn_state == "SLIDING":
             pygame.draw.rect(self.canvas, (40, 45, 55), (BASE_WIDTH//2 - 200, BASE_HEIGHT - 180, 400, 30), border_radius=6)
@@ -1260,67 +1249,68 @@ class WinCurl3:
                 if self.challenge_attempts >= 3 and not getattr(self, 'challenge_success', False): txt = "FAILED - SKIPPING CHALLENGE"
             else: txt = "END COMPLETE"
                 
-            img_txt = TextCache.render(self.font, txt, WHITE); self.canvas.blit(img_txt, (BASE_WIDTH//2 - img_txt.get_width()//2, BASE_HEIGHT//2 - 50))
+            img_txt = self.font.render(txt, True, WHITE); self.canvas.blit(img_txt, (BASE_WIDTH//2 - img_txt.get_width()//2, BASE_HEIGHT//2 - 50))
             draw_glass_rect(self.canvas, self.btn_next_end, PURPLE_SUIT, self.btn_next_end.h // 2, self.btn_next_end.collidepoint(m_pos.x, m_pos.y))
             
             btn_txt = "NEXT" if self.game_mode=="CHALLENGE" and (getattr(self, 'challenge_success', False) or self.challenge_attempts >= 3) else "RETRY" if self.game_mode=="CHALLENGE" else "ADVANCE MATCH"
-            lbl = TextCache.render(self.small_font, btn_txt, WHITE); self.canvas.blit(lbl, lbl.get_rect(center=self.btn_next_end.center))
+            lbl = self.small_font.render(btn_txt, True, WHITE); self.canvas.blit(lbl, lbl.get_rect(center=self.btn_next_end.center))
 
     def draw_pause_screen(self):
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
+        self.starfield.draw(self.canvas, 0.5 * self.pause_anim)
         m_pos = self.scale_mouse(pygame.mouse.get_pos())
         
-        lbl_p = TextCache.render(self.xl_font, "PAUSED", WHITE)
+        lbl_p = pygame.font.Font(None, 85).render("PAUSED", True, WHITE)
         self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 250 + int((1.0 - self.pause_anim) * -200)))
         
         res_rect = self.btn_resume.move(-int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
-        lbl_btn = TextCache.render(self.font, "RESUME MATCH", WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
+        lbl_btn = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
         
         quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
-        lbl_q = TextCache.render(self.font, "QUIT TO MENU", WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
+        lbl_q = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
 
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34)); cx = BASE_WIDTH // 2
         if self.game_mode == "CHALLENGE":
-            lbl_v = TextCache.render(self.large_font, "CHALLENGES COMPLETED!", TEAM_YELLOW)
+            lbl_v = pygame.font.Font(None, 72).render("CHALLENGES COMPLETED!", True, TEAM_YELLOW)
             self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 180))
         else:
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
             o_txt, o_col = ("RED TEAM WINS!", HOUSE_RED) if r_tot > y_tot else ("YELLOW TEAM WINS!", TEAM_YELLOW) if y_tot > r_tot else ("TIE MATCH!", WHITE)
-            lbl_victory = TextCache.render(self.large_font, o_txt, o_col); self.canvas.blit(lbl_victory, (cx - lbl_victory.get_width()//2, 180))
+            lbl_victory = pygame.font.Font(None, 72).render(o_txt, True, o_col); self.canvas.blit(lbl_victory, (cx - lbl_victory.get_width()//2, 180))
             
             b_rect = pygame.Rect(cx - 480, 350, 960, 400)
             pygame.draw.rect(self.canvas, (28, 36, 50), b_rect, border_radius=16); pygame.draw.rect(self.canvas, (55, 70, 95), b_rect, 4, border_radius=16)
             
-            self.canvas.blit(TextCache.render(self.small_font, "TEAM", (140, 160, 185)), (cx - 430, 380))
+            self.canvas.blit(self.small_font.render("TEAM", True, (140, 160, 185)), (cx - 430, 380))
             spacing = min(75, 700 // self.total_ends_pref)
-            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(TextCache.render(self.small_font, f"E{e}", (140, 160, 185)), (cx - 320 + (e * spacing), 380))
-            self.canvas.blit(TextCache.render(self.small_font, "TOTAL", WHITE), (cx + 360, 380))
+            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.small_font.render(f"E{e}", True, (140, 160, 185)), (cx - 320 + (e * spacing), 380))
+            self.canvas.blit(self.small_font.render("TOTAL", True, WHITE), (cx + 360, 380))
             pygame.draw.line(self.canvas, (55, 70, 95), (cx - 450, 440), (cx + 450, 440), 2)
             
-            self.canvas.blit(TextCache.render(self.font, "RED", HOUSE_RED), (cx - 430, 470))
-            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(TextCache.render(self.font, str(self.score[0][e-1]), WHITE), (cx - 320 + (e * spacing), 470))
-            self.canvas.blit(TextCache.render(self.font, str(r_tot), HOUSE_RED), (cx + 380, 470))
+            self.canvas.blit(self.font.render("RED", True, HOUSE_RED), (cx - 430, 470))
+            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.font.render(str(self.score[0][e-1]), True, WHITE), (cx - 320 + (e * spacing), 470))
+            self.canvas.blit(self.font.render(str(r_tot), True, HOUSE_RED), (cx + 380, 470))
 
-            self.canvas.blit(TextCache.render(self.font, "YLW", TEAM_YELLOW), (cx - 430, 570))
-            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(TextCache.render(self.font, str(self.score[1][e-1]), WHITE), (cx - 320 + (e * spacing), 570))
-            self.canvas.blit(TextCache.render(self.font, str(y_tot), TEAM_YELLOW), (cx + 380, 570))
+            self.canvas.blit(self.font.render("YLW", True, TEAM_YELLOW), (cx - 430, 570))
+            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.font.render(str(self.score[1][e-1]), True, WHITE), (cx - 320 + (e * spacing), 570))
+            self.canvas.blit(self.font.render(str(y_tot), True, TEAM_YELLOW), (cx + 380, 570))
             
         m_pos = self.scale_mouse(pygame.mouse.get_pos())
         draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(m_pos.x, m_pos.y))
-        lbl_btn = TextCache.render(self.font, "MAIN MENU", WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+        lbl_btn = self.font.render("MAIN MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
-        if not IS_ANDROID:
-            m_pos = self.scale_mouse(pygame.mouse.get_pos())
-            draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
-            lbl = TextCache.render(self.small_font, "FULLSCREEN", WHITE)
-            self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
+        m_pos = self.scale_mouse(pygame.mouse.get_pos())
+        draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
+        lbl = self.small_font.render("FULLSCREEN", True, WHITE)
+        self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
 
     def render(self):
+        # USES MIN SCALE TO PRESERVE LETTERBOXING INSTEAD OF CROPPING/ZOOMING
         ww, wh = self.screen.get_size()
         scale = min(ww / BASE_WIDTH, wh / BASE_HEIGHT)
         sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
@@ -1330,13 +1320,8 @@ class WinCurl3:
             ox += int(random.uniform(-self.shake_amount, self.shake_amount))
             oy += int(random.uniform(-self.shake_amount, self.shake_amount))
             self.shake_amount *= 0.85 
-            
-        # Draw background base and universal Starfield spanning all letterboxing non-destructively
-        self.screen.fill((10, 12, 16))
-        self.starfield.update(0.5 if self.app_state == "PAUSED" else 2.0 if self.app_state in ["MENU", "CHALLENGE_MENU"] else 0.0)
-        self.starfield.draw(self.screen) 
         
-        # Blit the Transparent-friendly canvas on top
+        self.screen.fill((10, 12, 16))
         self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
         pygame.display.flip()
 
@@ -1347,7 +1332,7 @@ class WinCurl3:
                 
                 # Resizable logic handling for Desktop Windowed Mode
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
-                    self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+                    self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
                 
                 if event.type == KEYDOWN:
                     if event.key == K_ESCAPE:
@@ -1366,7 +1351,7 @@ class WinCurl3:
                 if event.type == MOUSEBUTTONDOWN and event.button == 1:
                     m_pos = self.scale_mouse(pygame.mouse.get_pos())
                     if self.app_state in ["MENU", "CHALLENGE_MENU", "ROOM_PROMPT", "MATCH_OVER"]:
-                        if not IS_ANDROID and self.btn_fs.collidepoint(m_pos.x, m_pos.y):
+                        if self.btn_fs.collidepoint(m_pos.x, m_pos.y):
                             self.toggle_fullscreen()
                             continue
                 
