@@ -458,11 +458,9 @@ class WinCurl3:
         self.canvas = None
 
     def get_pointer_pos(self):
-        if getattr(self, 'used_finger', False): return self.pointer_pos
         return pygame.mouse.get_pos()
 
     def get_pointer_pressed(self):
-        if getattr(self, 'used_finger', False): return self.pointer_pressed
         return pygame.mouse.get_pressed()[0]
 
     def preload_assets(self):
@@ -552,10 +550,6 @@ class WinCurl3:
         self.net = IRCNetworkManager()
         self.is_fullscreen = False
         self.dragging_slider = False
-        
-        self.pointer_pos = (0, 0)
-        self.pointer_pressed = False
-        self.used_finger = False
         
         base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
@@ -1275,10 +1269,6 @@ class WinCurl3:
                         if i % 5 == 0: pygame.draw.circle(self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(spos.x), int(spos.y)), 6)
             self.canvas.blit(self.small_font.render(f"CURL BIAS: {self.selected_curl:+.1f}", True, BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
             
-        elif self.turn_state == "SLIDING":
-            pygame.draw.rect(self.canvas, (40, 45, 55), (BASE_WIDTH//2 - 200, BASE_HEIGHT - 180, 400, 30), border_radius=6)
-            pygame.draw.rect(self.canvas, (75, 185, 255), (BASE_WIDTH//2 - 200, BASE_HEIGHT - 180, int(self.sweep_power * 33.3), 30), border_radius=6)
-
         elif self.turn_state == "END":
             overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 195)); self.canvas.blit(overlay, (0, 0))
             
@@ -1372,13 +1362,6 @@ class WinCurl3:
     def run(self):
         while True:
             for event in pygame.event.get():
-                if hasattr(pygame, 'FINGERDOWN') and event.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
-                    ww, wh = self.screen.get_size()
-                    self.pointer_pos = (event.x * ww, event.y * wh)
-                    self.used_finger = True
-                    if event.type == pygame.FINGERDOWN: self.pointer_pressed = True
-                    elif event.type == pygame.FINGERUP: self.pointer_pressed = False
-
                 if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
                 
                 # Resizable logic handling for Desktop Windowed Mode
