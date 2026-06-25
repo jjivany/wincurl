@@ -442,9 +442,14 @@ class AnimatedCurler:
     def draw(self, surface, team_color):
         if self.state == "IDLE" and self.delivery_progress == 0.0: return
         self.tc = team_color; oy = self.delivery_progress*70 if self.state == "BACKSWING" else 0; ld = (1.0 - self.delivery_progress)*-190 if self.state == "LUNGING" else 0
-        shadow_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-        self._draw_char_geometry(shadow_surf, self.hack_pos.x+18, self.hack_pos.y+18, oy, ld, (0,0,0,100))
-        surface.blit(shadow_surf, (0, 0)); self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld)
+        
+        if not hasattr(self, 'shadow_surf'):
+            self.shadow_surf = pygame.Surface((500, 800), pygame.SRCALPHA).convert_alpha()
+        self.shadow_surf.fill((0,0,0,0))
+        self._draw_char_geometry(self.shadow_surf, 250+18, 500+18, oy, ld, (0,0,0,100))
+        surface.blit(self.shadow_surf, (self.hack_pos.x - 250, self.hack_pos.y - 500))
+        
+        self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld)
 
 # --- Main Engine ---
 class WinCurl3:
@@ -464,6 +469,7 @@ class WinCurl3:
         self.font = pygame.font.Font(None, 48)
         self.small_font = pygame.font.Font(None, 34)
         self.title_font = pygame.font.Font(None, 105)
+        self.large_sym_font = pygame.font.Font(None, 96)
         
         self.BOT_LOGIC_CACHE = {
             "easy": {"error_multiplier": 2.5, "takeout_chance": 0.1, "guard_chance": 0.3},
@@ -574,7 +580,7 @@ class WinCurl3:
         
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
-        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH//2-125, BASE_HEIGHT-90, 250, 85), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
+        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 220, 140, 180, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
         self.btn_quit_main, self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+40, 500, 100), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
         
         self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 250, 60)
@@ -838,6 +844,10 @@ class WinCurl3:
                 self.save_progress()
 
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            now = pygame.time.get_ticks()
+            if hasattr(self, 'last_click_time') and now - self.last_click_time < 200: return
+            self.last_click_time = now
+
             if self.typing_target:
                 # Cancel text entry if clicked outside specific bounds
                 if not (300 < mx < 900 and 1000 < my < 1200):
@@ -856,6 +866,7 @@ class WinCurl3:
                         elif b["id"] == "ends": opts = [1, 2, 4, 8, 10]; self.total_ends_pref = opts[(opts.index(self.total_ends_pref)+1)%len(opts)]; self.save_progress()
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
+                        break
             
             if 350 < mx < 850 and 1600 < my < 1660: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
@@ -1038,7 +1049,7 @@ class WinCurl3:
                             if pts > 0: self.score[winner][self.current_end - 1] = pts; self.hammer_team = 0 if winner == 1 else 1 
                         self.turn_state = "END"
                     else:
-                        self.current_team = 1 if self.current_team == 0 else 0; self.turn_state = "AIMING"; self.spawn_next_stone()
+                        self.current_team = 1 if self.current_team == 0 else 0; self.turn_state = "AIMING"; self.selected_curl = 0.0; self.spawn_next_stone()
                     
         elif self.turn_state == "AIMING" and self.game_mode == "BOT" and self.current_team != self.preferred_color: self.execute_ai()
         self.last_mouse_pos = self.scale_mouse(self.get_pointer_pos())
@@ -1076,19 +1087,21 @@ class WinCurl3:
 
     def draw_menu(self):
         self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
-        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
+        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 2 if IS_ANDROID else 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
         
         t_text = '"WinCurl" 3'
         txt_surf = self.title_font.render(t_text, True, WHITE)
         
-        grad_surf = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
+        if not hasattr(self, 'title_grad_surf'):
+            self.title_grad_surf = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
+        self.title_grad_surf.fill((0,0,0,0))
         offset = int(t_ms * 100) % 500
-        grad_surf.blit(self.rainbow_grad, (-offset, 0))
-        grad_surf.blit(txt_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.title_grad_surf.blit(self.rainbow_grad, (-offset, 0))
+        self.title_grad_surf.blit(txt_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         
         bx, by = cx - txt_surf.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
         for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(self.title_font.render(t_text, True, BLACK), (bx+dx, by+dy))
-        self.canvas.blit(grad_surf, (bx, by))
+        self.canvas.blit(self.title_grad_surf, (bx, by))
         
         status_string = "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
         lbl_status = self.small_font.render(status_string, True, (140, 165, 200)); self.canvas.blit(lbl_status, (cx - lbl_status.get_width()//2, 210))
@@ -1197,7 +1210,11 @@ class WinCurl3:
         pygame.draw.rect(self.canvas, BLACK, (self.hack_pos.x - 65, self.hack_pos.y + 35, 130, 25), border_radius=6)
 
     def draw_ui(self):
-        pygame.draw.rect(self.canvas, (20, 24, 34), (0, 0, BASE_WIDTH, 130)); pygame.draw.line(self.canvas, HOUSE_RED, (0, 128), (BASE_WIDTH, 128), 3)
+        if not hasattr(self, 'score_bg'):
+            self.score_bg = pygame.Surface((BASE_WIDTH, 130), pygame.SRCALPHA)
+            self.score_bg.fill((20, 24, 34, 216))
+        self.canvas.blit(self.score_bg, (0, 0))
+        pygame.draw.line(self.canvas, HOUSE_RED, (0, 128), (BASE_WIDTH, 128), 3)
         
         if self.game_mode == "CHALLENGE":
             t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
@@ -1237,12 +1254,12 @@ class WinCurl3:
             if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
             
             draw_glass_rect(self.canvas, self.btn_curl_l, (255, 180, 180), 16, self.btn_curl_l.collidepoint(m_pos.x, m_pos.y))
-            img_m = self.small_font.render("-", True, HOUSE_RED); img_cl = self.small_font.render(" CURL L", True, BLACK)
+            img_m = self.large_sym_font.render("-", True, HOUSE_RED); img_cl = self.small_font.render(" CURL L", True, BLACK)
             bx = self.btn_curl_l.centerx - (img_m.get_width() + img_cl.get_width())//2
             self.canvas.blit(img_m, (bx, self.btn_curl_l.centery - img_m.get_height()//2)); self.canvas.blit(img_cl, (bx + img_m.get_width(), self.btn_curl_l.centery - img_cl.get_height()//2))
             
             draw_glass_rect(self.canvas, self.btn_curl_r, (180, 255, 180), 16, self.btn_curl_r.collidepoint(m_pos.x, m_pos.y))
-            img_p = self.small_font.render("+", True, (40, 160, 40)); img_cr = self.small_font.render(" CURL R", True, BLACK)
+            img_p = self.large_sym_font.render("+", True, (40, 160, 40)); img_cr = self.small_font.render(" CURL R", True, BLACK)
             bx2 = self.btn_curl_r.centerx - (img_p.get_width() + img_cr.get_width())//2
             self.canvas.blit(img_p, (bx2, self.btn_curl_r.centery - img_p.get_height()//2)); self.canvas.blit(img_cr, (bx2 + img_p.get_width(), self.btn_curl_r.centery - img_cr.get_height()//2))
 
@@ -1325,10 +1342,11 @@ class WinCurl3:
         lbl_btn = self.font.render("MAIN MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
-        m_pos = self.scale_mouse(self.get_pointer_pos())
-        draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
-        lbl = self.small_font.render("FULLSCREEN", True, WHITE)
-        self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
+        if not IS_ANDROID:
+            m_pos = self.scale_mouse(self.get_pointer_pos())
+            draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
+            lbl = self.small_font.render("FULLSCREEN", True, WHITE)
+            self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
 
     def render(self):
         ww, wh = self.screen.get_size()
@@ -1378,13 +1396,13 @@ class WinCurl3:
                             self.app_state = "MENU"; self.set_typing_target(None)
                         continue
                     elif event.key == K_f:
-                        self.toggle_fullscreen()
+                        if not IS_ANDROID: self.toggle_fullscreen()
                         continue
                     
                 if event.type == MOUSEBUTTONDOWN and event.button == 1:
                     m_pos = self.scale_mouse(self.get_pointer_pos())
                     if self.app_state in ["MENU", "CHALLENGE_MENU", "ROOM_PROMPT", "MATCH_OVER"]:
-                        if self.btn_fs.collidepoint(m_pos.x, m_pos.y):
+                        if not IS_ANDROID and self.btn_fs.collidepoint(m_pos.x, m_pos.y):
                             self.toggle_fullscreen()
                             continue
                 
