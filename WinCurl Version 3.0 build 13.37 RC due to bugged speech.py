@@ -162,17 +162,17 @@ class WinCurlAudioEngine:
         
         # Synthesis profiles based on the word
         if phrase == "HURRY":
-            f1_env = [(0.0,300),(0.2,450),(0.8,450),(1.0,300)]
-            f2_env = [(0.0,1200),(0.2,1400),(0.8,1200),(1.0,1000)]
-            f3_env = [(0.0,2500),(0.5,2600),(1.0,2400)]
-            f0_env = [(0.0, 180), (0.4, 220), (1.0, 140)]
-            noise_env = [(0.0, 0.8), (0.1, 0.4), (0.2, 0.0), (1.0, 0.0)] 
+            f1_env = [(0.0,350),(0.2,500),(0.8,500),(1.0,350)]
+            f2_env = [(0.0,1400),(0.2,1600),(0.8,1400),(1.0,1200)]
+            f3_env = [(0.0,2600),(0.5,2800),(1.0,2600)]
+            f0_env = [(0.0, 190), (0.4, 230), (1.0, 150)]
+            noise_env = [(0.0, 0.9), (0.1, 0.5), (0.2, 0.0), (1.0, 0.0)] 
         elif phrase == "HARD":
-            f1_env = [(0.0,300),(0.3,750),(0.8,700),(1.0,400)]
-            f2_env = [(0.0,1200),(0.3,1300),(0.8,1100),(1.0,1000)]
-            f3_env = [(0.0,2500),(0.5,2400),(1.0,2400)]
-            f0_env = [(0.0, 170), (0.3, 200), (1.0, 130)]
-            noise_env = [(0.0, 0.8), (0.15, 0.2), (0.25, 0.0), (1.0, 0.0)]
+            f1_env = [(0.0,400),(0.3,850),(0.8,800),(1.0,450)]
+            f2_env = [(0.0,1400),(0.3,1600),(0.8,1300),(1.0,1100)]
+            f3_env = [(0.0,2700),(0.5,2800),(1.0,2600)]
+            f0_env = [(0.0, 180), (0.3, 220), (1.0, 140)]
+            noise_env = [(0.0, 0.9), (0.15, 0.3), (0.25, 0.0), (1.0, 0.0)]
         elif phrase == "RED":
             f1_env = [(0.0,300),(0.4,450),(1.0,350)]
             f2_env = [(0.0,1300),(0.4,1500),(1.0,1300)]
@@ -1251,7 +1251,7 @@ class WinCurl3:
         
         # Pre-rendered spinning fractal logic
         rotated_fractal = pygame.transform.rotate(self.fractal_surf, t_ms * 15)
-        self.canvas.blit(rotated_fractal, (cx - rotated_fractal.get_width()//2, 300 - rotated_fractal.get_height()//2))
+        self.canvas.blit(rotated_fractal, (cx - rotated_fractal.get_width()//2, 450 - rotated_fractal.get_height()//2))
         
         self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
         
