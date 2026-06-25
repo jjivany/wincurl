@@ -32,7 +32,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3.1 (NEW ARCHITECTURE)")
+print("     [SYSTEM] WINCURL 3.0 build 13.37 RC (NEW ARCHITECTURE)")
 print("     (BROOM VISUALS | HAPTICS | CHAT | PERF OPTIMIZED)")
 print("="*60 + "\n")
 
