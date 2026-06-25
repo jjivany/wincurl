@@ -520,11 +520,19 @@ class WinCurl3:
             pygame.draw.line(icon, BLACK, (8, 16), (24, 16), 4)
             pygame.display.set_icon(icon)
 
+        flags = pygame.DOUBLEBUF | pygame.RESIZABLE
         if IS_ANDROID:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
         else:
-            # RESTORED TO ORIGINAL CANVAS DIMENSIONS (1200x1800) SO THERE ARE ZERO LETTERBOXES
-            self.screen = pygame.display.set_mode((1200, 1800), pygame.RESIZABLE | pygame.DOUBLEBUF)
+            # PERFECT DESKTOP 95% HEIGHT CALCULATION
+            info = pygame.display.Info()
+            desk_h = info.current_h
+            if desk_h > 0 and 1800 > desk_h * 0.95:
+                target_h = int(desk_h * 0.95)
+                target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
+                self.screen = pygame.display.set_mode((target_w, target_h), flags)
+            else:
+                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), flags)
             
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
@@ -756,7 +764,6 @@ class WinCurl3:
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
 
     def scale_mouse(self, pos):
-        # USES MIN TO PROPERLY INVERT LETTERBOXING MATH FROM RENDER()
         ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
         ox, oy = (ww - int(BASE_WIDTH * scale)) // 2, (wh - int(BASE_HEIGHT * scale)) // 2
         return pygame.math.Vector2((pos[0] - ox) / scale if scale > 0 else pos[0], (pos[1] - oy) / scale if scale > 0 else pos[1])
@@ -1204,7 +1211,8 @@ class WinCurl3:
             for i in range(rem_r): pygame.draw.circle(self.canvas, HOUSE_RED, (120 + i*18, 30), 6)
             for i in range(rem_y): pygame.draw.circle(self.canvas, TEAM_YELLOW, (120 + i*18, 80), 6)
             
-            spacing = min(100, (BASE_WIDTH - 300) // self.total_ends_pref)
+            # FIXED: Prevent text cutoff when Ends=10
+            spacing = min(80, (BASE_WIDTH - 420) // self.total_ends_pref)
             for e in range(1, self.total_ends_pref + 1):
                 cx = 200 + (e * spacing); self.canvas.blit(self.small_font.render(str(e), True, (140, 150, 165)), (cx, 8))
                 self.canvas.blit(self.font.render(str(self.score[0][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 38))
@@ -1323,7 +1331,6 @@ class WinCurl3:
         self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
 
     def render(self):
-        # USES MIN SCALE TO PRESERVE LETTERBOXING INSTEAD OF CROPPING/ZOOMING
         ww, wh = self.screen.get_size()
         scale = min(ww / BASE_WIDTH, wh / BASE_HEIGHT)
         sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
@@ -1335,13 +1342,18 @@ class WinCurl3:
             self.shake_amount *= 0.85 
         
         self.screen.fill((10, 12, 16))
-        self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
+        
+        # Conditional scaling to balance Android performance and Desktop visuals
+        if IS_ANDROID:
+            self.screen.blit(pygame.transform.scale(self.canvas, (sw, sh)), (ox, oy))
+        else:
+            self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
+            
         pygame.display.flip()
 
     def run(self):
         while True:
             for event in pygame.event.get():
-                # --- ANDROID PERFECT TOUCH FIX ---
                 if hasattr(pygame, 'FINGERDOWN') and event.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
                     ww, wh = self.screen.get_size()
                     self.pointer_pos = (event.x * ww, event.y * wh)
@@ -1444,14 +1456,26 @@ class IRCNetworkManager:
                         elif len(parts) > 1 and parts[1] in ("376", "422"):
                             self.sock.send(f"JOIN {self.channel}\r\n".encode())
                             if self.is_host: self.connecting = False 
-                            else: self.matched = True; self.connecting = False; self.tx_queue.put({"cmd": "hello"})
+                            else: 
+                                # FIXED: Client must broadcast initial greeting to channel so the host knows who to talk to!
+                                self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
+                                self.connecting = False
                         elif len(parts) > 3 and parts[1] == "PRIVMSG":
-                            sender = parts[0].split("!")[0][1:]; msg_content = line.split(" :", 1)[1]
-                            if self.is_host and not self.matched and "hello" in msg_content:
-                                self.opponent = sender; self.matched = True; self.tx_queue.put({"cmd": "hello_ack"})
-                            elif sender == self.opponent:
-                                try: self.rx_queue.put(json.loads(msg_content))
-                                except: pass
+                            sender = parts[0].split("!")[0][1:]
+                            target = parts[2]
+                            msg_content = line.split(" :", 1)[1]
+                            try:
+                                msg_data = json.loads(msg_content)
+                                # Host catches the broadcast and locks in the client opponent
+                                if self.is_host and not self.matched and target == self.channel and msg_data.get('cmd') == 'hello':
+                                    self.opponent = sender; self.matched = True
+                                    self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack'})}\r\n".encode())
+                                # Client catches the peer-to-peer ack and locks in the host opponent
+                                elif not self.is_host and not self.matched and msg_data.get('cmd') == 'hello_ack':
+                                    self.opponent = sender; self.matched = True
+                                elif sender == self.opponent:
+                                    self.rx_queue.put(msg_data)
+                            except: pass
                 except socket.timeout: pass
         except Exception: pass
         finally: self.close()
