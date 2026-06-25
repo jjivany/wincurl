@@ -121,6 +121,8 @@ class WinCurlAudioEngine:
         self.ch_sfx = pygame.mixer.Channel(2); self.ch_ui = pygame.mixer.Channel(3)
         self.ch_music = pygame.mixer.Channel(4); self.ch_crowd = pygame.mixer.Channel(5)
         self.ch_voice = pygame.mixer.Channel(6)
+        self.snd_scream = self._synthesize_sega_speech()
+        self.ch_sfx.play(self.snd_scream)
         
         # Base Sounds
         self.snd_slide = self._synthesize_rumble()
@@ -146,6 +148,21 @@ class WinCurlAudioEngine:
         self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
         self.last_call = 0
 
+
+
+
+
+    def _synthesize_sega_speech(self):
+        steps = int(44100 * 0.25); buf = bytearray(steps * 4) # Shorter, punchier
+        for i in range(steps):
+            t = i / 44100; freq = 880 - (i * 600 / steps) # Pure descending sweep
+            # Hard-switched Square wave for scream attack (no wobble oscillator)
+            val = 1.0 if math.sin(2*math.pi*freq*t) > 0 else -1.0
+            val *= math.exp(-i / (steps * 0.4)) # Crisp decay
+            sample = int(max(-1.0, min(1.0, val)) * 28000)
+            struct.pack_into('<hh', buf, i * 4, sample, sample)
+        return self._create_wav_sound(buf, 44100)
+
     def _create_wav_sound(self, byte_buffer, sample_rate=44100):
         wav_io = io.BytesIO()
         with wave.open(wav_io, 'wb') as wav_file:
@@ -157,73 +174,23 @@ class WinCurlAudioEngine:
         return pygame.mixer.Sound(wav_io)
 
     def _synthesize_vosim_phrase(self, phrase, duration):
-        """Generates crude robotic speech mimicking VOSIM vocal tracts."""
         steps = int(44100 * duration); buf = bytearray(steps * 4)
+        # Formants (F1, F2) for vocal clarity
+        f1, f2 = (600, 1800) if phrase == "HURRY" else (500, 1600) if phrase == "HARD" else (400, 1900)
         
-        # Synthesis profiles based on the word
-        if phrase == "HURRY":
-            f1_env = [(0.0,350),(0.2,500),(0.8,500),(1.0,350)]
-            f2_env = [(0.0,1400),(0.2,1600),(0.8,1400),(1.0,1200)]
-            f3_env = [(0.0,2600),(0.5,2800),(1.0,2600)]
-            f0_env = [(0.0, 190), (0.4, 230), (1.0, 150)]
-            noise_env = [(0.0, 0.9), (0.1, 0.5), (0.2, 0.0), (1.0, 0.0)] 
-        elif phrase == "HARD":
-            f1_env = [(0.0,400),(0.3,850),(0.8,800),(1.0,450)]
-            f2_env = [(0.0,1400),(0.3,1600),(0.8,1300),(1.0,1100)]
-            f3_env = [(0.0,2700),(0.5,2800),(1.0,2600)]
-            f0_env = [(0.0, 180), (0.3, 220), (1.0, 140)]
-            noise_env = [(0.0, 0.9), (0.15, 0.3), (0.25, 0.0), (1.0, 0.0)]
-        elif phrase == "RED":
-            f1_env = [(0.0,300),(0.4,450),(1.0,350)]
-            f2_env = [(0.0,1300),(0.4,1500),(1.0,1300)]
-            f3_env = [(0.0,2400),(1.0,2500)]
-            f0_env = [(0.0, 190), (0.4, 210), (1.0, 150)]
-            noise_env = [(0.0, 0.2), (0.1, 0.0), (1.0, 0.0)]
-        elif phrase == "YELLOW":
-            f1_env = [(0.0,300),(0.3,450),(0.7,350),(1.0,400)]
-            f2_env = [(0.0,2200),(0.3,1500),(0.7,1000),(1.0,1200)]
-            f3_env = [(0.0,2800),(0.5,2600),(1.0,2400)]
-            f0_env = [(0.0, 200), (0.5, 230), (1.0, 160)]
-            noise_env = [(0.0, 0.1), (0.1, 0.0), (1.0, 0.0)]
-        elif phrase == "CHALLENGE":
-            f1_env = [(0.0,400),(0.2,600),(0.5,450),(0.8,400),(1.0,300)]
-            f2_env = [(0.0,2000),(0.2,1600),(0.5,1400),(0.8,1800),(1.0,1500)]
-            f3_env = [(0.0,2600),(0.5,2500),(1.0,2600)]
-            f0_env = [(0.0, 160), (0.3, 210), (0.7, 180), (1.0, 140)]
-            noise_env = [(0.0, 0.9), (0.1, 0.5), (0.2, 0.0), (0.8, 0.0), (0.9, 0.4), (1.0, 0.0)]
-        else:
-            f1_env = [(0.0,400),(1.0,300)]; f2_env = [(0.0,1000),(1.0,1400)]; f3_env = [(0.0,2600),(1.0,2800)]
-            f0_env = [(0.0, 200), (1.0, 150)]; noise_env = [(0.0, 0.0), (1.0, 0.0)]
-
-        def get_val(t, pts):
-            for i in range(len(pts)-1):
-                if pts[i][0] <= t <= pts[i+1][0]: return pts[i][1] + (pts[i+1][1] - pts[i][1]) * (t - pts[i][0]) / (pts[i+1][0] - pts[i][0])
-            return pts[-1][1]
-
-        phase = 0.0
+        # Damped pulse synthesis (Simulates vocal tract resonances)
         for i in range(steps):
-            t_norm = i / steps
-            env = min(1.0, t_norm/0.05) * max(0.0, min(1.0, (1.0-t_norm)/0.1))
+            t = i / 44100
+            # Vocal pulse train: damped sine waves per formant
+            phase = (i * 120 / 44100) % 1.0 # 120Hz fundamental pitch
+            pulse = math.exp(-phase * 15.0) 
+            # Damped Sinusoids = Actual Vocal Sound
+            val = (pulse * math.sin(2 * math.pi * f1 * phase) + 0.6 * pulse * math.sin(2 * math.pi * f2 * phase))
+            # Hard consonant transient boost for clarity
+            if i < 200: val += 0.5 * math.sin(2 * math.pi * 3000 * t) 
             
-            f0 = get_val(t_norm, f0_env)
-            f0 += math.sin(2 * math.pi * 5.0 * (i/44100)) * 2.0 # Natural vocal vibrato
-            
-            phase += f0 / 44100.0
-            phase %= 1.0
-            
-            decay = math.exp(-phase * 3.5)
-            f1, f2, f3 = get_val(t_norm, f1_env), get_val(t_norm, f2_env), get_val(t_norm, f3_env)
-            
-            val = math.sin(2*math.pi*f1*phase/f0) * decay
-            val += math.sin(2*math.pi*f2*phase/f0) * decay * 0.45
-            val += math.sin(2*math.pi*f3*phase/f0) * decay * 0.2
-            
-            noise_lvl = get_val(t_norm, noise_env)
-            if noise_lvl > 0: val += random.uniform(-1, 1) * noise_lvl
-            
-            sample = int(max(-1.0, min(1.0, val * env * 1.5)) * 24000)
+            sample = int(max(-1.0, min(1.0, val)) * 28000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-            
         return self._create_wav_sound(buf, 44100)
 
     def _synthesize_end_of_match(self):
@@ -553,7 +520,7 @@ class WinCurl3:
             pygame.draw.line(self.rainbow_grad, c, (x, 0), (x, 200))
 
         # Title Pre-render optimization for Android menus
-        t_text = '"WinCurl" 3.1'
+        t_text = '"WinCurl" 3.0'
         self.title_base = self.title_font.render(t_text, True, WHITE)
         self.title_shadow = pygame.Surface((self.title_base.get_width()+15, self.title_base.get_height()+15), pygame.SRCALPHA)
         for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]:
@@ -592,7 +559,7 @@ class WinCurl3:
 
     def setup_display(self):
         pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.1")
+        pygame.display.set_caption("WinCurl version 3.0")
         
         try:
             em_font = pygame.font.SysFont("segoe ui emoji", 32)
