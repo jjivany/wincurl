@@ -19,8 +19,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13 (VERSION 3.0)")
-print("     (DESKTOP ASPECT RATIO RESTORED | 3D ROCK REFLECTIONS)")
+print("     [SYSTEM] WINCURL 3 BUILD 13.37 (RC2)")
+print("     (DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -106,9 +106,15 @@ class WinCurlAudioEngine:
         self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine")
         self.snd_click = self._synthesize_ui_sound(587, 0.12, "square")
         self.snd_theme = self._synthesize_theme_song()
+        
+        # Authentic Build 13 Voice Restoration
         self.snd_speech = self._synthesize_sega_speech()  
         self.snd_hurry = self._synthesize_vosim_phrase("HURRY", 0.7)
         self.snd_hard = self._synthesize_vosim_phrase("HARD", 0.65)
+        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE", 1.2)
+        self.snd_red_wins = self._synthesize_vosim_phrase("RED", 1.0)
+        self.snd_ylw_wins = self._synthesize_vosim_phrase("YELLOW", 1.0)
+        
         self.snd_cheer = self._synthesize_cheer()
         self.snd_end_match = self._synthesize_end_of_match()
         
@@ -161,8 +167,17 @@ class WinCurlAudioEngine:
         steps = int(44100 * duration); buf = bytearray(steps * 4)
         if phrase == "HURRY":
             f1_env, f2_env, f3_env = [(0.0,400),(0.5,450),(1.0,300)], [(0.0,1000),(0.5,1400),(1.0,2400)], [(0.0,2600),(0.5,1600),(1.0,2800)]
-            chord = [261.63, 329.63] 
-        else:
+            chord = [261.63, 329.63]
+        elif phrase == "RED":
+            f1_env, f2_env, f3_env = [(0.0,500),(0.5,530),(1.0,400)], [(0.0,1800),(0.5,1840),(1.0,1500)], [(0.0,2600),(0.5,2600),(1.0,2600)]
+            chord = [220.00, 277.18]
+        elif phrase == "YELLOW":
+            f1_env, f2_env, f3_env = [(0.0,530),(0.5,500),(1.0,400)], [(0.0,1840),(0.5,1200),(1.0,800)], [(0.0,2600),(0.5,2000),(1.0,1800)]
+            chord = [233.08, 293.66]
+        elif phrase == "CHALLENGE":
+            f1_env, f2_env, f3_env = [(0.0,600),(0.5,530),(1.0,400)], [(0.0,1700),(0.5,1840),(1.0,1400)], [(0.0,2400),(0.5,2500),(1.0,2200)]
+            chord = [261.63, 311.13]
+        else: # "HARD" and fallback
             f1_env, f2_env, f3_env = [(0.0,400),(0.3,750),(1.0,200)], [(0.0,1000),(0.8,1400),(1.0,1600)], [(0.0,2600),(0.8,1800),(1.0,2400)]
             chord = [246.94, 311.13] 
 
@@ -480,6 +495,20 @@ class WinCurl3:
         for x in range(1500):
             c = pygame.Color(0); c.hsva = ((x / 1000.0) * 360 % 360, 85, 100, 100)
             pygame.draw.line(self.rainbow_grad, c, (x, 0), (x, 200))
+
+        t_text = '"WinCurl" 3'
+        self.title_base = self.title_font.render(t_text, True, WHITE)
+        self.title_shadow = pygame.Surface((self.title_base.get_width()+15, self.title_base.get_height()+15), pygame.SRCALPHA)
+        for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]:
+            self.title_shadow.blit(self.title_font.render(t_text, True, BLACK), (dx+5, dy+5))
+            
+        # MASSIVE ANDROID FPS BOOST: Pre-calculate 72 frames of spinning fractal to eliminate real-time math
+        if IS_ANDROID:
+            self.fractal_frames = []
+            base_fractal = pygame.Surface((800, 800), pygame.SRCALPHA).convert_alpha()
+            self.draw_fractal_house(base_fractal, 400, 400, 220, 0, 3, 0)
+            for deg in range(0, 360, 5):
+                self.fractal_frames.append(pygame.transform.rotate(base_fractal, deg))
 
         # Pre-render coins for butter-smooth Android coin flip
         self.coin_red_surf = self._render_coin_surface(True)
@@ -1080,21 +1109,32 @@ class WinCurl3:
             self.draw_fractal_house(surf, x + math.cos(angle)*(radius*1.25), y + math.sin(angle)*(radius*1.25), radius*0.44, depth+1, max_depth, morph_time)
 
     def draw_menu(self):
-        self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
-        self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 2 if IS_ANDROID else 4, t_ms); self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
+        self.canvas.fill((10, 12, 16, 0))
+        self.canvas.set_colorkey((10, 12, 16))
+        self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
+
+        if IS_ANDROID:
+            # Target precisely ~28 FPS for Android fractal animation
+            # 0.028 frames per ms = 28 frames per second. Keeps it fast but light.
+            frame_idx = int((pygame.time.get_ticks() * 0.028) % 72)
+            rotated_fractal = self.fractal_frames[frame_idx]
+            self.canvas.blit(rotated_fractal, (cx - rotated_fractal.get_width()//2, 300 - rotated_fractal.get_height()//2))
+        else:
+            # Real-time morphing fractal for Desktop (silky smooth 60 FPS)
+            self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 3, t_ms)
+            
+        self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
         
-        t_text = '"WinCurl" 3'
-        txt_surf = self.title_font.render(t_text, True, WHITE)
+        bx, by = cx - self.title_base.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
+        self.canvas.blit(self.title_shadow, (bx-5, by-5))
         
         if not hasattr(self, 'title_grad_surf'):
-            self.title_grad_surf = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA).convert_alpha()
+            self.title_grad_surf = pygame.Surface(self.title_base.get_size(), pygame.SRCALPHA).convert_alpha()
+            
         self.title_grad_surf.fill((0,0,0,0))
         offset = int(t_ms * 100) % 500
         self.title_grad_surf.blit(self.rainbow_grad, (-offset, 0))
-        self.title_grad_surf.blit(txt_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        
-        bx, by = cx - txt_surf.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
-        for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]: self.canvas.blit(self.title_font.render(t_text, True, BLACK), (bx+dx, by+dy))
+        self.title_grad_surf.blit(self.title_base, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         self.canvas.blit(self.title_grad_surf, (bx, by))
         
         status_string = "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
