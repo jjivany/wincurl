@@ -19,7 +19,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13.37 (RC2)")
+print("     [SYSTEM] WINCURL 3 BUILD 13.37 (RC3)")
 print("     (DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
 print("="*60 + "\n")
 
@@ -299,11 +299,12 @@ class WinCurlAudioEngine:
 
 # --- Visual Effects & Geometry ---
 class Starfield:
-    def __init__(self):
-        self.stars = [(random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT), random.uniform(0.5, 3.0)) for _ in range(150)]
+    def __init__(self, count=150, max_w=BASE_WIDTH, max_h=BASE_HEIGHT):
+        self.max_h = max_h
+        self.stars = [(random.randint(0, max_w), random.randint(0, max_h), random.uniform(0.5, 3.0)) for _ in range(count)]
     def draw(self, surface, speed_mult=1.0):
         for i in range(len(self.stars)):
-            x, y, s = self.stars[i]; y = (y + s * speed_mult) % BASE_HEIGHT
+            x, y, s = self.stars[i]; y = (y + s * speed_mult) % self.max_h
             self.stars[i] = (x, y, s)
             c = int(min(255, 30 + s*60)); pygame.draw.circle(surface, (c, c, c), (int(x), int(y)), max(1, int(s)))
 
@@ -502,6 +503,13 @@ class WinCurl3:
         for dx, dy in [(-4,-4), (4,-4), (-4,4), (4,4), (0,-5), (0,5), (-5,0), (5,0)]:
             self.title_shadow.blit(self.title_font.render(t_text, True, BLACK), (dx+5, dy+5))
             
+        # Realistic Olympic Push Broom Rendering
+        self.broom_surf = pygame.Surface((80, 260), pygame.SRCALPHA)
+        pygame.draw.rect(self.broom_surf, (215, 215, 30), (35, 0, 10, 220), border_radius=4)
+        pygame.draw.rect(self.broom_surf, (40, 40, 45), (20, 220, 40, 20), border_radius=4)
+        pygame.draw.rect(self.broom_surf, (225, 225, 225), (10, 240, 60, 18), border_radius=6)
+        pygame.draw.line(self.broom_surf, (150, 150, 150), (12, 248), (68, 248), 2)
+            
         # MASSIVE ANDROID FPS BOOST: Pre-calculate 72 frames of spinning fractal to eliminate real-time math
         if IS_ANDROID:
             self.fractal_frames = []
@@ -541,7 +549,6 @@ class WinCurl3:
         pygame.display.init()
         pygame.display.set_caption("WinCurl version 3.0")
         
-        # Placeholder Curling Emoji Icon Fallback logic
         try:
             em_font = pygame.font.SysFont("segoe ui emoji", 32)
             icon = em_font.render("🥌", True, HOUSE_RED)
@@ -554,11 +561,11 @@ class WinCurl3:
             pygame.display.set_icon(icon)
 
         flags = pygame.DOUBLEBUF | pygame.RESIZABLE
+        info = pygame.display.Info()
+        
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
         else:
-            # PERFECT DESKTOP 95% HEIGHT CALCULATION
-            info = pygame.display.Info()
             desk_h = info.current_h
             if desk_h > 0 and 1800 > desk_h * 0.95:
                 target_h = int(desk_h * 0.95)
@@ -566,7 +573,10 @@ class WinCurl3:
                 self.screen = pygame.display.set_mode((target_w, target_h), flags)
             else:
                 self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), flags)
-            
+        
+        # 4K Desktop Check: Triggers ultra-wide starfield for physical screen
+        self.is_4k = (info.current_w >= 3840 or info.current_h >= 2160)
+        
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
         
@@ -588,11 +598,14 @@ class WinCurl3:
         self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, BASE_HEIGHT - 150)
         self.curler_anim = AnimatedCurler(self.hack_pos)
         self.starfield = Starfield()
+        if self.is_4k:
+            self.border_starfield = Starfield(count=400, max_w=4000, max_h=4000)
         
         self.game_mode = "LOCAL"
         self.stones_per_team = 8
         self.challenge_level = 1
         self.challenge_attempts = 0
+        self.is_sweeping_now = False
         
         self.menu_stone = ThreeDStone()
         self.particles = []
@@ -608,16 +621,16 @@ class WinCurl3:
         
         self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 250, 60)
 
+        # Removed 'Ends' button and re-spaced to protect from accidental Exit clicks on Android
         self.menu_buttons = [
             {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
             {"id": "bot", "y": 600, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "chal", "y": 720, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
-            {"id": "ends", "y": 840, "text": f"Ends: {self.total_ends_pref} (8 Rocks/End)", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "color", "y": 960, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "name", "y": 1080, "text": f"Name: {self.username}", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "host", "y": 1200, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "join", "y": 1320, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "exit", "y": 1440, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "color", "y": 840, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "name", "y": 960, "text": f"Name: {self.username}", "color": (130, 140, 155), "scale": 1.0},
+            {"id": "host", "y": 1080, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "join", "y": 1200, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "exit", "y": 1320, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
 
@@ -683,11 +696,10 @@ class WinCurl3:
                 self.challenge_progress = data.get("challenge", [False] * 25)
                 self.username = data.get("username", "")
                 self.preferred_color = data.get("color", 0)
-                self.total_ends_pref = data.get("ends", 8)
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
         except:
-            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.total_ends_pref = 8; self.room_text = ""; self.ai_difficulty = 5
+            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -697,7 +709,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "ends": self.total_ends_pref, "room": self.room_text, "bot_skill": self.ai_difficulty}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -706,7 +718,7 @@ class WinCurl3:
         pygame.event.set_grab(False); pygame.mouse.set_visible(True)
         self.turn_state = "AIMING"
         self.is_dragging = False; self.virtual_pull = pygame.math.Vector2(0, 0)
-        self.selected_curl = 0.0; self.sweep_power = 0.0
+        self.selected_curl = 0.0; self.sweep_power = 0.0; self.is_sweeping_now = False
         self.last_mouse_pos = pygame.math.Vector2(0, 0)
         self.dragging_slider = False
         self.spawn_next_stone()
@@ -718,7 +730,7 @@ class WinCurl3:
         self.app_state = "MENU"; self.turn_state = "MENU"
 
     def reset_match(self):
-        self.score = {0: [0]*self.total_ends_pref, 1: [0]*self.total_ends_pref}
+        self.score = {0: [0]*8, 1: [0]*8}
         self.current_end = 1; self.total_stones_played = 0
         self.stones_per_team = 8
         self.stones = []; self.stones_thrown = {0: 0, 1: 0}
@@ -727,6 +739,7 @@ class WinCurl3:
         self.reset_match()
         if self.game_mode == "CHALLENGE":
             self.app_state = "PLAY"; self.challenge_attempts = 0; self.load_challenge(self.challenge_level)
+            self.challenge_announced = False
         else:
             self.app_state = "COIN_TOSS"; self.coin_timer = 60; self.coin_flip_result = random.choice([0, 1])
             self.audio.play_cheer()
@@ -845,13 +858,26 @@ class WinCurl3:
                     if not self.challenge_progress[self.challenge_level-1] or self.challenge_level == start_lvl:
                         break
                 self.challenge_attempts = 0
-            if all(self.challenge_progress[:25]): self.app_state = "MATCH_OVER"; self.audio.play_cheer()
+            if all(self.challenge_progress[:25]): 
+                if self.app_state != "MATCH_OVER":
+                    self.app_state = "MATCH_OVER"
+                    self.audio.play_cheer()
+                    if not getattr(self, 'challenge_announced', False):
+                        self.audio.ch_voice.play(self.audio.snd_chal_comp)
+                        self.challenge_announced = True
             else: self.load_challenge(self.challenge_level)
             return
 
         self.current_end += 1
-        if self.current_end > self.total_ends_pref: 
-            self.app_state = "MATCH_OVER"; self.audio.play_cheer(); self.audio.ch_voice.play(self.audio.snd_end_match)
+        if self.current_end > 8: 
+            self.app_state = "MATCH_OVER"
+            self.audio.play_cheer()
+            
+            # Announce specific winner accurately
+            r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
+            if r_tot > y_tot: self.audio.ch_voice.play(self.audio.snd_red_wins)
+            elif y_tot > r_tot: self.audio.ch_voice.play(self.audio.snd_ylw_wins)
+            else: self.audio.ch_voice.play(self.audio.snd_end_match)
         else: self.reset_end()
 
     def handle_menu_events(self, event):
@@ -872,7 +898,6 @@ class WinCurl3:
             self.last_click_time = now
 
             if self.typing_target:
-                # Cancel text entry if clicked outside specific bounds
                 if not (300 < mx < 900 and 1000 < my < 1200):
                     self.set_typing_target(None)
 
@@ -886,17 +911,17 @@ class WinCurl3:
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; self.set_typing_target("room"); self.net_action = b["id"]
                         elif b["id"] == "name": self.set_typing_target("name")
-                        elif b["id"] == "ends": opts = [1, 2, 4, 8, 10]; self.total_ends_pref = opts[(opts.index(self.total_ends_pref)+1)%len(opts)]; self.save_progress()
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
                         break
             
-            if 350 < mx < 850 and 1600 < my < 1660: 
+            # Repositioned slider checks downward from Exit Button
+            if 330 < mx < 870 and 1500 < my < 1600: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.audio.play_hover()
                 self.save_progress()
         elif event.type == MOUSEMOTION and self.get_pointer_pressed():
-            if 330 < mx < 870 and 1590 < my < 1670: 
+            if 330 < mx < 870 and 1500 < my < 1600: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
         elif event.type == KEYDOWN and self.typing_target == "name":
@@ -1003,8 +1028,9 @@ class WinCurl3:
             
             is_sweeping = is_mouse_pressed and can_sweep_legally
             delta = (mouse_pos - self.last_mouse_pos).length()
+            self.is_sweeping_now = is_sweeping and delta > 4
             
-            if is_sweeping and delta > 4:
+            if self.is_sweeping_now:
                 self.sweep_power = min(12.0, self.sweep_power + delta * 0.18)
                 self.audio.play_curler_call(self.sweep_power)
                 for _ in range(2 if IS_ANDROID else 3): self.particles.append({'pos': mouse_pos + pygame.math.Vector2(random.uniform(-30, 30), random.uniform(-30, 30)), 'vel': pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-3, 0)), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'sweep'})
@@ -1038,7 +1064,6 @@ class WinCurl3:
             if not moving:
                 self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
                 
-                # Perfect Hog Line logic implementation (MUST cross near hog line to be valid, must not cross back line completely)
                 valid_stones_final = []
                 hog_line_y = self.house_pos.y + 400
                 back_line_y = self.house_pos.y - 210
@@ -1114,13 +1139,10 @@ class WinCurl3:
         self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
 
         if IS_ANDROID:
-            # Target precisely ~28 FPS for Android fractal animation
-            # 0.028 frames per ms = 28 frames per second. Keeps it fast but light.
             frame_idx = int((pygame.time.get_ticks() * 0.028) % 72)
             rotated_fractal = self.fractal_frames[frame_idx]
             self.canvas.blit(rotated_fractal, (cx - rotated_fractal.get_width()//2, 300 - rotated_fractal.get_height()//2))
         else:
-            # Real-time morphing fractal for Desktop (silky smooth 60 FPS)
             self.draw_fractal_house(self.canvas, cx, 300, 220, 0, 3, t_ms)
             
         self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
@@ -1142,7 +1164,6 @@ class WinCurl3:
 
         for btn in self.menu_buttons:
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
-            elif btn["id"] == "ends": text = btn["text"]
             elif btn["id"] == "color": 
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
@@ -1178,10 +1199,11 @@ class WinCurl3:
                 img = self.font.render(text, True, WHITE)
                 self.canvas.blit(img, img.get_rect(center=rect.center))
 
-        pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1620, 500, 16), border_radius=8)
+        # Drastically shifted bot slider to prevent misclicks on Android
+        pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1550, 500, 16), border_radius=8)
         handle_x = cx - 250 + int((self.ai_difficulty - 1) / 9.0 * 500)
-        pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1628), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1628), 26, 4)
-        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1560))
+        pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558), 26, 4)
+        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490))
         
         self.draw_global_ui()
 
@@ -1262,14 +1284,13 @@ class WinCurl3:
             for i in range(rem_r): pygame.draw.circle(self.canvas, HOUSE_RED, (120 + i*18, 30), 6)
             for i in range(rem_y): pygame.draw.circle(self.canvas, TEAM_YELLOW, (120 + i*18, 80), 6)
             
-            # FIXED: Prevent text cutoff when Ends=10
-            spacing = min(80, (BASE_WIDTH - 420) // self.total_ends_pref)
-            for e in range(1, self.total_ends_pref + 1):
+            spacing = min(80, (BASE_WIDTH - 420) // 8)
+            for e in range(1, 9):
                 cx = 200 + (e * spacing); self.canvas.blit(self.small_font.render(str(e), True, (140, 150, 165)), (cx, 8))
                 self.canvas.blit(self.font.render(str(self.score[0][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 38))
                 self.canvas.blit(self.font.render(str(self.score[1][e-1]) if e < self.current_end or (e == self.current_end and self.turn_state == "END") else "-", True, WHITE), (cx, 76))
 
-            tot_x = 200 + (self.total_ends_pref * spacing) + 80; pygame.draw.line(self.canvas, (80, 90, 105), (tot_x - 40, 0), (tot_x - 40, 130), 2)
+            tot_x = 200 + (8 * spacing) + 80; pygame.draw.line(self.canvas, (80, 90, 105), (tot_x - 40, 0), (tot_x - 40, 130), 2)
             self.canvas.blit(self.small_font.render("TOT", True, WHITE), (tot_x, 8))
             self.canvas.blit(self.font.render(str(sum(self.score[0])), True, HOUSE_RED), (tot_x, 38)); self.canvas.blit(self.font.render(str(sum(self.score[1])), True, TEAM_YELLOW), (tot_x, 76))
             if getattr(self, 'hammer_team', 0) == 0: draw_hammer_icon(self.canvas, tot_x + 65, 48, HOUSE_RED)
@@ -1282,7 +1303,12 @@ class WinCurl3:
 
         m_pos = self.scale_mouse(self.get_pointer_pos())
         draw_glass_rect(self.canvas, self.btn_pause, (50, 55, 65), self.btn_pause.h // 2, self.btn_pause.collidepoint(m_pos.x, m_pos.y))
-        lbl_p = self.small_font.render("|| PAUSE", True, WHITE); self.canvas.blit(lbl_p, lbl_p.get_rect(center=self.btn_pause.center))
+        
+        # Black Text with subtle White Shadow for better visibility
+        lbl_p_shadow = self.small_font.render("|| PAUSE", True, WHITE)
+        lbl_p = self.small_font.render("|| PAUSE", True, BLACK)
+        self.canvas.blit(lbl_p_shadow, lbl_p_shadow.get_rect(center=(self.btn_pause.centerx+2, self.btn_pause.centery+2)))
+        self.canvas.blit(lbl_p, lbl_p.get_rect(center=self.btn_pause.center))
 
         if self.turn_state == "AIMING":
             if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
@@ -1309,6 +1335,14 @@ class WinCurl3:
                         if i % 5 == 0: pygame.draw.circle(self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(spos.x), int(spos.y)), 6)
             self.canvas.blit(self.small_font.render(f"CURL BIAS: {self.selected_curl:+.1f}", True, BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
             
+        elif self.turn_state == "SLIDING":
+            # Realistic push-broom rendering logic based on active sweep zone
+            if getattr(self, 'is_sweeping_now', False):
+                angle = math.sin(pygame.time.get_ticks() * 0.05) * min(30, self.sweep_power * 2.0)
+                rotated_broom = pygame.transform.rotate(self.broom_surf, angle)
+                b_rect = rotated_broom.get_rect(center=(m_pos.x, m_pos.y - 120))
+                self.canvas.blit(rotated_broom, b_rect.topleft)
+
         elif self.turn_state == "END":
             overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 195)); self.canvas.blit(overlay, (0, 0))
             
@@ -1354,17 +1388,17 @@ class WinCurl3:
             pygame.draw.rect(self.canvas, (28, 36, 50), b_rect, border_radius=16); pygame.draw.rect(self.canvas, (55, 70, 95), b_rect, 4, border_radius=16)
             
             self.canvas.blit(self.small_font.render("TEAM", True, (140, 160, 185)), (cx - 430, 380))
-            spacing = min(75, 700 // self.total_ends_pref)
-            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.small_font.render(f"E{e}", True, (140, 160, 185)), (cx - 320 + (e * spacing), 380))
+            spacing = min(75, 700 // 8)
+            for e in range(1, 9): self.canvas.blit(self.small_font.render(f"E{e}", True, (140, 160, 185)), (cx - 320 + (e * spacing), 380))
             self.canvas.blit(self.small_font.render("TOTAL", True, WHITE), (cx + 360, 380))
             pygame.draw.line(self.canvas, (55, 70, 95), (cx - 450, 440), (cx + 450, 440), 2)
             
             self.canvas.blit(self.font.render("RED", True, HOUSE_RED), (cx - 430, 470))
-            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.font.render(str(self.score[0][e-1]), True, WHITE), (cx - 320 + (e * spacing), 470))
+            for e in range(1, 9): self.canvas.blit(self.font.render(str(self.score[0][e-1]), True, WHITE), (cx - 320 + (e * spacing), 470))
             self.canvas.blit(self.font.render(str(r_tot), True, HOUSE_RED), (cx + 380, 470))
 
             self.canvas.blit(self.font.render("YLW", True, TEAM_YELLOW), (cx - 430, 570))
-            for e in range(1, self.total_ends_pref + 1): self.canvas.blit(self.font.render(str(self.score[1][e-1]), True, WHITE), (cx - 320 + (e * spacing), 570))
+            for e in range(1, 9): self.canvas.blit(self.font.render(str(self.score[1][e-1]), True, WHITE), (cx - 320 + (e * spacing), 570))
             self.canvas.blit(self.font.render(str(y_tot), True, TEAM_YELLOW), (cx + 380, 570))
             
         m_pos = self.scale_mouse(self.get_pointer_pos())
@@ -1391,7 +1425,10 @@ class WinCurl3:
         
         self.screen.fill((10, 12, 16))
         
-        # Conditional scaling to balance Android performance and Desktop visuals
+        # 4K Check allows drawing the expanded star layer exactly on physical border space!
+        if getattr(self, 'is_4k', False):
+            self.border_starfield.draw(self.screen, 0.5)
+        
         if IS_ANDROID:
             self.screen.blit(pygame.transform.scale(self.canvas, (sw, sh)), (ox, oy))
         else:
