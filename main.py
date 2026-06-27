@@ -111,7 +111,7 @@ class WinCurlAudioEngine:
         self.snd_speech = self._synthesize_sega_speech()  
         self.snd_hurry = self._synthesize_vosim_phrase("HURRY", 0.7)
         self.snd_hard = self._synthesize_vosim_phrase("HARD", 0.65)
-        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE", 1.2)
+        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE MODE COMPLETE", 1.2)
         self.snd_red_wins = self._synthesize_vosim_phrase("RED", 1.0)
         self.snd_ylw_wins = self._synthesize_vosim_phrase("YELLOW", 1.0)
         
