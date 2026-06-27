@@ -19,8 +19,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*60)
-print("     [SYSTEM] WINCURL 3 BUILD 13.37 (RC3)")
-print("     (DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
+print("     [SYSTEM] WINCURL 3 BUILD 13.37")
+print("     (UPDATED CONTROLS | DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
 print("="*60 + "\n")
 
 # --- Configuration & Canvas Setup ---
@@ -38,8 +38,12 @@ HOUSE_RED = (215, 45, 55)
 TEAM_YELLOW = (245, 195, 25)
 WHITE = (255, 255, 255)
 BLACK = (25, 25, 30)
-PURPLE_SUIT = (90, 15, 150)
-PURPLE_LIGHT = (140, 40, 210)
+
+# 90s Tracksuit Palette
+PURPLE_SUIT = (106, 13, 173) 
+PURPLE_SHADOW = (60, 10, 100)
+CYAN_ACCENT = (0, 255, 255)
+
 HIGHLIGHT_COLOR = (255, 255, 255, 120)
 
 def lerp_color(c1, c2, t):
@@ -111,7 +115,7 @@ class WinCurlAudioEngine:
         self.snd_speech = self._synthesize_sega_speech()  
         self.snd_hurry = self._synthesize_vosim_phrase("HURRY", 0.7)
         self.snd_hard = self._synthesize_vosim_phrase("HARD", 0.65)
-        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE MODE COMPLETE", 1.2)
+        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE", 1.2)
         self.snd_red_wins = self._synthesize_vosim_phrase("RED", 1.0)
         self.snd_ylw_wins = self._synthesize_vosim_phrase("YELLOW", 1.0)
         
@@ -437,23 +441,43 @@ class AnimatedCurler:
 
     def _draw_char_geometry(self, surface, hx, hy, offset_y, lunge_dist, override_color=None):
         def c(col): return override_color or col
+        
         def head(x, y):
             pygame.draw.circle(surface, c((240,200,180)), (int(x), int(y)), 19) 
             pygame.draw.ellipse(surface, c((85,55,35)), (int(x-21), int(y-5), 42, 30)); pygame.draw.ellipse(surface, c((85,55,35)), (int(x-18), int(y-18), 36, 15))
-            pygame.draw.ellipse(surface, c(self.tc), (int(x-20), int(y-22), 40, 22)); pygame.draw.rect(surface, c(self.tc), (int(x-21), int(y-12), 42, 12), border_radius=4) 
+            
+            # 3D Curling Beanie
+            hat_shade = (max(0, self.tc[0]-50), max(0, self.tc[1]-50), max(0, self.tc[2]-50))
+            pygame.draw.ellipse(surface, c(hat_shade), (int(x-21), int(y-24), 42, 22)) 
+            pygame.draw.ellipse(surface, c(self.tc), (int(x-20), int(y-22), 40, 20)) 
+            pygame.draw.rect(surface, c(self.tc), (int(x-21), int(y-12), 42, 10), border_radius=4) 
+            pygame.draw.rect(surface, c(CYAN_ACCENT), (int(x-21), int(y-10), 42, 4), border_radius=2) 
             pygame.draw.circle(surface, c(WHITE), (int(x), int(y-25)), 8) 
 
         if self.state == "BACKSWING":
             pygame.draw.line(surface, c(BLACK), (hx-15, hy+90+offset_y), (hx-20, hy+140+offset_y), 10); pygame.draw.line(surface, c(BLACK), (hx+15, hy+90+offset_y), (hx+20, hy+140+offset_y), 10)
-            pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-35, hy+20+offset_y, 70, 80), border_radius=12); head(hx, hy+14+offset_y)
+            
+            # 90s Tracksuit Body
+            pygame.draw.rect(surface, c(PURPLE_SHADOW), (hx-35, hy+20+offset_y, 70, 80), border_radius=12)
+            pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-32, hy+20+offset_y, 64, 76), border_radius=12)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-25, hy+25+offset_y), (hx-25, hy+95+offset_y), 4)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx+25, hy+25+offset_y), (hx+25, hy+95+offset_y), 4)
+
+            head(hx, hy+14+offset_y)
             pygame.draw.line(surface, c((210,180,50)), (hx-55, hy+10+offset_y), (hx-15, hy+45+offset_y), 6)
-            pygame.draw.ellipse(surface, c(HOUSE_RED), (hx-68, hy+2+offset_y, 22, 14)); pygame.draw.ellipse(surface, c(PURPLE_LIGHT), (hx-45, hy+30+offset_y, 25, 50)); pygame.draw.ellipse(surface, c(PURPLE_LIGHT), (hx+20, hy+30+offset_y, 25, 50))
+            pygame.draw.ellipse(surface, c(HOUSE_RED), (hx-68, hy+2+offset_y, 22, 14)); pygame.draw.ellipse(surface, c(PURPLE_SUIT), (hx-45, hy+30+offset_y, 25, 50)); pygame.draw.ellipse(surface, c(PURPLE_SUIT), (hx+20, hy+30+offset_y, 25, 50))
+        
         elif self.state == "LUNGING":
             ly = hy + lunge_dist
             pygame.draw.line(surface, c(BLACK), (hx-12, ly+60), (hx-15, hy+110), 12); pygame.draw.polygon(surface, c(BLACK), [(hx+8, ly+50), (hx+30, ly+95), (hx+10, ly+100)])
-            pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-30, ly-30, 60, 90), border_radius=12); head(hx, ly-32)
+            
+            pygame.draw.rect(surface, c(PURPLE_SHADOW), (hx-30, ly-30, 60, 90), border_radius=12)
+            pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-28, ly-30, 56, 86), border_radius=12)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-20, ly-25), (hx-20, ly+50), 4)
+            
+            head(hx, ly-32)
             pygame.draw.line(surface, c((210,180,50)), (hx-75, ly-10), (hx-20, ly+20), 6)
-            pygame.draw.ellipse(surface, c(HOUSE_RED), (hx-88, ly-16, 24, 14)); pygame.draw.line(surface, c(PURPLE_LIGHT), (hx-25, ly-10), (hx-10, ly-60), 12)
+            pygame.draw.ellipse(surface, c(HOUSE_RED), (hx-88, ly-16, 24, 14)); pygame.draw.line(surface, c(PURPLE_SUIT), (hx-25, ly-10), (hx-10, ly-60), 12)
 
     def draw(self, surface, team_color):
         if self.state == "IDLE" and self.delivery_progress == 0.0: return
@@ -589,6 +613,7 @@ class WinCurl3:
         self.net = IRCNetworkManager()
         self.is_fullscreen = False
         self.dragging_slider = False
+        self.drag_start_pos = None
         
         base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
@@ -634,7 +659,7 @@ class WinCurl3:
         ]
         self.last_hovered = None
 
-        # Base Ice Setup
+        # Base Ice Setup (RC3 Classic - No Glossy bugs)
         self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         for _ in range(12000):
             px, py = random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)
@@ -721,6 +746,7 @@ class WinCurl3:
         self.selected_curl = 0.0; self.sweep_power = 0.0; self.is_sweeping_now = False
         self.last_mouse_pos = pygame.math.Vector2(0, 0)
         self.dragging_slider = False
+        self.drag_start_pos = None
         self.spawn_next_stone()
 
     def return_to_menu(self):
@@ -846,6 +872,7 @@ class WinCurl3:
             if self.game_mode in ["HOST", "JOIN"]: self.net.send_action({'cmd': 'shoot', 'vx': self.active_stone.vel.x, 'vy': self.active_stone.vel.y, 'c': self.selected_curl})
         else: self.curler_anim.update("IDLE")
         self.is_dragging = False; self.virtual_pull = pygame.math.Vector2(0, 0)
+        self.drag_start_pos = None
 
     def advance_end_logic(self):
         if self.game_mode == "CHALLENGE":
@@ -915,13 +942,13 @@ class WinCurl3:
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
                         break
             
-            # Repositioned slider checks downward from Exit Button
-            if 330 < mx < 870 and 1500 < my < 1600: 
+            # Massive vertical hitbox for Android thumbs
+            if 330 < mx < 870 and 1450 < my < 1650: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.audio.play_hover()
                 self.save_progress()
         elif event.type == MOUSEMOTION and self.get_pointer_pressed():
-            if 330 < mx < 870 and 1500 < my < 1600: 
+            if 330 < mx < 870 and 1450 < my < 1650: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
         elif event.type == KEYDOWN and self.typing_target == "name":
@@ -975,10 +1002,9 @@ class WinCurl3:
         mouse_pos = self.scale_mouse(self.get_pointer_pos())
         
         if event.type == MOUSEBUTTONUP and event.button == 1 and self.is_dragging:
-            pygame.event.set_grab(False); pygame.mouse.set_visible(True); self.fire_stone(); return
+            self.fire_stone(); return
 
         if event.type == MOUSEBUTTONDOWN and event.button == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
-            pygame.event.set_grab(False); pygame.mouse.set_visible(True)
             self.audio.play_click(); self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0); return
         
         if self.turn_state == "END":
@@ -995,12 +1021,11 @@ class WinCurl3:
                 if self.btn_curl_l.collidepoint(mouse_pos.x, mouse_pos.y): self.selected_curl = max(-1.0, self.selected_curl - 0.2); self.audio.play_hover()
                 elif self.btn_curl_r.collidepoint(mouse_pos.x, mouse_pos.y): self.selected_curl = min(1.0, self.selected_curl + 0.2); self.audio.play_hover()
                 elif (mouse_pos - self.active_stone.pos).length() < 90: 
-                    self.is_dragging = True; self.virtual_pull = pygame.math.Vector2(0, 0)
-                    pygame.event.set_grab(True); pygame.mouse.set_visible(False)
-            elif event.type == MOUSEMOTION and self.is_dragging:
-                ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
-                self.virtual_pull.x += event.rel[0] / scale
-                self.virtual_pull.y += event.rel[1] / scale
+                    self.is_dragging = True
+                    self.drag_start_pos = mouse_pos
+                    self.virtual_pull = pygame.math.Vector2(0, 0)
+            elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, 'drag_start_pos', None):
+                self.virtual_pull = self.drag_start_pos - mouse_pos
             elif event.type == MOUSEWHEEL: self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.y * 0.2))
 
     def update_physics(self):
@@ -1199,7 +1224,6 @@ class WinCurl3:
                 img = self.font.render(text, True, WHITE)
                 self.canvas.blit(img, img.get_rect(center=rect.center))
 
-        # Drastically shifted bot slider to prevent misclicks on Android
         pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1550, 500, 16), border_radius=8)
         handle_x = cx - 250 + int((self.ai_difficulty - 1) / 9.0 * 500)
         pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558), 26, 4)
@@ -1304,7 +1328,6 @@ class WinCurl3:
         m_pos = self.scale_mouse(self.get_pointer_pos())
         draw_glass_rect(self.canvas, self.btn_pause, (50, 55, 65), self.btn_pause.h // 2, self.btn_pause.collidepoint(m_pos.x, m_pos.y))
         
-        # Black Text with subtle White Shadow for better visibility
         lbl_p_shadow = self.small_font.render("|| PAUSE", True, WHITE)
         lbl_p = self.small_font.render("|| PAUSE", True, BLACK)
         self.canvas.blit(lbl_p_shadow, lbl_p_shadow.get_rect(center=(self.btn_pause.centerx+2, self.btn_pause.centery+2)))
@@ -1336,7 +1359,6 @@ class WinCurl3:
             self.canvas.blit(self.small_font.render(f"CURL BIAS: {self.selected_curl:+.1f}", True, BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
             
         elif self.turn_state == "SLIDING":
-            # Realistic push-broom rendering logic based on active sweep zone
             if getattr(self, 'is_sweeping_now', False):
                 angle = math.sin(pygame.time.get_ticks() * 0.05) * min(30, self.sweep_power * 2.0)
                 rotated_broom = pygame.transform.rotate(self.broom_surf, angle)
@@ -1448,7 +1470,6 @@ class WinCurl3:
                 if event.type == KEYDOWN:
                     if event.key == K_ESCAPE:
                         if self.app_state == "PLAY":
-                            pygame.event.set_grab(False); pygame.mouse.set_visible(True)
                             self.audio.play_click(); self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
                         elif self.app_state == "PAUSED":
                             self.audio.play_click(); self.app_state = "PLAY"
@@ -1535,7 +1556,6 @@ class IRCNetworkManager:
                             self.sock.send(f"JOIN {self.channel}\r\n".encode())
                             if self.is_host: self.connecting = False 
                             else: 
-                                # FIXED: Client must broadcast initial greeting to channel so the host knows who to talk to!
                                 self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
                                 self.connecting = False
                         elif len(parts) > 3 and parts[1] == "PRIVMSG":
@@ -1544,11 +1564,9 @@ class IRCNetworkManager:
                             msg_content = line.split(" :", 1)[1]
                             try:
                                 msg_data = json.loads(msg_content)
-                                # Host catches the broadcast and locks in the client opponent
                                 if self.is_host and not self.matched and target == self.channel and msg_data.get('cmd') == 'hello':
                                     self.opponent = sender; self.matched = True
                                     self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack'})}\r\n".encode())
-                                # Client catches the peer-to-peer ack and locks in the host opponent
                                 elif not self.is_host and not self.matched and msg_data.get('cmd') == 'hello_ack':
                                     self.opponent = sender; self.matched = True
                                 elif sender == self.opponent:
