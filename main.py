@@ -18,10 +18,10 @@ if IS_ANDROID:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # --- Immediate Environment Verification ---
-print("\n" + "="*60)
+print("\n" + "="*80)
 print("     [SYSTEM] WINCURL 3 BUILD 13.37")
 print("     (UPDATED CONTROLS | DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
-print("="*60 + "\n")
+print("="*80 + "\n")
 
 # --- Configuration & Canvas Setup ---
 BASE_WIDTH, BASE_HEIGHT = 1200, 1800 
