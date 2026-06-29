@@ -20,7 +20,7 @@ if IS_ANDROID:
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
 print("     [SYSTEM] WINCURL 3 BUILD 14 PREVIEW")
-print("     (UPDATED CONTROLS | DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
+print("     (SIGNIFICANTLY UPDATED CONTROLS | DESKTOP MENU 60FPS / ANDROID MENU 28FPS | CLASSIC AUDIO RESTORED)")
 print("="*80 + "\n")
 
 # --- Configuration & Canvas Setup ---
