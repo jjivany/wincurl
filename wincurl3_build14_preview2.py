@@ -451,83 +451,92 @@ class AnimatedCurler:
         def c(col): return override_color or col
 
         def draw_cylinder_line(surf, color, start, end, width):
-            # Helper for pseudo-3D cylindrical limbs
             if override_color:
                 pygame.draw.line(surf, override_color, start, end, width)
                 return
-            
-            # Base shadow
             shadow_col = (max(0, color[0]-50), max(0, color[1]-50), max(0, color[2]-50))
             pygame.draw.line(surf, shadow_col, start, end, width)
-            
-            # Core color
             pygame.draw.line(surf, color, start, end, max(2, width - 4))
-            
-            # Bright highlight edge
             hl_col = (min(255, color[0]+60), min(255, color[1]+60), min(255, color[2]+60))
             pygame.draw.line(surf, hl_col, (start[0]-2, start[1]), (end[0]-2, end[1]), max(1, width - 8))
-        
-        def head(x, y):
-            # 3D Skin Sphere with gradient shading
-            if not override_color:
-                for r in range(19, 0, -1):
-                    shade = max(0, min(255, 140 + r * 6))
-                    # Shift the center slightly as radius decreases to create a light source effect
-                    pygame.draw.circle(surface, (shade, int(shade*0.85), int(shade*0.75)), (int(x - (19-r)*0.3), int(y - (19-r)*0.3)), r)
-            else:
-                pygame.draw.circle(surface, c((240,200,180)), (int(x), int(y)), 19) 
-            
-            # Goggles / Sunglasses
-            pygame.draw.ellipse(surface, c((30, 30, 35)), (int(x-22), int(y-6), 44, 28))
-            pygame.draw.ellipse(surface, c((10, 10, 15)), (int(x-20), int(y-4), 40, 24))
-            # Goggle reflection
-            if not override_color:
-                pygame.draw.line(surface, (255, 255, 255, 150), (int(x-12), int(y-2)), (int(x-4), int(y+16)), 2)
-                pygame.draw.line(surface, (255, 255, 255, 150), (int(x+4), int(y-2)), (int(x+12), int(y+16)), 2)
-            
-            # 3D Curling Beanie Base
-            hat_shade = (max(0, self.tc[0]-80), max(0, self.tc[1]-80), max(0, self.tc[2]-80))
-            pygame.draw.ellipse(surface, c(hat_shade), (int(x-23), int(y-26), 46, 26)) 
-            pygame.draw.ellipse(surface, c(self.tc), (int(x-21), int(y-24), 42, 22)) 
-            
-            if not override_color:
-                # Specular highlight on fabric
-                specular = pygame.Surface((42, 22), pygame.SRCALPHA)
-                pygame.draw.ellipse(specular, (255, 255, 255, 50), (4, 2, 34, 10))
-                surface.blit(specular, (int(x-21), int(y-24)))
 
-            # Beanie Brim
-            pygame.draw.rect(surface, c(hat_shade), (int(x-23), int(y-11), 46, 12), border_radius=6) 
-            pygame.draw.rect(surface, c(self.tc), (int(x-22), int(y-12), 44, 10), border_radius=5) 
-            pygame.draw.rect(surface, c(CYAN_ACCENT), (int(x-22), int(y-10), 44, 4), border_radius=2) 
-            
-            # 3D Pom-pom
+        def head(x, y):
+            ix, iy = int(x), int(y)
+            head_rw, head_rh = 17, 22
+
+            # Base head (Hair/Back of head)
             if not override_color:
-                for r in range(10, 0, -1):
-                    s = 140 + r*11
-                    pygame.draw.circle(surface, (s,s,s), (int(x), int(y-28)), r)
+                for r in range(20, 0, -1):
+                    shade = max(0, min(255, 60 + r * 3))
+                    px = int(ix - (20-r)*0.1)
+                    py = int(iy - (20-r)*0.2)
+                    rw = max(1, int((head_rw/20.0)*r))
+                    rh = max(1, int((head_rh/20.0)*r))
+                    # Brownish hair gradient
+                    pygame.draw.ellipse(surface, (shade, int(shade*0.75), int(shade*0.55)), (px - rw, py - rh, rw*2, rh*2))
             else:
-                pygame.draw.circle(surface, c(WHITE), (int(x), int(y-28)), 10) 
+                pygame.draw.ellipse(surface, c((80, 50, 30)), (ix-head_rw, iy-head_rh, head_rw*2, head_rh*2))
+
+            # Beanie Base
+            hat_rw, hat_rh = 19, 14
+            hat_shade = (max(0, self.tc[0]-80), max(0, self.tc[1]-80), max(0, self.tc[2]-80))
+            
+            # The beanie pulled down over the back of the head
+            pygame.draw.ellipse(surface, c(hat_shade), (ix-hat_rw-1, iy-head_rh-6, hat_rw*2+2, hat_rh*2+2))
+            pygame.draw.ellipse(surface, c(self.tc), (ix-hat_rw, iy-head_rh-5, hat_rw*2, hat_rh*2))
+
+            if not override_color:
+                specular = pygame.Surface((hat_rw*2, hat_rh*2), pygame.SRCALPHA)
+                pygame.draw.ellipse(specular, (255, 255, 255, 40), (4, 2, hat_rw*2-8, 6))
+                surface.blit(specular, (ix-hat_rw, iy-head_rh-5))
+
+            # Beanie Brim (Curves across the back of the head)
+            pygame.draw.rect(surface, c(hat_shade), (ix-hat_rw-2, iy-head_rh+4, hat_rw*2+4, 10), border_radius=4)
+            pygame.draw.rect(surface, c(self.tc), (ix-hat_rw-1, iy-head_rh+5, hat_rw*2+2, 8), border_radius=3)
+            pygame.draw.rect(surface, c(CYAN_ACCENT), (ix-hat_rw-1, iy-head_rh+7, hat_rw*2+2, 3), border_radius=1)
+
+            # Pom-pom (Slightly shifted up for back perspective)
+            if not override_color:
+                for r in range(9, 0, -1):
+                    s = 140 + r*11
+                    pygame.draw.circle(surface, (s,s,s), (ix, iy-head_rh-9), r)
+            else:
+                pygame.draw.circle(surface, c((255, 255, 255)), (ix, iy-head_rh-9), 9)
 
         if self.state == "BACKSWING":
             # 3D Legs
             draw_cylinder_line(surface, (30,30,35), (hx-15, hy+90+offset_y), (hx-20, hy+140+offset_y), 16)
             draw_cylinder_line(surface, (30,30,35), (hx+15, hy+90+offset_y), (hx+20, hy+140+offset_y), 16)
             
-            # 90s Tracksuit Body
+            # Back of Neck
+            if override_color:
+                pygame.draw.rect(surface, c((240,200,180)), (int(hx-8), int(hy+offset_y), 16, 20))
+            else:
+                pygame.draw.rect(surface, (200, 150, 130), (int(hx-8), int(hy+offset_y), 16, 20))
+                # Hair shadow cast onto the back of the neck
+                pygame.draw.rect(surface, (160, 110, 90), (int(hx-8), int(hy+offset_y), 16, 6))
+
+            # 90s Tracksuit Body (Back View)
             if override_color:
                 pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-35, hy+20+offset_y, 70, 80), border_radius=16)
             else:
-                # Base shadow layer
                 pygame.draw.rect(surface, PURPLE_SHADOW, (hx-36, hy+18+offset_y, 72, 84), border_radius=16)
                 pygame.draw.rect(surface, PURPLE_SUIT, (hx-32, hy+20+offset_y, 64, 76), border_radius=14)
-                # Volumetric core highlight (gives the torso a rounded look)
                 pygame.draw.rect(surface, (150, 55, 210), (hx-22, hy+24+offset_y, 30, 68), border_radius=10)
 
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-25, hy+25+offset_y), (hx-25, hy+95+offset_y), 6)
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx+25, hy+25+offset_y), (hx+25, hy+95+offset_y), 6)
+            # Tracksuit accent lines (Center zipper removed for back view)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-20, hy+30+offset_y), (hx-20, hy+92+offset_y), 4)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx+20, hy+30+offset_y), (hx+20, hy+92+offset_y), 4)
 
-            head(hx, hy+14+offset_y)
+            # Tracksuit Collar (Wraps fully around the back of the neck)
+            if override_color:
+                pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-16, hy+10+offset_y, 32, 14), border_radius=4)
+            else:
+                pygame.draw.rect(surface, PURPLE_SHADOW, (hx-17, hy+9+offset_y, 34, 16), border_radius=4)
+                pygame.draw.rect(surface, PURPLE_SUIT, (hx-15, hy+11+offset_y, 30, 12), border_radius=3)
+
+            # Full Head Overlap
+            head(hx, hy - 8 + offset_y)
             
             # 3D Forward Arm
             draw_cylinder_line(surface, (210,180,50), (hx-55, hy+10+offset_y), (hx-15, hy+45+offset_y), 10)
@@ -542,7 +551,6 @@ class AnimatedCurler:
             pygame.draw.ellipse(surface, c(PURPLE_SUIT), (hx+20, hy+30+offset_y, 25, 50))
             
             if not override_color:
-                # Shoulder highlights
                 pygame.draw.ellipse(surface, (150, 55, 210), (hx-42, hy+32+offset_y, 10, 40))
                 pygame.draw.ellipse(surface, (150, 55, 210), (hx+22, hy+32+offset_y, 10, 40))
         
@@ -552,12 +560,20 @@ class AnimatedCurler:
             # 3D Forward Leg
             draw_cylinder_line(surface, (30,30,35), (hx-12, ly+60), (hx-15, hy+110), 18)
             
-            # Trailing Leg (Hack Leg)
+            # Trailing Leg
             pygame.draw.polygon(surface, c((15,15,20)), [(hx+6, ly+48), (hx+34, ly+99), (hx+10, ly+104)])
             if not override_color: 
                 pygame.draw.polygon(surface, (50,50,55), [(hx+10, ly+52), (hx+30, ly+94), (hx+14, ly+97)])
-            
-            # 90s Tracksuit Body
+
+            # Back of Neck
+            if override_color:
+                pygame.draw.rect(surface, c((240,200,180)), (int(hx-8), int(ly-48), 16, 20))
+            else:
+                pygame.draw.rect(surface, (200, 150, 130), (int(hx-8), int(ly-48), 16, 20))
+                # Hair shadow
+                pygame.draw.rect(surface, (160, 110, 90), (int(hx-8), int(ly-48), 16, 6))
+
+            # 90s Tracksuit Body (Back View)
             if override_color:
                 pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-30, ly-30, 60, 90), border_radius=15)
             else:
@@ -565,9 +581,19 @@ class AnimatedCurler:
                 pygame.draw.rect(surface, PURPLE_SUIT, (hx-28, ly-30, 56, 86), border_radius=12)
                 pygame.draw.rect(surface, (150, 55, 210), (hx-18, ly-26, 26, 76), border_radius=10)
 
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-20, ly-25), (hx-20, ly+50), 6)
-            
-            head(hx, ly-32)
+            # Tracksuit accent lines (Center zipper removed for back view)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-15, ly-15), (hx-15, ly+50), 4)
+            pygame.draw.line(surface, c(CYAN_ACCENT), (hx+15, ly-15), (hx+15, ly+50), 4)
+
+            # Tracksuit Collar
+            if override_color:
+                pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-16, ly-39, 32, 14), border_radius=4)
+            else:
+                pygame.draw.rect(surface, PURPLE_SHADOW, (hx-17, ly-40, 34, 16), border_radius=4)
+                pygame.draw.rect(surface, PURPLE_SUIT, (hx-15, ly-38, 30, 12), border_radius=3)
+
+            # Full Head Overlap
+            head(hx, ly-45)
             
             # 3D Lunging Arm
             draw_cylinder_line(surface, (210,180,50), (hx-75, ly-10), (hx-20, ly+20), 10)
