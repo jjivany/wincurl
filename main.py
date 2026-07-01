@@ -1019,7 +1019,7 @@ class WinCurl3:
         if abs(pull.x) < 3.5: 
             pull.x = 0
             
-        if pull.length() > 5:
+        if pull.length() > 5 and pull.y < 0:
             self.active_stone.vel = pull.normalize() * min(42.0, pull.length() / 10.0) 
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
@@ -1066,7 +1066,8 @@ class WinCurl3:
         else: self.reset_end()
 
     def handle_menu_events(self, event):
-        mouse_pos = self.scale_mouse(self.get_pointer_pos()); mx, my = mouse_pos.x, mouse_pos.y
+        mouse_pos = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos()))
+        mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
         curr_hov = next((b["id"] for b in self.menu_buttons if 300<mx<900 and b["y"]<my<b["y"]+110*b["scale"]), None)
         if curr_hov != self.last_hovered:
             if curr_hov: self.audio.play_hover()
@@ -1115,7 +1116,7 @@ class WinCurl3:
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
-            mx, my = self.scale_mouse(self.get_pointer_pos())
+            m = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos())); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if not self.prompt_rect.collidepoint(mx, my):
                 self.app_state = "MENU"; self.set_typing_target(None)
 
@@ -1134,7 +1135,7 @@ class WinCurl3:
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
-            mx, my = self.scale_mouse(self.get_pointer_pos())
+            m = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos())); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_return_menu.collidepoint(mx, my): self.audio.play_click(); self.app_state = "MENU"; return
             for i in range(25):
                 row, col = i // 5, i % 5; rect = pygame.Rect(BASE_WIDTH//2 - 250 + col*100, 300 + row*100, 90, 90)
@@ -1144,13 +1145,13 @@ class WinCurl3:
 
     def handle_pause_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
-            mx, my = self.scale_mouse(self.get_pointer_pos())
+            m = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos())); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_resume.collidepoint(mx, my): self.audio.play_click(); self.app_state = "PLAY"
             elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.return_to_menu()
                 
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
-            mx, my = self.scale_mouse(self.get_pointer_pos())
+            m = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos())); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 self.return_to_menu()
@@ -1323,7 +1324,7 @@ class WinCurl3:
                     if i < len(self.stones): self.stones[i].set_state(s_data)
 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
-        elif self.game_mode == "HOST" and self.app_state == "PLAY" and getattr(self, 'turn_state', 'MENU') == "SLIDING" and self.frames_elapsed % 5 == 0: 
+        elif self.game_mode == "HOST" and self.app_state == "PLAY" and getattr(self, 'turn_state', 'MENU') == "SLIDING" and self.frames_elapsed % 60 == 0: 
             self.net.send_action({'cmd': 'sync', 'st': self.turn_state, 't': self.current_team, 'sc': self.score, 's': [s.get_state() for s in self.stones]})
 
     def draw_fractal_house(self, surf, x, y, radius, depth, max_depth, morph_time):
