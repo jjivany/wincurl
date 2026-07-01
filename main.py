@@ -1687,21 +1687,38 @@ class WinCurl3:
                     scale = min(ww / BASE_WIDTH, wh / BASE_HEIGHT)
                     sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
                     ox, oy = (ww - sw) // 2, (wh - sh) // 2
-                    px, py = event.x * ww, event.y * wh
+                    
+                    raw_px, raw_py = event.x * ww, event.y * wh
+                    
+                    if not hasattr(self, 'global_touch_offset_x'): self.global_touch_offset_x = 0
+                    if not hasattr(self, 'global_touch_offset_y'): self.global_touch_offset_y = 0
+                    
+                    px = raw_px - self.global_touch_offset_x
+                    py = raw_py - self.global_touch_offset_y
+                    
                     mx = (px - ox) / scale if scale > 0 else px
                     my = (py - oy) / scale if scale > 0 else py
                     self.current_mapped_pos = pygame.math.Vector2(mx, my)
+                    
                     if event.type == FINGERDOWN: 
+                        self.last_raw_finger_x = raw_px
+                        self.last_raw_finger_y = raw_py
                         self.current_mapped_pos = pygame.math.Vector2(mx, my)
                         self.is_pointer_pressed = True
                         event = pygame.event.Event(MOUSEBUTTONDOWN, button=1, pos=self.current_mapped_pos, finger_id=event.finger_id)
                     elif event.type == FINGERUP: 
                         self.is_pointer_pressed = False
-                        event = pygame.event.Event(MOUSEBUTTONUP, button=1, pos=pygame.math.Vector2(mx, my), finger_id=event.finger_id)
+                        event = pygame.event.Event(MOUSEBUTTONUP, button=1, pos=self.current_mapped_pos, finger_id=event.finger_id)
                     elif event.type == FINGERMOTION:
-                        self.current_mapped_pos = pygame.math.Vector2(mx, my)
                         event = pygame.event.Event(MOUSEMOTION, buttons=(1,0,0), pos=self.current_mapped_pos, finger_id=event.finger_id)
+                        
                 elif event.type in (MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP):
+                    if IS_ANDROID and event.type == MOUSEBUTTONDOWN and hasattr(self, 'last_raw_finger_x') and not getattr(self, 'is_calibrated', False):
+                        if abs(self.last_raw_finger_x - event.pos[0]) < 250 and abs(self.last_raw_finger_y - event.pos[1]) < 250:
+                            self.global_touch_offset_x = self.last_raw_finger_x - event.pos[0]
+                            self.global_touch_offset_y = self.last_raw_finger_y - event.pos[1]
+                            self.is_calibrated = True
+                        
                     ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
                     ox, oy = (ww - int(BASE_WIDTH * scale)) // 2, (wh - int(BASE_HEIGHT * scale)) // 2
                     mx = (event.pos[0] - ox) / scale if scale > 0 else event.pos[0]
