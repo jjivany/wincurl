@@ -11,6 +11,8 @@ import os
 import io
 import wave
 from pygame.locals import *
+import zlib
+import base64
 
 # Define this immediately after imports
 IS_ANDROID = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ
@@ -19,7 +21,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 14 PREVIEW 3")
+print("     [SYSTEM] WINCURL 3 BUILD 14 FINAL")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | ANDROID FINGERDOWN FIX)")
 print("="*80 + "\n")
 
@@ -510,6 +512,12 @@ class AnimatedCurler:
             draw_cylinder_line(surface, (30,30,35), (hx-15, hy+90+offset_y), (hx-20, hy+140+offset_y), 16)
             draw_cylinder_line(surface, (30,30,35), (hx+15, hy+90+offset_y), (hx+20, hy+140+offset_y), 16)
             
+            # SHOES
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx-28, hy+135+offset_y, 20, 30))
+            pygame.draw.ellipse(surface, c((240, 240, 240)), (hx-26, hy+137+offset_y, 16, 26))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx+12, hy+135+offset_y, 20, 30))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx+14, hy+137+offset_y, 16, 26))
+            
             # Back of Neck
             if override_color:
                 pygame.draw.rect(surface, c((240,200,180)), (int(hx-8), int(hy+offset_y), 16, 20))
@@ -561,11 +569,16 @@ class AnimatedCurler:
             
             # 3D Forward Leg
             draw_cylinder_line(surface, (30,30,35), (hx-12, ly+60), (hx-15, hy+110), 18)
+            # SHOE (Forward)
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx-25, hy+105, 24, 34)) 
+            pygame.draw.ellipse(surface, c((240, 240, 240)), (hx-23, hy+107, 20, 30))
             
             # Trailing Leg
             pygame.draw.polygon(surface, c((15,15,20)), [(hx+6, ly+48), (hx+34, ly+99), (hx+10, ly+104)])
             if not override_color: 
                 pygame.draw.polygon(surface, (50,50,55), [(hx+10, ly+52), (hx+30, ly+94), (hx+14, ly+97)])
+            # SHOE (Trailing)
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx+22, ly+94, 20, 30))
 
             # Back of Neck
             if override_color:
@@ -859,8 +872,9 @@ class WinCurl3:
                 self.preferred_color = data.get("color", 0)
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
+                self.challenge_completed_seen = data.get("challenge_completed_seen", False)
         except:
-            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5
+            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -870,7 +884,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -883,6 +897,8 @@ class WinCurl3:
         self.last_mouse_pos = pygame.math.Vector2(0, 0)
         self.dragging_slider = False
         self.drag_start_pos = None
+        self.drag_finger_id = None
+        self.pull_history = []
         self.spawn_next_stone()
 
     def return_to_menu(self):
@@ -994,6 +1010,11 @@ class WinCurl3:
         self.stones_thrown[1] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
 
     def fire_stone(self):
+        if getattr(self, 'pull_history', []):
+            avg_x = sum(p.x for p in self.pull_history) / len(self.pull_history)
+            avg_y = sum(p.y for p in self.pull_history) / len(self.pull_history)
+            self.virtual_pull = pygame.math.Vector2(avg_x, avg_y)
+
         pull = pygame.math.Vector2(-self.virtual_pull.x, -self.virtual_pull.y)
         if abs(pull.x) < 3.5: 
             pull.x = 0
@@ -1007,6 +1028,8 @@ class WinCurl3:
         else: self.curler_anim.update("IDLE")
         self.is_dragging = False; self.virtual_pull = pygame.math.Vector2(0, 0)
         self.drag_start_pos = None
+        self.drag_finger_id = None
+        self.pull_history = []
 
     def advance_end_logic(self):
         if self.game_mode == "CHALLENGE":
@@ -1019,13 +1042,15 @@ class WinCurl3:
                     if not self.challenge_progress[self.challenge_level-1] or self.challenge_level == start_lvl:
                         break
                 self.challenge_attempts = 0
-            if all(self.challenge_progress[:25]): 
+            if all(self.challenge_progress[:25]) and not getattr(self, 'challenge_completed_seen', False): 
                 if self.app_state != "MATCH_OVER":
                     self.app_state = "MATCH_OVER"
                     self.audio.play_cheer()
                     if not getattr(self, 'challenge_announced', False):
                         self.audio.ch_voice.play(self.audio.snd_chal_comp)
                         self.challenge_announced = True
+                    self.challenge_completed_seen = True
+                    self.save_progress()
             else: self.load_challenge(self.challenge_level)
             return
 
@@ -1131,10 +1156,14 @@ class WinCurl3:
                 self.return_to_menu()
 
     def handle_play_events(self, event):
-        mouse_pos = self.scale_mouse(self.get_pointer_pos())
+        mouse_pos = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos()))
+        if isinstance(mouse_pos, tuple): mouse_pos = pygame.math.Vector2(mouse_pos)
+        f_id = getattr(event, 'finger_id', 'mouse')
         
         if event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1 and self.is_dragging:
-            self.fire_stone(); return
+            if getattr(self, 'drag_finger_id', None) == f_id:
+                self.fire_stone()
+            return
 
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
             self.audio.play_click(); self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0); return
@@ -1152,12 +1181,17 @@ class WinCurl3:
             if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
                 if self.btn_curl_l.collidepoint(mouse_pos.x, mouse_pos.y): self.selected_curl = max(-1.0, self.selected_curl - 0.2); self.audio.play_hover()
                 elif self.btn_curl_r.collidepoint(mouse_pos.x, mouse_pos.y): self.selected_curl = min(1.0, self.selected_curl + 0.2); self.audio.play_hover()
-                elif (mouse_pos - self.active_stone.pos).length() < 90: 
+                elif (mouse_pos - self.active_stone.pos).length() < 90 and not self.is_dragging: 
                     self.is_dragging = True
                     self.drag_start_pos = mouse_pos
+                    self.drag_finger_id = f_id
+                    self.pull_history = []
                     self.virtual_pull = pygame.math.Vector2(0, 0)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, 'drag_start_pos', None):
-                self.virtual_pull = self.drag_start_pos - mouse_pos
+                if f_id == getattr(self, 'drag_finger_id', None):
+                    self.virtual_pull = self.drag_start_pos - mouse_pos
+                    self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
+                    if len(self.pull_history) > 5: self.pull_history.pop(0)
             elif event.type == MOUSEWHEEL: self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.y * 0.2))
 
     def update_physics(self):
@@ -1639,13 +1673,15 @@ class WinCurl3:
                     my = (py - oy) / scale if scale > 0 else py
                     self.current_mapped_pos = pygame.math.Vector2(mx, my)
                     if event.type == FINGERDOWN: 
+                        self.current_mapped_pos = pygame.math.Vector2(mx, my)
                         self.is_pointer_pressed = True
-                        event = pygame.event.Event(MOUSEBUTTONDOWN, button=1, pos=self.current_mapped_pos)
+                        event = pygame.event.Event(MOUSEBUTTONDOWN, button=1, pos=self.current_mapped_pos, finger_id=event.finger_id)
                     elif event.type == FINGERUP: 
                         self.is_pointer_pressed = False
-                        event = pygame.event.Event(MOUSEBUTTONUP, button=1, pos=self.current_mapped_pos)
+                        event = pygame.event.Event(MOUSEBUTTONUP, button=1, pos=pygame.math.Vector2(mx, my), finger_id=event.finger_id)
                     elif event.type == FINGERMOTION:
-                        event = pygame.event.Event(MOUSEMOTION, buttons=(1,0,0), pos=self.current_mapped_pos)
+                        self.current_mapped_pos = pygame.math.Vector2(mx, my)
+                        event = pygame.event.Event(MOUSEMOTION, buttons=(1,0,0), pos=self.current_mapped_pos, finger_id=event.finger_id)
                 elif event.type in (MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP):
                     ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
                     ox, oy = (ww - int(BASE_WIDTH * scale)) // 2, (wh - int(BASE_HEIGHT * scale)) // 2
@@ -1654,6 +1690,7 @@ class WinCurl3:
                     self.current_mapped_pos = pygame.math.Vector2(mx, my)
                     if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1: self.is_pointer_pressed = True
                     elif event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1: self.is_pointer_pressed = False
+                    event.finger_id = 'mouse'
 
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
@@ -1744,6 +1781,7 @@ class IRCNetworkManager:
         threading.Thread(target=self._irc_thread, daemon=True).start()
 
     def _irc_thread(self):
+        def enc_msg(msg_dict): return "Z" + base64.b64encode(zlib.compress(json.dumps(msg_dict).encode('utf-8'))).decode('utf-8')
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); self.sock.connect(("irc.dal.net", 6667))
             self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
@@ -1751,7 +1789,7 @@ class IRCNetworkManager:
             while self.running:
                 while not self.tx_queue.empty():
                     msg = self.tx_queue.get()
-                    if self.matched and self.opponent: self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps(msg)}\r\n".encode())
+                    if self.matched and self.opponent: self.sock.send(f"PRIVMSG {self.opponent} :{enc_msg(msg)}\r\n".encode())
                 
                 self.sock.settimeout(0.1)
                 try:
@@ -1765,17 +1803,22 @@ class IRCNetworkManager:
                             self.sock.send(f"JOIN {self.channel}\r\n".encode())
                             if self.is_host: self.connecting = False 
                             else: 
-                                self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
+                                self.sock.send(f"PRIVMSG {self.channel} :{enc_msg({'cmd': 'hello'})}\r\n".encode())
                                 self.connecting = False
                         elif len(parts) > 3 and parts[1] == "PRIVMSG":
                             sender = parts[0].split("!")[0][1:]
                             target = parts[2]
                             msg_content = line.split(" :", 1)[1]
                             try:
-                                msg_data = json.loads(msg_content)
+                                if msg_content.startswith("Z"):
+                                    raw = zlib.decompress(base64.b64decode(msg_content[1:])).decode('utf-8')
+                                    msg_data = json.loads(raw)
+                                else:
+                                    msg_data = json.loads(msg_content)
+                                    
                                 if self.is_host and not self.matched and target == self.channel and msg_data.get('cmd') == 'hello':
                                     self.opponent = sender; self.matched = True
-                                    self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack'})}\r\n".encode())
+                                    self.sock.send(f"PRIVMSG {self.opponent} :{enc_msg({'cmd': 'hello_ack'})}\r\n".encode())
                                 elif not self.is_host and not self.matched and msg_data.get('cmd') == 'hello_ack':
                                     self.opponent = sender; self.matched = True
                                 elif sender == self.opponent:
