@@ -1134,7 +1134,7 @@ class WinCurl3:
                 self.app_state = "MENU"
                 self.set_typing_target(None)
                 self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
-                self.net.connect(self.username, self.net_action == "host", self.room_text)
+                self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, 'preferred_color', 0))
 
         if event.type == KEYDOWN and self.typing_target == "room":
             if event.key == K_RETURN and len(self.room_text) > 0:
@@ -1143,7 +1143,7 @@ class WinCurl3:
                 self.app_state = "MENU"
                 self.set_typing_target(None)
                 self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
-                self.net.connect(self.username, self.net_action == "host", self.room_text)
+                self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, 'preferred_color', 0))
             elif event.key == K_ESCAPE:
                 self.app_state = "MENU"; self.set_typing_target(None)
             elif event.key == K_BACKSPACE: self.room_text = self.room_text[:-1]
@@ -1338,7 +1338,13 @@ class WinCurl3:
                 if len(data['s']) > len(self.stones): self.spawn_next_stone()
                 for i, s_data in enumerate(data['s']):
                     if i < len(self.stones): self.stones[i].set_state(s_data)
-
+            elif data.get('cmd') == 'set_color':
+                self.preferred_color = 1 - data['color']
+            elif data.get('cmd') == 'opponent_left':
+                self.app_state = "MATCH_OVER"
+                self.winner_text = "Opponent Disconnected"
+                self.audio.play_cheer()
+                
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
         elif self.game_mode == "HOST" and self.app_state == "PLAY" and getattr(self, 'turn_state', 'MENU') == "SLIDING" and self.frames_elapsed % 60 == 0: 
             self.net.send_action({'cmd': 'sync', 'st': self.turn_state, 't': self.current_team, 'sc': self.score, 's': [s.get_state() for s in self.stones]})
@@ -1549,7 +1555,7 @@ class WinCurl3:
                 
             if self.net.matched and getattr(self.net, 'opponent', None):
                 opp_surf = self.small_font.render(f"VS: {self.net.opponent.split('!')[0]}", True, BLACK)
-                self.canvas.blit(opp_surf, (BASE_WIDTH - 250, 150))
+                self.canvas.blit(opp_surf, (BASE_WIDTH - 500, 150))
 
         if self.turn_state == "AIMING":
             if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
@@ -1688,7 +1694,7 @@ class WinCurl3:
                     sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
                     ox, oy = (ww - sw) // 2, (wh - sh) // 2
                     
-                    raw_px, raw_py = event.x * ww, event.y * wh
+                    raw_px, raw_py = event.x * pygame.display.Info().current_w, event.y * pygame.display.Info().current_h
                     
                     if not hasattr(self, 'global_touch_offset_x'): self.global_touch_offset_x = 0
                     if not hasattr(self, 'global_touch_offset_y'): self.global_touch_offset_y = 0
@@ -1809,7 +1815,7 @@ class IRCNetworkManager:
         self.room_display = ""
         self.tx_queue = queue.Queue(); self.rx_queue = queue.Queue(); self.is_host = False
 
-    def connect(self, username, is_host, room_name=""):
+    def connect(self, username, is_host, room_name="", preferred_color=0):
         self.username = "WC_" + "".join(c for c in username if c.isalnum())[:10]
         if len(self.username) == 3: self.username += str(random.randint(100,999))
         
@@ -1817,6 +1823,7 @@ class IRCNetworkManager:
         self.channel = f"#wc3_{safe_room}"
         self.room_display = f"'{safe_room}'"
         
+        self.preferred_color = preferred_color
         self.is_host = is_host; self.connecting = True; self.running = True
         threading.Thread(target=self._irc_thread, daemon=True).start()
 
@@ -1839,12 +1846,19 @@ class IRCNetworkManager:
                     while "\r\n" in buffer:
                         line, buffer = buffer.split("\r\n", 1); parts = line.split(" ")
                         if parts[0] == "PING": self.sock.send(f"PONG {parts[1]}\r\n".encode())
+                        elif len(parts) > 1 and parts[1] == "433":
+                            self.username += "too"
+                            self.sock.send(f"NICK {self.username}\r\n".encode())
                         elif len(parts) > 1 and parts[1] in ("001", "376", "422"):
                             self.sock.send(f"JOIN {self.channel}\r\n".encode())
                             if self.is_host: self.connecting = False 
                             else: 
                                 self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
                                 self.connecting = False
+                        elif len(parts) > 2 and parts[1] in ("PART", "QUIT"):
+                            sender = parts[0].split("!")[0][1:]
+                            if sender == getattr(self, 'opponent', ''):
+                                self.rx_queue.put({'cmd': 'opponent_left'})
                         elif len(parts) > 3 and parts[1] == "PRIVMSG":
                             sender = parts[0].split("!")[0][1:]
                             target = parts[2]
@@ -1858,9 +1872,10 @@ class IRCNetworkManager:
                                     
                                 if self.is_host and not self.matched and target == self.channel and msg_data.get('cmd') == 'hello':
                                     self.opponent = sender; self.matched = True
-                                    self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack'})}\r\n".encode())
+                                    self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode())
                                 elif not self.is_host and not self.matched and msg_data.get('cmd') == 'hello_ack':
                                     self.opponent = sender; self.matched = True
+                                    self.rx_queue.put({'cmd': 'set_color', 'color': msg_data.get('color', 0)})
                                 elif sender == self.opponent:
                                     self.rx_queue.put(msg_data)
                             except: pass
