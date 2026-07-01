@@ -1793,7 +1793,7 @@ class WinCurl3:
                 self.coin_timer -= 1
                 if self.coin_timer <= 0:
                     self.stones_thrown = {0: 0, 1: 0}
-                    self.score = {0: [0]*self.total_ends, 1: [0]*self.total_ends}
+                    self.score = {0: [0]*8, 1: [0]*8}
                     self.current_end = 1
                     self.total_stones_played = 0
                     self.hammer_team = self.coin_flip_result
