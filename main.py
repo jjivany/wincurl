@@ -882,10 +882,8 @@ class WinCurl3:
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
-                self.global_touch_offset_y = data.get("touch_offset_y", 0)
-                if self.global_touch_offset_y != 0: self.is_calibrated = True
         except:
-            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.global_touch_offset_y = 0
+            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -895,7 +893,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "touch_offset_y": getattr(self, 'global_touch_offset_y', 0)}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -1690,28 +1688,18 @@ class WinCurl3:
                 if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
                 
                 if event.type in (FINGERDOWN, FINGERMOTION, FINGERUP):
-                    # FINGER ABSOLUTE MAPPING BYPASS FIX FOR ANDROID SCREEN SHIFT
                     ww, wh = self.screen.get_size()
                     scale = min(ww / BASE_WIDTH, wh / BASE_HEIGHT)
                     sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
                     ox, oy = (ww - sw) // 2, (wh - sh) // 2
                     
-                    raw_px, raw_py = event.x * pygame.display.Info().current_w, event.y * pygame.display.Info().current_h
-                    
-                    if not hasattr(self, 'global_touch_offset_x'): self.global_touch_offset_x = 0
-                    if not hasattr(self, 'global_touch_offset_y'): self.global_touch_offset_y = 0
-                    
-                    px = raw_px - self.global_touch_offset_x
-                    py = raw_py - self.global_touch_offset_y
+                    px, py = event.x * ww, event.y * wh
                     
                     mx = (px - ox) / scale if scale > 0 else px
                     my = (py - oy) / scale if scale > 0 else py
                     self.current_mapped_pos = pygame.math.Vector2(mx, my)
                     
                     if event.type == FINGERDOWN: 
-                        self.last_raw_finger_x = raw_px
-                        self.last_raw_finger_y = raw_py
-                        self.current_mapped_pos = pygame.math.Vector2(mx, my)
                         self.is_pointer_pressed = True
                         event = pygame.event.Event(MOUSEBUTTONDOWN, button=1, pos=self.current_mapped_pos, finger_id=event.finger_id)
                     elif event.type == FINGERUP: 
@@ -1721,13 +1709,6 @@ class WinCurl3:
                         event = pygame.event.Event(MOUSEMOTION, buttons=(1,0,0), pos=self.current_mapped_pos, finger_id=event.finger_id)
                         
                 elif event.type in (MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP):
-                    if IS_ANDROID and event.type == MOUSEBUTTONDOWN and hasattr(self, 'last_raw_finger_x') and not getattr(self, 'is_calibrated', False):
-                        if abs(self.last_raw_finger_x - event.pos[0]) < 250 and abs(self.last_raw_finger_y - event.pos[1]) < 250:
-                            self.global_touch_offset_x = self.last_raw_finger_x - event.pos[0]
-                            self.global_touch_offset_y = self.last_raw_finger_y - event.pos[1]
-                            self.is_calibrated = True
-                            self.save_progress()
-                            
                     if IS_ANDROID: continue # Use FINGER events exclusively to avoid double-processing
                         
                     ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
