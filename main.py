@@ -1,18 +1,18 @@
 import pygame
-import math
-import random
-import sys
+import math, random, sys, time, json, socket, threading, queue, base64, zlib
 import struct
-import socket
-import json
-import queue
-import threading
-import os
 import io
 import wave
+import os
 from pygame.locals import *
-import zlib
-import base64
+
+try:
+    from plyer import vibrator
+    def vibrate_android(ms):
+        try: vibrator.vibrate(time=ms/1000.0)
+        except: pass
+except:
+    def vibrate_android(ms): pass
 
 # Define this immediately after imports
 IS_ANDROID = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ
@@ -107,6 +107,7 @@ class WinCurlAudioEngine:
         self.ch_music = pygame.mixer.Channel(4); self.ch_crowd = pygame.mixer.Channel(5)
         self.ch_voice = pygame.mixer.Channel(6)
         
+        self.sfx_on = True
         self.snd_slide = self._synthesize_rumble(); self.snd_sweep = self._synthesize_sweep()
         self.snd_throw = self._synthesize_throw(); self.snd_clack = self._synthesize_clack()
         self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine")
@@ -129,6 +130,14 @@ class WinCurlAudioEngine:
         self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
         self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
         self.ch_sfx.play(self.snd_speech); self.last_call = 0
+
+    def play_clack(self, intensity):
+        if not self.sfx_on: return
+        vol = max(0.1, min(1.0, intensity / 20.0))
+        self.snd_clack.set_volume(vol)
+        self.ch_sfx.play(self.snd_clack)
+        if IS_ANDROID and vol > 0.3:
+            vibrate_android(int(vol * 150))
 
     def _create_wav_sound(self, byte_buffer, sample_rate=44100):
         wav_io = io.BytesIO()
@@ -1119,6 +1128,13 @@ class WinCurl3:
             m = getattr(event, 'pos', self.scale_mouse(self.get_pointer_pos())); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if not self.prompt_rect.collidepoint(mx, my):
                 self.app_state = "MENU"; self.set_typing_target(None)
+            elif IS_ANDROID:
+                self.audio.play_click()
+                self.save_progress()
+                self.app_state = "MENU"
+                self.set_typing_target(None)
+                self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
+                self.net.connect(self.username, self.net_action == "host", self.room_text)
 
         if event.type == KEYDOWN and self.typing_target == "room":
             if event.key == K_RETURN and len(self.room_text) > 0:
@@ -1281,8 +1297,8 @@ class WinCurl3:
                                         self.challenge_success = True
                                         break
                                         
-                        elif self.c_type == "TAKEOUT": self.challenge_success = (self.challenge_takeout_target not in self.stones) and any(s.team == 0 and s.pos.y < cy + 210 for s in self.stones)
-                        elif self.c_type == "DOUBLE": self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0 and any(s.team == 0 for s in self.stones)
+                        elif self.c_type == "TAKEOUT": self.challenge_success = (self.challenge_takeout_target not in self.stones) and any(s.team == 0 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(cx, cy)).length() <= 210 for s in self.stones)
+                        elif self.c_type == "DOUBLE": self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0 and any(s.team == 0 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(cx, cy)).length() <= 210 for s in self.stones)
                         self.turn_state = "END"
                 else:
                     if self.stones_thrown[0] == self.stones_per_team and self.stones_thrown[1] == self.stones_per_team:
@@ -1420,7 +1436,9 @@ class WinCurl3:
         txt = f"{self.room_text}_"
         img = self.font.render(txt, True, WHITE); self.canvas.blit(img, img.get_rect(center=(cx, cy + 10)))
         
-        sub = self.small_font.render("Press ENTER to connect | ESC to cancel", True, (150, 160, 180)); self.canvas.blit(sub, (cx - sub.get_width()//2, cy + 120))
+        if IS_ANDROID: sub = self.small_font.render("Tap here to connect | Tap outside to cancel", True, (150, 160, 180))
+        else: sub = self.small_font.render("Press ENTER to connect | ESC to cancel", True, (150, 160, 180))
+        self.canvas.blit(sub, (cx - sub.get_width()//2, cy + 120))
         self.draw_global_ui()
 
     def draw_challenge_menu(self):
@@ -1691,7 +1709,11 @@ class WinCurl3:
                     self.current_mapped_pos = pygame.math.Vector2(mx, my)
                     if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1: self.is_pointer_pressed = True
                     elif event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1: self.is_pointer_pressed = False
-                    event.finger_id = 'mouse'
+                    
+                    if event.type == MOUSEMOTION:
+                        event = pygame.event.Event(event.type, buttons=getattr(event, 'buttons', (1,0,0)), pos=self.current_mapped_pos, finger_id='mouse')
+                    else:
+                        event = pygame.event.Event(event.type, button=getattr(event, 'button', 1), pos=self.current_mapped_pos, finger_id='mouse')
 
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
@@ -1800,11 +1822,11 @@ class IRCNetworkManager:
                     while "\r\n" in buffer:
                         line, buffer = buffer.split("\r\n", 1); parts = line.split(" ")
                         if parts[0] == "PING": self.sock.send(f"PONG {parts[1]}\r\n".encode())
-                        elif len(parts) > 1 and parts[1] in ("376", "422"):
+                        elif len(parts) > 1 and parts[1] in ("001", "376", "422"):
                             self.sock.send(f"JOIN {self.channel}\r\n".encode())
                             if self.is_host: self.connecting = False 
                             else: 
-                                self.sock.send(f"PRIVMSG {self.channel} :{enc_msg({'cmd': 'hello'})}\r\n".encode())
+                                self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
                                 self.connecting = False
                         elif len(parts) > 3 and parts[1] == "PRIVMSG":
                             sender = parts[0].split("!")[0][1:]
@@ -1819,7 +1841,7 @@ class IRCNetworkManager:
                                     
                                 if self.is_host and not self.matched and target == self.channel and msg_data.get('cmd') == 'hello':
                                     self.opponent = sender; self.matched = True
-                                    self.sock.send(f"PRIVMSG {self.opponent} :{enc_msg({'cmd': 'hello_ack'})}\r\n".encode())
+                                    self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack'})}\r\n".encode())
                                 elif not self.is_host and not self.matched and msg_data.get('cmd') == 'hello_ack':
                                     self.opponent = sender; self.matched = True
                                 elif sender == self.opponent:
