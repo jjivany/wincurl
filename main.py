@@ -782,7 +782,7 @@ class WinCurl3:
         self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, 350)
         self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, BASE_HEIGHT - 150)
         self.curler_anim = AnimatedCurler(self.hack_pos)
-        self.starfield = Starfield()
+        self.starfield = Starfield(count=50 if IS_ANDROID else 150)
         if self.is_4k:
             self.border_starfield = Starfield(count=400, max_w=4000, max_h=4000)
         
@@ -882,8 +882,10 @@ class WinCurl3:
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
+                self.global_touch_offset_y = data.get("touch_offset_y", 0)
+                if self.global_touch_offset_y != 0: self.is_calibrated = True
         except:
-            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False
+            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.global_touch_offset_y = 0
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -893,7 +895,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False)}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "touch_offset_y": getattr(self, 'global_touch_offset_y', 0)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -1298,7 +1300,7 @@ class WinCurl3:
                                         break
                                         
                         elif self.c_type == "TAKEOUT": self.challenge_success = (self.challenge_takeout_target not in self.stones) and any(s.team == 0 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(cx, cy)).length() <= 210 for s in self.stones)
-                        elif self.c_type == "DOUBLE": self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0 and any(s.team == 0 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(cx, cy)).length() <= 210 for s in self.stones)
+                        elif self.c_type == "DOUBLE": self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0
                         self.turn_state = "END"
                 else:
                     if self.stones_thrown[0] == self.stones_per_team and self.stones_thrown[1] == self.stones_per_team:
@@ -1724,6 +1726,9 @@ class WinCurl3:
                             self.global_touch_offset_x = self.last_raw_finger_x - event.pos[0]
                             self.global_touch_offset_y = self.last_raw_finger_y - event.pos[1]
                             self.is_calibrated = True
+                            self.save_progress()
+                            
+                    if IS_ANDROID: continue # Use FINGER events exclusively to avoid double-processing
                         
                     ww, wh = self.screen.get_size(); scale = min(ww/BASE_WIDTH, wh/BASE_HEIGHT)
                     ox, oy = (ww - int(BASE_WIDTH * scale)) // 2, (wh - int(BASE_HEIGHT * scale)) // 2
@@ -1837,7 +1842,13 @@ class IRCNetworkManager:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); self.sock.connect(("irc.dal.net", 6667))
             self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
             buffer = ""
+            last_hello_time = 0
             while self.running:
+                if not self.is_host and not self.connecting and not self.matched:
+                    if time.time() - last_hello_time > 3.0:
+                        self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
+                        last_hello_time = time.time()
+                
                 while not self.tx_queue.empty():
                     msg = self.tx_queue.get()
                     if self.matched and self.opponent: self.sock.send(f"PRIVMSG {self.opponent} :{enc_msg(msg)}\r\n".encode())
@@ -1874,7 +1885,7 @@ class IRCNetworkManager:
                                 else:
                                     msg_data = json.loads(msg_content)
                                     
-                                if self.is_host and not self.matched and target == self.channel and msg_data.get('cmd') == 'hello':
+                                if self.is_host and target == self.channel and msg_data.get('cmd') == 'hello':
                                     self.opponent = sender; self.matched = True
                                     self.sock.send(f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode())
                                 elif not self.is_host and not self.matched and msg_data.get('cmd') == 'hello_ack':
