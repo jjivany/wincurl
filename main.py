@@ -1792,6 +1792,10 @@ class WinCurl3:
             elif self.app_state == "COIN_TOSS":
                 self.coin_timer -= 1
                 if self.coin_timer <= 0:
+                    self.stones_thrown = {0: 0, 1: 0}
+                    self.score = {0: [0]*self.total_ends, 1: [0]*self.total_ends}
+                    self.current_end = 1
+                    self.total_stones_played = 0
                     self.hammer_team = self.coin_flip_result
                     self.app_state = "PLAY"; self.reset_end()
                 else: self.draw_coin_toss_screen()
