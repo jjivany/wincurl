@@ -1,6 +1,7 @@
 import os, sys
 if hasattr(os, 'name') and os.name == 'posix' and not hasattr(sys, 'getandroidapilevel') and 'ANDROID_ARGUMENT' not in os.environ:
-    os.environ['SDL_VIDEODRIVER'] = 'x11'
+    os.environ['SDL_VIDEO_WAYLAND_WMCLASS'] = 'wincurl3'
+    os.environ['SDL_VIDEO_X11_WMCLASS'] = 'wincurl3'
 import pygame
 import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
@@ -12,7 +13,38 @@ from pygame.locals import *
 try:
     from plyer import vibrator
     def vibrate_android(ms):
-        try: vibrator.vibrate(time=ms/1000.0)
+        # 1. Try Pyjnius
+        try:
+            from jnius import autoclass
+            Context = autoclass('android.content.Context')
+            activity = None
+            for act_name in ['org.kivy.android.PythonActivity', 'org.libsdl.app.SDLActivity']:
+                try: activity = autoclass(act_name).mActivity
+                except: pass
+                if not activity:
+                    try: activity = autoclass(act_name).getContext()
+                    except: pass
+                if activity: break
+            if activity:
+                vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
+                if vibrator and vibrator.hasVibrator():
+                    vibrator.vibrate(int(ms))
+                    return
+        except: pass
+        
+        # 2. Try Plyer
+        try:
+            from plyer import vibrator
+            vibrator.vibrate(time=ms/1000.0)
+            return
+        except: pass
+
+        # 3. Try Pygame Rumble
+        try:
+            if pygame.joystick.get_count() > 0:
+                joy = pygame.joystick.Joystick(0)
+                if not joy.get_init(): joy.init()
+                joy.rumble(1.0, 1.0, int(ms))
         except: pass
 except:
     def vibrate_android(ms): pass
@@ -186,7 +218,8 @@ class WinCurlAudioEngine:
         return self._create_wav_sound(buf, 44100)
 
     def _synthesize_vosim_phrase(self, phrase, duration):
-        steps = int(44100 * duration); buf = bytearray(steps * 4)
+        SR = 11025
+        steps = int(SR * duration); buf = bytearray(steps * 4)
         if phrase == "HURRY":
             f1_env, f2_env, f3_env = [(0.0,400),(0.5,450),(1.0,300)], [(0.0,1000),(0.5,1400),(1.0,2400)], [(0.0,2600),(0.5,1600),(1.0,2800)]
             chord = [261.63, 329.63]
@@ -220,14 +253,15 @@ class WinCurlAudioEngine:
             if t_norm < 0.1: env += random.uniform(-0.5, 0.5) * (0.1 - t_norm)*15 
             val = 0.0
             for f0 in chord:
-                phase = ((i/44100) * f0) % 1.0; decay = math.exp(-phase * 2.2)
+                phase = ((i/SR) * f0) % 1.0; decay = math.exp(-phase * 2.2)
                 val += (math.sin(2*math.pi*get_val(t_norm,f1_env)*phase/f0) + math.sin(2*math.pi*get_val(t_norm,f2_env)*phase/f0)*0.6 + math.sin(2*math.pi*get_val(t_norm,f3_env)*phase/f0)*0.3) * decay
             sample = int(max(-1.0, min(1.0, (val / len(chord)) * env * 2.0)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100)
+        return self._create_wav_sound(buf, SR)
 
     def _synthesize_end_of_match(self):
-        steps = int(44100 * 2.0); buf = bytearray(steps * 4)
+        SR = 11025
+        steps = int(SR * 2.0); buf = bytearray(steps * 4)
         f1_env = [(0,400),(0.3,500),(0.6,300),(1.0,400),(1.4,700),(1.8,300),(2.0,200)]
         f2_env = [(0,1800),(0.3,1200),(0.6,1000),(1.0,900),(1.4,1200),(1.8,1800),(2.0,2400)]
         f3_env = [(0,2600),(0.5,2400),(1.0,2400),(1.5,2600),(2.0,2800)]
@@ -238,21 +272,22 @@ class WinCurlAudioEngine:
             return pts[-1][1]
 
         for i in range(steps):
-            t = i / 44100; env = math.sin((t / 2.0) * math.pi)
+            t = i / SR; env = math.sin((t / 2.0) * math.pi)
             f0 = 120.0 - t*15.0; phase = (t * f0) % 1.0; decay = math.exp(-phase * 4.0)
             noise = random.uniform(-1, 1) * max(0, (t-1.6)/0.4) * 0.5
             val = (math.sin(2*math.pi*get_val(t,f1_env)*phase/f0) + math.sin(2*math.pi*get_val(t,f2_env)*phase/f0)*0.6 + math.sin(2*math.pi*get_val(t,f3_env)*phase/f0)*0.3) * decay
             sample = int(max(-1.0, min(1.0, (val*0.6 + noise) * env)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100)
+        return self._create_wav_sound(buf, SR)
 
     def _synthesize_cheer(self):
-        duration = 3.5; steps = int(44100 * duration); buf = bytearray(steps * 4); val = 0.0
+        SR = 11025
+        duration = 3.5; steps = int(SR * duration); buf = bytearray(steps * 4); val = 0.0
         for i in range(steps):
-            t = i / 44100; val += (random.uniform(-1.0, 1.0) - val) * 0.02 
+            t = i / SR; val += (random.uniform(-1.0, 1.0) - val) * 0.02 
             sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t*12))) 
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100)
+        return self._create_wav_sound(buf, SR)
 
     def _synthesize_rumble(self):
         buf = bytearray(44100 * 4); v = 0.0
@@ -742,14 +777,7 @@ class WinCurl3:
     def setup_display(self):
         pygame.display.init()
         pygame.display.set_caption("WinCurl version 3.0")
-        
-        try:
-            if not os.path.exists("icon.png"):
-                ThreeDStone.render_cache()
-                pygame.image.save(ThreeDStone.cached_surf, "icon.png")
-            pygame.display.set_icon(pygame.image.load("icon.png"))
-        except:
-            pass
+
 
         flags = pygame.DOUBLEBUF | pygame.RESIZABLE
         info = pygame.display.Info()
@@ -764,6 +792,26 @@ class WinCurl3:
                 self.screen = pygame.display.set_mode((target_w, target_h), flags)
             else:
                 self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), flags)
+                
+        try:
+            if not os.path.exists("icon.png") and not IS_ANDROID:
+                ThreeDStone.render_cache()
+                pygame.image.save(ThreeDStone.cached_surf, "icon.png")
+            
+            if not IS_ANDROID:
+                pygame.display.set_icon(pygame.image.load("icon.png"))
+                if hasattr(os, 'name') and os.name == 'posix':
+                    desk_dir = os.path.expanduser("~/.local/share/applications")
+                    os.makedirs(desk_dir, exist_ok=True)
+                    desk_path = os.path.join(desk_dir, "wincurl3.desktop")
+                    if not os.path.exists(desk_path):
+                        icon_path = os.path.abspath("icon.png")
+                        exec_path = os.path.abspath(sys.argv[0])
+                        with open(desk_path, "w") as f:
+                            f.write(f"[Desktop Entry]\nName=WinCurl 3\nExec=python3 {exec_path}\nIcon={icon_path}\nType=Application\nTerminal=false\nCategories=Game;\nStartupWMClass=wincurl3\n")
+                        os.system(f"update-desktop-database {desk_dir} >/dev/null 2>&1")
+        except:
+            pass
         
         self.is_4k = (info.current_w >= 3840 or info.current_h >= 2160)
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
@@ -912,7 +960,7 @@ class WinCurl3:
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
-            lasts = ["Sweeps", "McPebble", "Hackman", "Slider", "Broomfield", "Skip", "Hammer", "Hogline"]
+            lasts = ["Sweeps", "McPebble", "Hackman", "Slider", "Broomfield", "Skip", "Hammer", "Hogline", "Iceburn", "Von Curl", "Rocksley", "Stoned", "Freezeman"]
             self.username = f"{random.choice(firsts)} {random.choice(lasts)}"[:15]
             self.save_progress()
 
