@@ -1,5 +1,8 @@
+import os, sys
+if hasattr(os, 'name') and os.name == 'posix' and not hasattr(sys, 'getandroidapilevel') and 'ANDROID_ARGUMENT' not in os.environ:
+    os.environ['SDL_VIDEODRIVER'] = 'x11'
 import pygame
-import math, random, sys, time, json, socket, threading, queue, base64, zlib
+import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
 import io
 import wave
@@ -21,9 +24,11 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 14 FINAL")
+print("     [SYSTEM] WINCURL 3 BUILD 15")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | ANDROID FINGERDOWN FIX)")
 print("="*80 + "\n")
+
+
 
 # --- Configuration & Canvas Setup ---
 BASE_WIDTH, BASE_HEIGHT = 1200, 1800 
@@ -120,7 +125,7 @@ class WinCurlAudioEngine:
         self.snd_hard = self._synthesize_vosim_phrase("HARD", 0.65)
         
         # BUILD 14 PREVIEW 2: Multi-Syllable Complex Vocals
-        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.0)
+        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5)
         self.snd_red_wins = self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2)
         self.snd_ylw_wins = self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4)
         
@@ -197,9 +202,9 @@ class WinCurlAudioEngine:
             f3_env = [(0.0,2600), (0.3,2000), (0.5,2400), (1.0,2600)]
             chord = [233.08, 293.66]
         elif phrase == "CHALLENGE_COMPLETE":
-            f1_env = [(0.0,600), (0.2,530), (0.4,300), (0.6,500), (0.8,400), (1.0,200)]
-            f2_env = [(0.0,1700), (0.4,1840), (0.6,1200), (1.0,1400)]
-            f3_env = [(0.0,2400), (0.5,2200), (1.0,2500)]
+            f1_env = [(0.0,600), (0.2,500), (0.3,300), (0.5,600), (0.7,300), (0.9,400), (1.0,200)]
+            f2_env = [(0.0,1700), (0.3,1200), (0.5,1800), (0.7,1100), (1.0,1400)]
+            f3_env = [(0.0,2400), (0.5,2200), (0.8,2500), (1.0,2000)]
             chord = [261.63, 311.13]
         else: # "HARD" and fallback
             f1_env, f2_env, f3_env = [(0.0,400),(0.3,750),(1.0,200)], [(0.0,1000),(0.8,1400),(1.0,1600)], [(0.0,2600),(0.8,1800),(1.0,2400)]
@@ -405,10 +410,13 @@ class Stone:
         pygame.draw.circle(s, (0, 0, 0, 80), (self.radius+8, self.radius+8), self.radius)
         
         for r in range(self.radius, 0, -1):
-            shade = 110 + int(60 * (1.0 - r / self.radius))
+            t = (self.radius - r) / self.radius
+            shade = 80 + int(70 * (1.0 - (1.0 - t)**2))
             pygame.draw.circle(s, (shade, shade+2, shade+5), (self.radius+5, self.radius+5), r)
             
-        pygame.draw.circle(s, color, (self.radius+5, self.radius+5), self.radius-4, 4)
+        pygame.draw.circle(s, color, (self.radius+5, self.radius+5), self.radius-4, 5)
+        # Highlight ring for 3D depth
+        pygame.draw.circle(s, (min(255, color[0]+60), min(255, color[1]+60), min(255, color[2]+60)), (self.radius+5, self.radius+5), self.radius-4, 1)
         
         glare = pygame.Surface((self.radius*2+15, self.radius*2+15), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(glare, (255, 255, 255, 70), (self.radius-3, self.radius-9, self.radius*1.2, self.radius*0.6))
@@ -736,15 +744,12 @@ class WinCurl3:
         pygame.display.set_caption("WinCurl version 3.0")
         
         try:
-            em_font = pygame.font.SysFont("segoe ui emoji", 32)
-            icon = em_font.render("🥌", True, HOUSE_RED)
-            pygame.display.set_icon(icon)
+            if not os.path.exists("icon.png"):
+                ThreeDStone.render_cache()
+                pygame.image.save(ThreeDStone.cached_surf, "icon.png")
+            pygame.display.set_icon(pygame.image.load("icon.png"))
         except:
-            icon = pygame.Surface((32, 32), pygame.SRCALPHA)
-            pygame.draw.circle(icon, (160, 165, 170), (16, 16), 14)
-            pygame.draw.circle(icon, HOUSE_RED, (16, 16), 10)
-            pygame.draw.line(icon, BLACK, (8, 16), (24, 16), 4)
-            pygame.display.set_icon(icon)
+            pass
 
         flags = pygame.DOUBLEBUF | pygame.RESIZABLE
         info = pygame.display.Info()
@@ -819,13 +824,24 @@ class WinCurl3:
         self.last_hovered = None
 
         self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-        for _ in range(12000):
-            px, py = random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)
-            pygame.draw.circle(self.bg_pebble_layer, (0, 0, 0, 50), (px+1, py+1), 1)
-            pygame.draw.circle(self.bg_pebble_layer, (255, 255, 255, 100), (px, py), 1)
-            
         self.fg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-        for _ in range(8000): pygame.draw.circle(self.fg_pebble_layer, (255, 255, 255, random.randint(30, 90)), (random.randint(0, BASE_WIDTH), random.randint(0, BASE_HEIGHT)), 1)
+        
+        tile_size = 256
+        bg_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
+        fg_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
+        
+        for _ in range(600):
+            px, py = random.randint(0, tile_size), random.randint(0, tile_size)
+            pygame.draw.circle(bg_tile, (0, 0, 0, 50), (px+1, py+1), 1)
+            pygame.draw.circle(bg_tile, (255, 255, 255, 100), (px, py), 1)
+        
+        for _ in range(400): 
+            pygame.draw.circle(fg_tile, (255, 255, 255, random.randint(30, 90)), (random.randint(0, tile_size), random.randint(0, tile_size)), 1)
+            
+        for tx in range(0, BASE_WIDTH, tile_size):
+            for ty in range(0, BASE_HEIGHT, tile_size):
+                self.bg_pebble_layer.blit(bg_tile, (tx, ty))
+                self.fg_pebble_layer.blit(fg_tile, (tx, ty))
         
         self.ice_env_map = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         pygame.draw.polygon(self.ice_env_map, (255, 255, 255, 18), [(300, 0), (800, 0), (200, BASE_HEIGHT), (-300, BASE_HEIGHT)])
@@ -845,9 +861,18 @@ class WinCurl3:
         pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
         pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
         pygame.draw.line(self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10)
+        
+        house_layer = pygame.Surface((440, 440))
+        house_layer.fill((255, 0, 255))
+        house_layer.set_colorkey((255, 0, 255))
+        house_layer.set_alpha(130)
         for r, c, w in [(210, HOUSE_BLUE, 0), (140, WHITE, 0), (70, HOUSE_RED, 0), (20, WHITE, 0), (20, BLACK, 2), (6, BLACK, 0), (2, WHITE, 0)]:
-            pygame.draw.circle(self.static_ice_surface, c, (int(self.house_pos.x), int(self.house_pos.y)), r, w)
+            pygame.draw.circle(house_layer, c, (220, 220), r, w)
+        self.static_ice_surface.blit(house_layer, (int(self.house_pos.x - 220), int(self.house_pos.y - 220)))
+        
         self.static_ice_surface.blit(self.ice_env_map, (0, 0))
+        
+
         self.static_ice_surface.blit(self.fg_pebble_layer, (0, 0))
 
         self.reset_match()
@@ -887,8 +912,8 @@ class WinCurl3:
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
-            lasts = ["McSizzle", "Gigglesnort", "Beefcake", "Wobblebottom", "Cheeseweasel", "Bumblefluff", "Pancakes", "Noodlearm"]
-            self.username = random.choice(firsts) + random.choice(lasts)
+            lasts = ["Sweeps", "McPebble", "Hackman", "Slider", "Broomfield", "Skip", "Hammer", "Hogline"]
+            self.username = f"{random.choice(firsts)} {random.choice(lasts)}"[:15]
             self.save_progress()
 
     def save_progress(self):
@@ -989,6 +1014,11 @@ class WinCurl3:
                         s1.is_moving, s2.is_moving = True, True
                         if impulse * 12 > 0.8: 
                             self.audio.play_clack(impulse * 12); self.shake_amount = min(25.0, impulse * 4.0)
+                            if IS_ANDROID:
+                                try:
+                                    from plyer import vibrator
+                                    vibrator.vibrate(time=0.05)
+                                except: pass
                             mid_x, mid_y = (s1.pos.x + s2.pos.x) / 2, (s1.pos.y + s2.pos.y) / 2
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
 
@@ -1029,7 +1059,7 @@ class WinCurl3:
             pull.x = 0
             
         if pull.length() > 5 and pull.y < 0:
-            self.active_stone.vel = pull.normalize() * min(42.0, pull.length() / 10.0) 
+            self.active_stone.vel = pull.normalize() * min(36.0, pull.length() / 10.0) 
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
@@ -1045,22 +1075,28 @@ class WinCurl3:
             if getattr(self, 'challenge_success', False) or self.challenge_attempts >= 3: 
                 if getattr(self, 'challenge_success', False): self.challenge_progress[self.challenge_level-1] = True; self.save_progress()
                 
+                if all(self.challenge_progress[:25]):
+                    if getattr(self, 'challenge_success', False) and not getattr(self, 'challenge_completed_seen', False):
+                        if self.app_state != "MATCH_OVER":
+                            self.app_state = "MATCH_OVER"
+                            self.audio.play_cheer()
+                            if not getattr(self, 'challenge_announced', False):
+                                self.audio.ch_voice.play(self.audio.snd_chal_comp)
+                                self.challenge_announced = True
+                            self.challenge_completed_seen = True
+                            self.save_progress()
+                        return
+                    else:
+                        self.return_to_menu()
+                        return
+                
                 start_lvl = self.challenge_level
                 while True:
                     self.challenge_level = (self.challenge_level % 25) + 1
                     if not self.challenge_progress[self.challenge_level-1] or self.challenge_level == start_lvl:
                         break
                 self.challenge_attempts = 0
-            if all(self.challenge_progress[:25]) and not getattr(self, 'challenge_completed_seen', False): 
-                if self.app_state != "MATCH_OVER":
-                    self.app_state = "MATCH_OVER"
-                    self.audio.play_cheer()
-                    if not getattr(self, 'challenge_announced', False):
-                        self.audio.ch_voice.play(self.audio.snd_chal_comp)
-                        self.challenge_announced = True
-                    self.challenge_completed_seen = True
-                    self.save_progress()
-            else: self.load_challenge(self.challenge_level)
+            self.load_challenge(self.challenge_level)
             return
 
         self.current_end += 1
@@ -1182,7 +1218,7 @@ class WinCurl3:
                 self.fire_stone()
             return
 
-        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
+        if self.game_mode not in ["HOST", "JOIN"] and event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
             self.audio.play_click(); self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0); return
         
         if self.turn_state == "END":
@@ -1207,6 +1243,7 @@ class WinCurl3:
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, 'drag_start_pos', None):
                 if f_id == getattr(self, 'drag_finger_id', None):
                     self.virtual_pull = self.drag_start_pos - mouse_pos
+                    if not IS_ANDROID: self.virtual_pull *= 0.5
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5: self.pull_history.pop(0)
             elif event.type == MOUSEWHEEL: self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.y * 0.2))
@@ -1492,7 +1529,23 @@ class WinCurl3:
             cx, cy, cr = self.challenge_target
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
         
-        pygame.draw.rect(self.canvas, BLACK, (self.hack_pos.x - 65, self.hack_pos.y + 35, 130, 25), border_radius=6)
+        cx = self.hack_pos.x
+        hack_y = self.hack_pos.y + 35
+        
+        # Black bar behind the foot pads
+        pygame.draw.rect(self.canvas, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
+        # Center support
+        pygame.draw.rect(self.canvas, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
+        
+        # Left foot pad (25% taller)
+        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 14), (cx - 45, hack_y + 17)]
+        pygame.draw.polygon(self.canvas, (20, 20, 22), left_pad)
+        pygame.draw.polygon(self.canvas, (60, 60, 65), left_pad, 2)
+        
+        # Right foot pad (25% taller)
+        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 14), (cx + 45, hack_y + 17)]
+        pygame.draw.polygon(self.canvas, (20, 20, 22), right_pad)
+        pygame.draw.polygon(self.canvas, (60, 60, 65), right_pad, 2)
 
     def draw_ui(self):
         if not hasattr(self, 'score_bg'):
@@ -1776,15 +1829,18 @@ class WinCurl3:
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU": self.draw_challenge_menu()
             elif self.app_state == "COIN_TOSS":
-                self.coin_timer -= 1
-                if self.coin_timer <= 0:
-                    self.stones_thrown = {0: 0, 1: 0}
-                    self.score = {0: [0]*8, 1: [0]*8}
-                    self.current_end = 1
-                    self.total_stones_played = 0
-                    self.hammer_team = self.coin_flip_result
-                    self.app_state = "PLAY"; self.reset_end()
-                else: self.draw_coin_toss_screen()
+                if self.game_mode == "JOIN" and getattr(self, 'coin_flip_result', -1) == -1:
+                    pass
+                else:
+                    self.coin_timer -= 1
+                    if self.coin_timer <= 0:
+                        self.stones_thrown = {0: 0, 1: 0}
+                        self.score = {0: [0]*8, 1: [0]*8}
+                        self.current_end = 1
+                        self.total_stones_played = 0
+                        self.hammer_team = getattr(self, 'coin_flip_result', 0)
+                        self.app_state = "PLAY"; self.reset_end()
+                self.draw_coin_toss_screen()
             elif self.app_state == "PLAY":
                 self.update_network(); self.update_physics(); self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui()
