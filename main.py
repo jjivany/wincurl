@@ -1624,7 +1624,7 @@ class WinCurl3:
             elif event.type == KEYDOWN and event.key == K_SPACE: self.advance_end_logic()
             return
 
-        has_control = (self.game_mode in ["LOCAL", "CHALLENGE"]) or (self.game_mode == "BOT" and self.current_team == self.preferred_color) or (self.game_mode == "HOST" and self.current_team == self.preferred_color) or (self.game_mode == "JOIN" and self.current_team != self.preferred_color)
+        has_control = (self.game_mode in ["LOCAL", "CHALLENGE"]) or (self.current_team == getattr(self, 'preferred_color', 0))
 
         if not has_control: return
 
