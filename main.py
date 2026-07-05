@@ -1684,9 +1684,17 @@ class WinCurl3:
                 s.update(actual_sweep, FRICTION_BASE)
                 if s.is_moving and s.vel.length() > 0.5: self.particles.append({'pos': s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)), 'vel': s.vel * -0.1, 'life': 1.0, 'decay': random.uniform(0.01, 0.03), 'type': 'trail'})
             
-            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 3 == 0: self.net.send_action({'cmd': 'sweep', 'p': round(self.sweep_power, 2)})
+            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 20 == 0:
+                if self.sweep_power > 0.1 or getattr(self, 'last_sent_sweep', 0.0) > 0.1:
+                    self.net.send_action({'cmd': 'sweep', 'p': round(self.sweep_power, 2)})
+                    self.last_sent_sweep = self.sweep_power
             
-            self.sweep_power *= 0.86; self.audio.update_sweep(self.sweep_power)
+            if getattr(self, 'remote_sweep_timer', 0) > 0:
+                self.remote_sweep_timer -= 1
+            else:
+                self.sweep_power *= 0.86
+                
+            self.audio.update_sweep(self.sweep_power)
             
             moving = False; max_speed = 0.0
             self.handle_collisions()
@@ -1764,7 +1772,9 @@ class WinCurl3:
             elif data.get('cmd') == 'shoot':
                 self.active_stone.vel = pygame.math.Vector2(data['vx'], data['vy']); self.active_stone.curl = data['c']; self.active_stone.is_moving = True
                 self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"; self.audio.play_throw()
-            elif data.get('cmd') == 'sweep': self.sweep_power = data['p']
+            elif data.get('cmd') == 'sweep':
+                self.sweep_power = data['p']
+                self.remote_sweep_timer = 20
             elif data.get('cmd') == 'sync_state' and self.game_mode == "JOIN":
                 for i, s_data in enumerate(data['stones']):
                     if i < len(self.stones): self.stones[i].set_state(s_data)
@@ -2091,6 +2101,8 @@ class WinCurl3:
         else:
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
             o_txt, o_col = ("RED TEAM WINS!", HOUSE_RED) if r_tot > y_tot else ("YELLOW TEAM WINS!", TEAM_YELLOW) if y_tot > r_tot else ("TIE MATCH!", WHITE)
+            if getattr(self, 'winner_text', '') == "Opponent Disconnected":
+                o_txt, o_col = "OPPONENT DISCONNECTED", (255, 100, 100)
             lbl_victory = self.font_72.render(o_txt, True, o_col); self.canvas.blit(lbl_victory, (cx - lbl_victory.get_width()//2, 180))
             
             b_rect = pygame.Rect(cx - 480, 350, 960, 400)
