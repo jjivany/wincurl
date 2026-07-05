@@ -9,7 +9,7 @@
 
     Physics Engine: Precision curling stone mechanics.
 
-    Multiplayer: Built-in IRC-based network matchmaking for competitive play (still in progress)
+    Multiplayer: Built-in IRC-based network matchmaking for competitive play
 
     Visuals: Clean, responsive UI with procedural graphics & sounds.
 
