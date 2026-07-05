@@ -1771,6 +1771,7 @@ class WinCurl3:
             elif data.get('cmd') == 'coin' and self.game_mode == "JOIN": self.coin_flip_result = data['result']
             elif data.get('cmd') == 'shoot':
                 if len(self.stones) == getattr(self, 'total_stones_played', 0):
+                    self.current_team = 1 if getattr(self, 'current_team', 0) == 0 else 0
                     self.spawn_next_stone()
                 self.active_stone.vel = pygame.math.Vector2(data['vx'], data['vy']); self.active_stone.curl = data['c']; self.active_stone.is_moving = True
                 self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"; self.audio.play_throw()
