@@ -2208,14 +2208,14 @@ class WinCurl3:
                 elif self.app_state == "PAUSED": self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
 
-            if self.app_state == "MENU": self.update_network()
-            
             if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "MATCH_OVER"]:
                 if not getattr(self, 'is_music_muted', False): self.audio.play_music()
                 else: self.audio.stop_music()
             else:
                 self.audio.stop_music()
                 
+            self.update_network()
+            
             if self.app_state == "MENU": self.draw_menu()
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU": self.draw_challenge_menu()
@@ -2233,7 +2233,7 @@ class WinCurl3:
                         self.app_state = "PLAY"; self.reset_end()
                 self.draw_coin_toss_screen()
             elif self.app_state == "PLAY":
-                self.update_network(); self.update_physics(); self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
+                self.update_physics(); self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui()
             elif self.app_state == "PAUSED": 
                 self.draw_ice(); [s.draw(self.canvas) for s in self.stones]; self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui(); self.draw_pause_screen()
