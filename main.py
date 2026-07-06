@@ -205,7 +205,28 @@ class WinCurlAudioEngine:
         
         self.sfx_on = True
         
-        # Check for studio quality external track
+        self.snd_slide = self._synthesize_rumble(); self.snd_sweep = self._synthesize_sweep()
+        self.snd_throw = self._synthesize_throw(); self.snd_clack = self._synthesize_clack()
+        self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine")
+        self.snd_click = self._synthesize_ui_sound(587, 0.12, "square")
+        
+        self.snd_music = None
+        self.snd_speech = None
+        self.snd_cheer = None
+        self.snd_end_match = None
+        self.snd_hurry = None
+        self.snd_hard = None
+        self.snd_chal_comp = None
+        self.snd_red_wins = None
+        self.snd_ylw_wins = None
+        
+        threading.Thread(target=self._synthesize_heavy_bg, daemon=True).start()
+        
+        self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
+        self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
+        self.last_call = 0
+
+    def _synthesize_heavy_bg(self):
         import os
         if os.path.exists("theme.mp3"):
             try: self.snd_music = pygame.mixer.Sound("theme.mp3")
@@ -215,31 +236,10 @@ class WinCurlAudioEngine:
             except: self.snd_music = self._synthesize_theme_song()
         else:
             self.snd_music = self._synthesize_theme_song()
-        
-        self.snd_slide = self._synthesize_rumble(); self.snd_sweep = self._synthesize_sweep()
-        self.snd_throw = self._synthesize_throw(); self.snd_clack = self._synthesize_clack()
-        self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine")
-        self.snd_click = self._synthesize_ui_sound(587, 0.12, "square")
-        
-        # Authentic Build 13 Voice Restoration
+            
         self.snd_speech = self._synthesize_sega_speech()  
-        self.snd_hurry = None
-        self.snd_hard = None
-        
-        # BUILD 14 PREVIEW 2: Multi-Syllable Complex Vocals
-        self.snd_chal_comp = None
-        self.snd_red_wins = None
-        self.snd_ylw_wins = None
-        threading.Thread(target=self._synthesize_vocals_bg, daemon=True).start()
-        
         self.snd_cheer = self._synthesize_cheer()
         self.snd_end_match = self._synthesize_end_of_match()
-        
-        self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
-        self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
-        self.last_call = 0
-
-    def _synthesize_vocals_bg(self):
         self.snd_hurry = self._synthesize_vosim_phrase("HURRY", 0.7)
         self.snd_hard = self._synthesize_vosim_phrase("HARD", 0.65)
         self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5)
@@ -733,7 +733,13 @@ class Stone:
         return s
 
     def get_state(self): return [round(self.pos.x, 1), round(self.pos.y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
-    def set_state(self, state): self.pos.x, self.pos.y, self.vel.x, self.vel.y, self.team, self.curl, self.rotation, self.is_moving = state
+    def set_state(self, state):
+        nx, ny, nvx, nvy, self.team, self.curl, self.rotation, self.is_moving = state
+        now = pygame.time.get_ticks()
+        if hasattr(self, 'last_collision_time') and now - self.last_collision_time < 400: return
+        new_pos = pygame.math.Vector2(nx, ny); new_vel = pygame.math.Vector2(nvx, nvy)
+        if (self.pos - new_pos).length() > 5.0 or (self.vel - new_vel).length() > 1.0:
+            self.pos.x, self.pos.y, self.vel.x, self.vel.y = nx, ny, nvx, nvy
 
     def update(self, sweep_intensity, base_friction):
         if not self.is_moving: return
@@ -1402,6 +1408,7 @@ class WinCurl3:
                         s1.vel -= normal * (impulse * s2.mass); s2.vel += normal * (impulse * s1.mass)
                         s1.is_moving, s2.is_moving = True, True
                         if impulse * 12 > 0.8: 
+                            s1.last_collision_time = pygame.time.get_ticks(); s2.last_collision_time = pygame.time.get_ticks()
                             self.audio.play_clack(impulse * 12); self.shake_amount = min(25.0, impulse * 4.0)
                             if IS_ANDROID:
                                 try:
@@ -2001,11 +2008,15 @@ class WinCurl3:
         m_pos = self.get_pointer_pos()
         draw_glass_rect(self.canvas, self.btn_pause, (50, 55, 65), self.btn_pause.h // 2, self.btn_pause.collidepoint(m_pos.x, m_pos.y))
         
-        lbl_p = self.small_font.render("PAUSE", True, BLACK)
-        total_w = 22 + 12 + lbl_p.get_width()
-        start_x = self.btn_pause.centerx - total_w // 2
-        self.draw_pause_icon(self.canvas, start_x, self.btn_pause.centery - 12)
-        self.canvas.blit(lbl_p, (start_x + 34, self.btn_pause.centery - lbl_p.get_height()//2))
+        btn_text = "DISCONNECT" if self.game_mode in ("HOST", "JOIN") else "PAUSE"
+        lbl_p = self.small_font.render(btn_text, True, BLACK)
+        if self.game_mode in ("HOST", "JOIN"):
+            self.canvas.blit(lbl_p, (self.btn_pause.centerx - lbl_p.get_width()//2, self.btn_pause.centery - lbl_p.get_height()//2))
+        else:
+            total_w = 22 + 12 + lbl_p.get_width()
+            start_x = self.btn_pause.centerx - total_w // 2
+            self.draw_pause_icon(self.canvas, start_x, self.btn_pause.centery - 12)
+            self.canvas.blit(lbl_p, (start_x + 34, self.btn_pause.centery - lbl_p.get_height()//2))
 
         # Netcode Chat Render Support
         if self.game_mode in ["HOST", "JOIN"]:
