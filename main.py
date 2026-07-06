@@ -227,12 +227,14 @@ class WinCurlAudioEngine:
         self.last_call = 0
 
     def _synthesize_heavy_bg(self):
-        import os
+        import os, io
         if os.path.exists("theme.mp3"):
-            try: self.snd_music = pygame.mixer.Sound("theme.mp3")
+            try: 
+                with open("theme.mp3", "rb") as f: self.snd_music = io.BytesIO(f.read())
             except: self.snd_music = self._synthesize_theme_song()
         elif os.path.exists("theme.ogg"):
-            try: self.snd_music = pygame.mixer.Sound("theme.ogg")
+            try: 
+                with open("theme.ogg", "rb") as f: self.snd_music = io.BytesIO(f.read())
             except: self.snd_music = self._synthesize_theme_song()
         else:
             self.snd_music = self._synthesize_theme_song()
@@ -245,6 +247,14 @@ class WinCurlAudioEngine:
         self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5)
         self.snd_red_wins = self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2)
         self.snd_ylw_wins = self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4)
+        
+    def process_pending_sounds(self):
+        import io, pygame
+        for attr in ['snd_speech', 'snd_cheer', 'snd_end_match', 'snd_hurry', 'snd_hard', 'snd_chal_comp', 'snd_red_wins', 'snd_ylw_wins', 'snd_music']:
+            val = getattr(self, attr, None)
+            if isinstance(val, io.BytesIO):
+                try: setattr(self, attr, pygame.mixer.Sound(file=val))
+                except Exception as e: print("Sound load error:", e); setattr(self, attr, None)
 
     def play_clack(self, intensity):
         if not self.sfx_on: return
@@ -275,12 +285,15 @@ class WinCurlAudioEngine:
         return os.path.join(base_dir, ".wincurl_cache")
 
     def _get_cached_sound(self, cache_key):
-        import os, io
+        import os, io, threading
         cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
-                    return pygame.mixer.Sound(file=io.BytesIO(f.read()))
+                    data = f.read()
+                    if threading.current_thread() != threading.main_thread():
+                        return io.BytesIO(data)
+                    return pygame.mixer.Sound(file=io.BytesIO(data))
             except: pass
         return None
 
@@ -307,7 +320,9 @@ class WinCurlAudioEngine:
                 with open(os.path.join(cache_dir, f"{cache_key}.wav"), "wb") as f: f.write(wav)
             except: pass
             
-        import io
+        import io, threading
+        if threading.current_thread() != threading.main_thread():
+            return io.BytesIO(wav)
         return pygame.mixer.Sound(file=io.BytesIO(wav))
 
     def _synthesize_sega_speech(self):
@@ -2272,7 +2287,9 @@ class WinCurl3:
                 
             self.update_network()
             
-            if self.app_state == "MENU": self.draw_menu()
+            if self.app_state == "MENU": 
+                self.audio.process_pending_sounds()
+                self.draw_menu()
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU": self.draw_challenge_menu()
             elif self.app_state == "COIN_TOSS":
