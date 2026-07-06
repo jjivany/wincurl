@@ -25,7 +25,7 @@
 
 📦 Getting Started:
 
-    Clone the repository or run pip3 install wincurl3
+    Clone the repository or use pip: pip3 install wincurl3
 
     Install dependencies:
 
