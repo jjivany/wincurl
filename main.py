@@ -1674,7 +1674,6 @@ class WinCurl3:
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]
-            elif event.unicode.isprintable() and len(self.username) < 15: self.username += event.unicode
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -1700,7 +1699,6 @@ class WinCurl3:
             elif event.key == K_ESCAPE:
                 self.app_state = "MENU"; self.set_typing_target(None)
             elif event.key == K_BACKSPACE: self.room_text = self.room_text[:-1]
-            elif event.unicode.isprintable() and len(self.room_text) < 15: self.room_text += event.unicode
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -2330,6 +2328,17 @@ class WinCurl3:
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
                 
+                if event.type == getattr(pygame, 'TEXTINPUT', 771):
+                    if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"] and self.typing_chat:
+                        if len(self.chat_input) + len(event.text) <= 30:
+                            self.chat_input += event.text
+                    elif self.app_state == "MENU" and self.typing_target == "name":
+                        if len(self.username) + len(event.text) <= 15:
+                            self.username += event.text
+                    elif self.app_state == "ROOM_PROMPT" and self.typing_target == "room":
+                        if len(self.room_text) + len(event.text) <= 15:
+                            self.room_text += event.text
+
                 if event.type == KEYDOWN:
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"]:
                         if self.typing_chat:
@@ -2341,8 +2350,6 @@ class WinCurl3:
                                 self.chat_input = ""
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
-                            elif event.unicode.isprintable() and len(self.chat_input) < 30:
-                                self.chat_input += event.unicode
                             continue
                         else:
                             if event.key == K_t or event.key == K_RETURN:
