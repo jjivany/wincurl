@@ -1289,11 +1289,13 @@ class WinCurl3:
         self.reset_match()
 
     def set_typing_target(self, target):
+        if getattr(self, 'typing_target', None) == target: return
+        was_typing = getattr(self, 'typing_target', None) is not None
         self.typing_target = target
-        if target is not None:
+        if target is not None and not was_typing:
             try: pygame.key.start_text_input()
             except: pass
-        else:
+        elif target is None and was_typing:
             try: pygame.key.stop_text_input()
             except: pass
 
@@ -1557,15 +1559,17 @@ class WinCurl3:
             if 300 < mx < 900:
                 for b in self.menu_buttons:
                     if b["y"] < my < b["y"] + 110 * b["scale"]:
-                        self.audio.play_click(); self.set_typing_target(None)
+                        self.audio.play_click()
+                        new_target = None
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] in ["host", "join"]:
-                            self.app_state = "ROOM_PROMPT"; self.set_typing_target("room"); self.net_action = b["id"]
-                        elif b["id"] == "name": self.set_typing_target("name")
+                            self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
+                        elif b["id"] == "name": new_target = "name"
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
+                        self.set_typing_target(new_target)
                         break
             
             if self.btn_mute.collidepoint(mx, my):
@@ -2046,13 +2050,13 @@ class WinCurl3:
         # Netcode Chat Render Support
         if self.game_mode in ["HOST", "JOIN"]:
             current_time = pygame.time.get_ticks()
-            active_chat = [c for c in self.chat_messages[-5:] if current_time - c['time'] < 8000]
+            active_chat = [c for c in self.chat_messages[-5:] if current_time - c['time'] < 30000]
             max_alpha = 0
             if self.typing_chat: max_alpha = 255
             elif active_chat:
                 for c in active_chat:
                     age = current_time - c['time']
-                    max_alpha = max(max_alpha, 255 if age < 6000 else int(255 * (1.0 - (age - 6000)/2000.0)))
+                    max_alpha = max(max_alpha, 255 if age < 28000 else int(255 * (1.0 - (age - 28000)/2000.0)))
             
             if max_alpha > 0:
                 chat_h = 40 + len(active_chat) * 40
