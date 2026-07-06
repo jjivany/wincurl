@@ -78,7 +78,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 17")
+print("     [SYSTEM] WINCURL 3 BUILD 17.01")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -1124,7 +1124,7 @@ class WinCurl3:
         os.environ['SDL_RENDER_SCALE_QUALITY'] = '1'
             
         pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.0 Build 17")
+        pygame.display.set_caption("WinCurl version 3.0 Build 17.01")
 
         info = pygame.display.Info()
         
