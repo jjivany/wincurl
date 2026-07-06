@@ -1751,10 +1751,6 @@ class WinCurl3:
             if not moving:
                 self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
                 
-                # Absolute End of Slide Sync Broadcast for Netcode
-                if self.game_mode == "HOST" and hasattr(self, 'was_moving_last_frame') and self.was_moving_last_frame:
-                    self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state() for s in self.stones]})
-
                 valid_stones_final = []
                 hog_line_y = self.house_pos.y + 400
                 back_line_y = self.house_pos.y - 210
@@ -1762,6 +1758,10 @@ class WinCurl3:
                     if s.pos.y - s.radius < hog_line_y and s.pos.y + s.radius > back_line_y:
                         valid_stones_final.append(s)
                 self.stones = valid_stones_final
+                
+                # Absolute End of Slide Sync Broadcast for Netcode
+                if self.game_mode == "HOST" and hasattr(self, 'was_moving_last_frame') and self.was_moving_last_frame:
+                    self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state() for s in self.stones]})
                 
                 if self.game_mode == "CHALLENGE":
                     if self.stones_thrown[0] == 1: 
@@ -1818,13 +1818,16 @@ class WinCurl3:
                 self.sweep_power = data['p']
                 self.remote_sweep_timer = 20
             elif data.get('cmd') == 'sync_state' and self.game_mode == "JOIN":
+                while len(self.stones) < len(data['stones']): self.stones.append(Stone(0, 0, 0))
+                self.stones = self.stones[:len(data['stones'])]
                 for i, s_data in enumerate(data['stones']):
-                    if i < len(self.stones): self.stones[i].set_state(s_data)
+                    self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'sync' and self.game_mode == "JOIN":
                 self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
-                if len(data['s']) > len(self.stones): self.spawn_next_stone()
+                while len(self.stones) < len(data['s']): self.stones.append(Stone(0, 0, 0))
+                self.stones = self.stones[:len(data['s'])]
                 for i, s_data in enumerate(data['s']):
-                    if i < len(self.stones): self.stones[i].set_state(s_data)
+                    self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'set_color':
                 self.preferred_color = 1 - data['color']
             elif data.get('cmd') == 'opponent_left':
