@@ -1209,7 +1209,12 @@ class WinCurl3:
         if sys.platform == 'win32':
             import ctypes
             try: ctypes.windll.user32.SetProcessDPIAware()
-pygame.display.set_caption(f"WinCurl 3D - Build 19 - {getattr(self, 'game_mode', 'MENU')}")
+            except: pass
+        import os
+        os.environ['SDL_RENDER_SCALE_QUALITY'] = '1'
+            
+        pygame.display.init()
+        pygame.display.set_caption(f"WinCurl 3D - Build 19 - {getattr(self, 'game_mode', 'MENU')}")
 
         info = pygame.display.Info()
         
