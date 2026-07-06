@@ -163,7 +163,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 17.01")
+print("     [SYSTEM] WINCURL 3 BUILD 18.00")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -1210,7 +1210,7 @@ class WinCurl3:
         os.environ['SDL_RENDER_SCALE_QUALITY'] = '1'
             
         pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.0 Build 17.01")
+        pygame.display.set_caption("WinCurl version 3.0 Build 18.00")
 
         info = pygame.display.Info()
         
@@ -1884,14 +1884,25 @@ class WinCurl3:
             self.app_state = "COIN_TOSS"; self.coin_timer = 60; self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
             self.audio.stop_music(); self.audio.play_cheer()
             
+        if not hasattr(self, 'deferred_actions'): self.deferred_actions = []
+        actions_to_process = self.deferred_actions[:]
+        self.deferred_actions = []
+        
         while True:
             data = self.net.receive_action()
             if not data: break
+            actions_to_process.append(data)
             
+        for data in actions_to_process:
+            if data.get('cmd') in ['shoot', 'sweep'] and getattr(self, 'app_state', 'MENU') != "PLAY":
+                self.deferred_actions.append(data)
+                continue
+                
             if data.get('cmd') == 'chat':
                 self.chat_messages.append({"text": f"{self.net.opponent.split('!')[0]}: {data['msg']}", "time": pygame.time.get_ticks()})
             elif data.get('cmd') == 'coin' and self.game_mode == "JOIN": self.coin_flip_result = data['result']
             elif data.get('cmd') == 'shoot':
+                if not hasattr(self, 'active_stone'): self.spawn_next_stone()
                 if getattr(self, 'turn_state', 'NONE') == "SLIDING":
                     self.current_team = 1 if getattr(self, 'current_team', 0) == 0 else 0
                     self.spawn_next_stone()
@@ -1903,14 +1914,26 @@ class WinCurl3:
                 self.remote_sweep_timer = 20
             elif data.get('cmd') == 'sync_state' and self.game_mode == "JOIN":
                 while len(self.stones) < len(data['stones']): self.stones.append(Stone(0, 0, 0))
-                self.stones = self.stones[:len(data['stones'])]
+                if len(data['stones']) < len(self.stones):
+                    new_stones = []
+                    for i in range(len(self.stones)):
+                        if i < len(data['stones']): new_stones.append(self.stones[i])
+                        elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
+                    self.stones = new_stones
                 for i, s_data in enumerate(data['stones']):
+                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone and self.active_stone.is_moving: continue
                     self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'sync' and self.game_mode == "JOIN":
                 self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
                 while len(self.stones) < len(data['s']): self.stones.append(Stone(0, 0, 0))
-                self.stones = self.stones[:len(data['s'])]
+                if len(data['s']) < len(self.stones):
+                    new_stones = []
+                    for i in range(len(self.stones)):
+                        if i < len(data['s']): new_stones.append(self.stones[i])
+                        elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
+                    self.stones = new_stones
                 for i, s_data in enumerate(data['s']):
+                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone and self.active_stone.is_moving: continue
                     self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'set_color':
                 self.preferred_color = 1 - data['color']
