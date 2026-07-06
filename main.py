@@ -163,7 +163,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 19")
+print("     [SYSTEM] WINCURL 3 BUILD 19C")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -1214,7 +1214,8 @@ class WinCurl3:
         os.environ['SDL_RENDER_SCALE_QUALITY'] = '1'
             
         pygame.display.init()
-        pygame.display.set_caption(f"WinCurl 3D - Build 19 - {getattr(self, 'game_mode', 'MENU')}")
+        gm = getattr(self, 'game_mode', 'MENU')
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 19c{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
@@ -1804,7 +1805,8 @@ class WinCurl3:
 
             for s in self.stones:
                 can_player_sweep = is_sweeping and (mouse_pos - s.pos).length() < 350
-                actual_sweep = self.sweep_power if can_player_sweep and (s.team == my_team or s.pos.y < self.house_pos.y) else 0.0
+                is_remote_sweeping = getattr(self, 'remote_sweep_timer', 0) > 0
+                actual_sweep = self.sweep_power if (can_player_sweep and (s.team == my_team or s.pos.y < self.house_pos.y)) or (is_remote_sweeping and (s.team != my_team or s.pos.y < self.house_pos.y)) else 0.0
                 s.update(actual_sweep, FRICTION_BASE)
                 if s.is_moving and s.vel.length() > 0.5: self.particles.append({'pos': s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)), 'vel': s.vel * -0.1, 'life': 1.0, 'decay': random.uniform(0.01, 0.03), 'type': 'trail'})
             
@@ -1949,8 +1951,6 @@ class WinCurl3:
                 self.audio.play_cheer()
                 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
-        elif self.game_mode == "HOST" and self.app_state == "PLAY" and getattr(self, 'turn_state', 'MENU') == "SLIDING" and self.frames_elapsed % 8 == 0: 
-            self.net.send_action({'cmd': 'sync', 'st': self.turn_state, 't': self.current_team, 'sc': self.score, 's': [s.get_state() for s in self.stones]})
 
     def draw_menu(self):
         if not getattr(self, 'played_intro', False):
