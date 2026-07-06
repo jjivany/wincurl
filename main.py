@@ -163,7 +163,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 18.00")
+print("     [SYSTEM] WINCURL 3 BUILD 19")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -847,8 +847,12 @@ class Stone:
         now = pygame.time.get_ticks()
         if hasattr(self, 'last_collision_time') and now - self.last_collision_time < 400: return
         new_pos = pygame.math.Vector2(nx, ny); new_vel = pygame.math.Vector2(nvx, nvy)
-        if (self.pos - new_pos).length() > 5.0 or (self.vel - new_vel).length() > 1.0:
+        dist = (self.pos - new_pos).length()
+        if dist > 80.0:
             self.pos.x, self.pos.y, self.vel.x, self.vel.y = nx, ny, nvx, nvy
+        else:
+            if dist > 1.0: self.pos = self.pos.lerp(new_pos, 0.4)
+            if (self.vel - new_vel).length() > 1.0: self.vel = self.vel.lerp(new_vel, 0.4)
 
     def update(self, sweep_intensity, base_friction):
         if not self.is_moving: return
@@ -1205,12 +1209,7 @@ class WinCurl3:
         if sys.platform == 'win32':
             import ctypes
             try: ctypes.windll.user32.SetProcessDPIAware()
-            except: pass
-        import os
-        os.environ['SDL_RENDER_SCALE_QUALITY'] = '1'
-            
-        pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.0 Build 18.00")
+pygame.display.set_caption(f"WinCurl 3D - Build 19 - {getattr(self, 'game_mode', 'MENU')}")
 
         info = pygame.display.Info()
         
@@ -1804,7 +1803,7 @@ class WinCurl3:
                 s.update(actual_sweep, FRICTION_BASE)
                 if s.is_moving and s.vel.length() > 0.5: self.particles.append({'pos': s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)), 'vel': s.vel * -0.1, 'life': 1.0, 'decay': random.uniform(0.01, 0.03), 'type': 'trail'})
             
-            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 20 == 0:
+            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 15 == 0:
                 if self.sweep_power > 0.1 or getattr(self, 'last_sent_sweep', 0.0) > 0.1:
                     self.net.send_action({'cmd': 'sweep', 'p': round(self.sweep_power, 2)})
                     self.last_sent_sweep = self.sweep_power
@@ -1921,7 +1920,8 @@ class WinCurl3:
                         elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
                     self.stones = new_stones
                 for i, s_data in enumerate(data['stones']):
-                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone and self.active_stone.is_moving: continue
+                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
+                        if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
                     self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'sync' and self.game_mode == "JOIN":
                 self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
@@ -1933,7 +1933,8 @@ class WinCurl3:
                         elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
                     self.stones = new_stones
                 for i, s_data in enumerate(data['s']):
-                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone and self.active_stone.is_moving: continue
+                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
+                        if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
                     self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'set_color':
                 self.preferred_color = 1 - data['color']
@@ -1943,6 +1944,8 @@ class WinCurl3:
                 self.audio.play_cheer()
                 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
+        elif self.game_mode == "HOST" and self.app_state == "PLAY" and getattr(self, 'turn_state', 'MENU') == "SLIDING" and self.frames_elapsed % 8 == 0: 
+            self.net.send_action({'cmd': 'sync', 'st': self.turn_state, 't': self.current_team, 'sc': self.score, 's': [s.get_state() for s in self.stones]})
 
     def draw_menu(self):
         if not getattr(self, 'played_intro', False):
