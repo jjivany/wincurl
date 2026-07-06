@@ -229,15 +229,11 @@ class WinCurlAudioEngine:
     def _synthesize_heavy_bg(self):
         import os, io
         if os.path.exists("theme.mp3"):
-            try: 
-                with open("theme.mp3", "rb") as f: self.snd_music = io.BytesIO(f.read())
-            except: self.snd_music = self._synthesize_theme_song()
+            self.snd_music = "theme.mp3"
         elif os.path.exists("theme.ogg"):
-            try: 
-                with open("theme.ogg", "rb") as f: self.snd_music = io.BytesIO(f.read())
-            except: self.snd_music = self._synthesize_theme_song()
+            self.snd_music = "theme.ogg"
         else:
-            self.snd_music = self._synthesize_theme_song()
+            self.snd_music = self._synthesize_theme_song(return_path=True)
             
         self.snd_speech = self._synthesize_sega_speech()  
         self.snd_cheer = self._synthesize_cheer()
@@ -255,6 +251,9 @@ class WinCurlAudioEngine:
             if isinstance(val, io.BytesIO):
                 try: setattr(self, attr, pygame.mixer.Sound(file=val))
                 except Exception as e: print("Sound load error:", e); setattr(self, attr, None)
+            elif isinstance(val, str):
+                try: setattr(self, attr, pygame.mixer.Sound(file=val))
+                except Exception as e: print("Sound file load error:", e); setattr(self, attr, None)
 
     def play_clack(self, intensity):
         if not self.sfx_on: return
@@ -297,14 +296,11 @@ class WinCurlAudioEngine:
             except: pass
         return None
 
-    def _create_wav_sound(self, byte_buffer, sample_rate=44100, cache_key=None):
-        import os
-        channels = 2
-        bits = 16
+    def _create_wav_sound(self, byte_buffer, sample_rate=44100, cache_key=None, return_path=False, channels=2):
+        import os, struct, io, threading
         data_size = len(byte_buffer)
-        
-        wav = bytearray()
-        wav += b'RIFF'
+        bits = 16
+        wav = b'RIFF'
         wav += struct.pack('<I', 36 + data_size)
         wav += b'WAVE'
         wav += b'fmt '
@@ -315,11 +311,15 @@ class WinCurlAudioEngine:
         
         if cache_key:
             cache_dir = self._get_cache_dir()
+            path = os.path.join(cache_dir, f"{cache_key}.wav")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
-                with open(os.path.join(cache_dir, f"{cache_key}.wav"), "wb") as f: f.write(wav)
+                with open(path, "wb") as f: f.write(wav)
+                if return_path: return path
             except: pass
             
+        if return_path: return None
+        
         import io, threading
         if threading.current_thread() != threading.main_thread():
             return io.BytesIO(wav)
@@ -479,15 +479,20 @@ class WinCurlAudioEngine:
             struct.pack_into('<hh', buf, i * 4, int(val * math.exp(-t * (1.0 / duration * 3)) * 12000), int(val * math.exp(-t * (1.0 / duration * 3)) * 12000))
         return self._create_wav_sound(buf, 44100, cache_key=f"ui_{frequency}_{duration}_{type}")
 
-    def _synthesize_theme_song(self):
-        cached = self._get_cached_sound("theme")
-        if cached: return cached
+    def _synthesize_theme_song(self, return_path=False):
+        import os
+        if return_path:
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
+            if os.path.exists(cache_file): return cache_file
+        else:
+            cached = self._get_cached_sound("theme_v2")
+            if cached: return cached
         bpm = 125.0
         step_len = 60.0 / bpm / 4.0 # 16th notes
-        total_steps = 1024  # Doubled from 512
+        total_steps = 512
         duration = step_len * total_steps
-        steps = int(44100 * duration)
-        buf = bytearray(steps * 4)
+        steps = int(22050 * duration)
+        buf = bytearray(steps * 2)
         
         # Phonk Melody (E Minor) extended
         cb_base = [
@@ -534,21 +539,21 @@ class WinCurlAudioEngine:
         
         # 808 Bass Pattern (much longer and more complex)
         bass_pitches = [
-            41.2, 0, 0, 0, 0, 0, 41.2, 0,
-            41.2, 0, 0, 0, 0, 0, 49.0, 0,
-            41.2, 0, 0, 0, 0, 0, 41.2, 0,
-            36.7, 0, 0, 0, 0, 0, 0, 0,
-            41.2, 0, 0, 0, 0, 0, 41.2, 0,
-            41.2, 0, 0, 0, 0, 0, 49.0, 0,
-            41.2, 0, 0, 0, 0, 0, 41.2, 0,
-            55.0, 0, 0, 0, 0, 0, 0, 0,
-        ] * 16
-
-        # Pre-compute noise array for fast hi-hats/snares
-        noise = [random.uniform(-1.0, 1.0) for _ in range(44100)]
-
+            41.2, 0, 0, 41.2, 0, 0, 41.2, 0, 
+            0, 41.2, 41.2, 0, 0, 0, 0, 0,
+            49.0, 0, 0, 49.0, 0, 0, 49.0, 0, 
+            0, 49.0, 49.0, 0, 0, 0, 0, 0,
+            36.7, 0, 0, 36.7, 0, 0, 36.7, 0, 
+            0, 36.7, 36.7, 0, 0, 0, 0, 0,
+            41.2, 0, 0, 41.2, 0, 0, 41.2, 0, 
+            0, 41.2, 41.2, 0, 41.2, 0, 41.2, 0
+        ] * 4 # Repeat 4 times for the full progression
+        
+        # Add high-end distortion noise for the hat and snare layers
+        noise = [random.uniform(-1, 1) for _ in range(22050)]
+        
         for i in range(steps):
-            t = i / 44100.0
+            t = i / 22050.0
             step = int((t / duration) * total_steps) % total_steps
             step_t = t - (step * step_len)
             
@@ -590,18 +595,18 @@ class WinCurlAudioEngine:
                     
             # --- TRAP PERCUSSION (Hats and Snare) ---
             hat = 0.0
-            # Hi-hat ratchets (32nd notes) on specific steps, extra ratchets later in the song
-            is_ratchet = step % 16 in [14, 15] or (step >= 512 and step % 16 in [6, 7])
+            # Hi-hat ratchets (32nd notes) on specific steps
+            is_ratchet = step % 16 in [14, 15] or (step >= 256 and step % 16 in [6, 7])
             hh_t = (step_t % (step_len / 2.0)) if is_ratchet else step_t
             if hh_t < 0.1:
-                hat = noise[i % 44100] * math.exp(-hh_t * 45.0) * 0.3
+                hat = noise[i % 22050] * math.exp(-hh_t * 45.0) * 0.3
                 
             snare = 0.0
             if step % 16 == 8: # Half-time snare on beat 3
                 if step_t < 0.3:
                     sn_phase = 250 * step_t + (250 / 30.0) * (1.0 - math.exp(-step_t * 30.0))
                     sn_body = math.sin(sn_phase * 2 * math.pi) * math.exp(-step_t * 25.0)
-                    sn_noise = noise[(i + 1000) % 44100] * math.exp(-step_t * 15.0)
+                    sn_noise = noise[(i + 1000) % 22050] * math.exp(-step_t * 15.0)
                     snare = (sn_body + sn_noise * 1.5) * 0.55
             
             # --- MASTERING (Soft Clipping / Saturation) ---
@@ -609,9 +614,9 @@ class WinCurlAudioEngine:
             mixed = math.tanh(mixed * 2.8) * 0.7 # Analog warmth & limiting
             
             sample = int(max(-32768, min(32767, mixed * 32767)))
-            struct.pack_into('<hh', buf, i * 4, sample, sample)
+            struct.pack_into('<h', buf, i * 2, sample)
             
-        return self._create_wav_sound(buf, 44100, cache_key="theme")
+        return self._create_wav_sound(buf, 22050, cache_key="theme_v2", return_path=return_path, channels=1)
 
     def play_curler_call(self, intensity):
         now = pygame.time.get_ticks()
@@ -646,7 +651,10 @@ class WinCurlAudioEngine:
     def play_click(self): 
         if getattr(self, 'snd_click', None): self.ch_ui.play(self.snd_click)
     def play_music(self): 
-        if not self.ch_music.get_busy() and getattr(self, 'snd_music', None): self.ch_music.play(self.snd_music, loops=-1); self.ch_music.set_volume(0.25)
+        if not self.ch_music.get_busy() and getattr(self, 'snd_music', None):
+            if isinstance(self.snd_music, pygame.mixer.Sound):
+                self.ch_music.play(self.snd_music, loops=-1)
+                self.ch_music.set_volume(0.25)
     def stop_music(self): self.ch_music.stop()
 
 # --- Visual Effects & Geometry ---
