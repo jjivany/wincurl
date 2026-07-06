@@ -602,32 +602,36 @@ class WinCurlAudioEngine:
         now = pygame.time.get_ticks()
         if intensity > 8.0 and (now - self.last_call) > 2500:
             self.last_call = now
-            if not self.ch_voice.get_busy() and self.snd_hurry and self.snd_hard:
-                if random.random() > 0.5: self.ch_voice.play(self.snd_hurry)
-                else: self.ch_voice.play(self.snd_hard)
+            if self.snd_hurry and self.snd_hard:
+                if not self.ch_voice.get_busy():
+                    if random.random() > 0.5: self.ch_voice.play(self.snd_hurry)
+                    else: self.ch_voice.play(self.snd_hard)
 
     def stop_all_match_sounds(self):
         self.ch_slide.set_volume(0.0); self.ch_sweep.set_volume(0.0); self.ch_sfx.stop(); self.ch_crowd.stop()
 
     def play_cheer(self): 
-        if not self.ch_crowd.get_busy(): self.ch_crowd.play(self.snd_cheer)
+        if not self.ch_crowd.get_busy() and getattr(self, 'snd_cheer', None): self.ch_crowd.play(self.snd_cheer)
     def update_slide(self, speed): self.ch_slide.set_volume(min(0.15, speed * 0.04) if speed > 0.05 else 0.0)
     def update_sweep(self, intensity): self.ch_sweep.set_volume(min(0.5, intensity * 0.06))
-    def play_throw(self): self.ch_sfx.play(self.snd_throw)
+    def play_throw(self): 
+        if getattr(self, 'snd_throw', None): self.ch_sfx.play(self.snd_throw)
     
     def play_clack(self, force): 
         now = pygame.time.get_ticks()
         if hasattr(self, 'last_clack') and now - self.last_clack < 150: return
         self.last_clack = now
         ch = pygame.mixer.find_channel()
-        if ch:
+        if ch and getattr(self, 'snd_clack', None):
             ch.play(self.snd_clack)
             ch.set_volume(min(0.4, force * 0.05))
 
-    def play_hover(self): self.ch_ui.play(self.snd_hover)
-    def play_click(self): self.ch_ui.play(self.snd_click)
+    def play_hover(self): 
+        if getattr(self, 'snd_hover', None): self.ch_ui.play(self.snd_hover)
+    def play_click(self): 
+        if getattr(self, 'snd_click', None): self.ch_ui.play(self.snd_click)
     def play_music(self): 
-        if not self.ch_music.get_busy() and hasattr(self, 'snd_music'): self.ch_music.play(self.snd_music, loops=-1); self.ch_music.set_volume(0.25)
+        if not self.ch_music.get_busy() and getattr(self, 'snd_music', None): self.ch_music.play(self.snd_music, loops=-1); self.ch_music.set_volume(0.25)
     def stop_music(self): self.ch_music.stop()
 
 # --- Visual Effects & Geometry ---
@@ -1476,7 +1480,7 @@ class WinCurl3:
                         if self.app_state != "MATCH_OVER":
                             self.app_state = "MATCH_OVER"
                             self.audio.play_cheer()
-                            if not getattr(self, 'challenge_announced', False) and self.audio.snd_chal_comp:
+                            if not getattr(self, 'challenge_announced', False) and getattr(self.audio, 'snd_chal_comp', None):
                                 self.audio.ch_voice.play(self.audio.snd_chal_comp)
                                 self.challenge_announced = True
                             self.challenge_completed_seen = True
@@ -1503,9 +1507,9 @@ class WinCurl3:
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
             if not getattr(self, 'match_winner_announced', False):
                 self.match_winner_announced = True
-                if r_tot > y_tot and self.audio.snd_red_wins: self.audio.ch_voice.play(self.audio.snd_red_wins)
-                elif y_tot > r_tot and self.audio.snd_ylw_wins: self.audio.ch_voice.play(self.audio.snd_ylw_wins)
-                else: self.audio.ch_voice.play(self.audio.snd_end_match)
+                if r_tot > y_tot and getattr(self.audio, 'snd_red_wins', None): self.audio.ch_voice.play(self.audio.snd_red_wins)
+                elif y_tot > r_tot and getattr(self.audio, 'snd_ylw_wins', None): self.audio.ch_voice.play(self.audio.snd_ylw_wins)
+                elif getattr(self.audio, 'snd_end_match', None): self.audio.ch_voice.play(self.audio.snd_end_match)
         else: self.reset_end()
 
     def handle_menu_events(self, event):
@@ -1808,8 +1812,9 @@ class WinCurl3:
 
     def draw_menu(self):
         if not getattr(self, 'played_intro', False):
-            self.audio.ch_sfx.play(self.audio.snd_speech)
-            self.played_intro = True
+            if getattr(self.audio, 'snd_speech', None):
+                self.audio.ch_sfx.play(self.audio.snd_speech)
+                self.played_intro = True
             
         self.canvas.fill((10, 12, 16))
         self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
