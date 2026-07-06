@@ -39,7 +39,7 @@
 
 This project is configured for automated Android deployment via GitHub Actions, when they work.
 
-    Android perf is still being optimized, grab the latest APK from the repo.
+    Android rumble support is still being optimized, grab the latest APK from the repo.
 
 🤝 Contributing:
 
