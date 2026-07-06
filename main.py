@@ -28,52 +28,48 @@ from pygame.locals import *
 import wave
 import os
 
-try:
-    from plyer import vibrator
-    def vibrate_android(ms):
-        # 1. Try Pyjnius
-        try:
-            from jnius import autoclass
-            Context = autoclass('android.content.Context')
-            activity = None
-            for act_name in ['org.kivy.android.PythonActivity', 'org.libsdl.app.SDLActivity']:
-                try: activity = autoclass(act_name).mActivity
+def vibrate_android(ms):
+    # 1. Try Pyjnius
+    try:
+        from jnius import autoclass
+        Context = autoclass('android.content.Context')
+        activity = None
+        for act_name in ['org.kivy.android.PythonActivity', 'org.libsdl.app.SDLActivity']:
+            try: activity = autoclass(act_name).mActivity
+            except: pass
+            if not activity:
+                try: activity = autoclass(act_name).getContext()
                 except: pass
-                if not activity:
-                    try: activity = autoclass(act_name).getContext()
-                    except: pass
-                if activity: break
-            if activity:
-                vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
-                if vibrator and vibrator.hasVibrator():
-                    try:
-                        VERSION = autoclass('android.os.Build$VERSION')
-                        if VERSION.SDK_INT >= 26:
-                            VibrationEffect = autoclass('android.os.VibrationEffect')
-                            vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
-                        else:
-                            vibrator.vibrate(int(ms))
-                    except:
+            if activity: break
+        if activity:
+            vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
+            if vibrator and vibrator.hasVibrator():
+                try:
+                    VERSION = autoclass('android.os.Build$VERSION')
+                    if VERSION.SDK_INT >= 26:
+                        VibrationEffect = autoclass('android.os.VibrationEffect')
+                        vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
+                    else:
                         vibrator.vibrate(int(ms))
-                    return
-        except: pass
-        
-        # 2. Try Plyer
-        try:
-            from plyer import vibrator
-            vibrator.vibrate(time=ms/1000.0)
-            return
-        except: pass
+                except:
+                    vibrator.vibrate(int(ms))
+                return
+    except: pass
+    
+    # 2. Try Plyer
+    try:
+        from plyer import vibrator
+        vibrator.vibrate(time=ms/1000.0)
+        return
+    except: pass
 
-        # 3. Try Pygame Rumble
-        try:
-            if pygame.joystick.get_count() > 0:
-                joy = pygame.joystick.Joystick(0)
-                if not joy.get_init(): joy.init()
-                joy.rumble(1.0, 1.0, int(ms))
-        except: pass
-except:
-    def vibrate_android(ms): pass
+    # 3. Try Pygame Rumble
+    try:
+        if pygame.joystick.get_count() > 0:
+            joy = pygame.joystick.Joystick(0)
+            if not joy.get_init(): joy.init()
+            joy.rumble(1.0, 1.0, int(ms))
+    except: pass
 
 # Define this immediately after imports
 IS_ANDROID = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ
@@ -82,7 +78,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 16")
+print("     [SYSTEM] WINCURL 3 BUILD 17")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -473,65 +469,55 @@ class WinCurlAudioEngine:
         if cached: return cached
         bpm = 125.0
         step_len = 60.0 / bpm / 4.0 # 16th notes
-        total_steps = 256  # Doubled from 128
+        total_steps = 1024  # Doubled from 512
         duration = step_len * total_steps
         steps = int(44100 * duration)
         buf = bytearray(steps * 4)
         
         # Phonk Melody (E Minor) extended
-        cb_notes = [
-            # Part A
+        cb_base = [
             329.6, 0, 392.0, 0, 329.6, 0, 369.9, 0,
             329.6, 0, 311.1, 0, 246.9, 0, 329.6, 0,
             329.6, 0, 392.0, 392.0, 329.6, 0, 369.9, 0,
             329.6, 0, 493.9, 0, 392.0, 369.9, 329.6, 0,
-            # Part A again
             329.6, 0, 392.0, 0, 329.6, 0, 369.9, 0,
             329.6, 0, 311.1, 0, 246.9, 0, 329.6, 0,
             329.6, 0, 392.0, 392.0, 329.6, 0, 369.9, 0,
             329.6, 0, 493.9, 0, 392.0, 369.9, 329.6, 0,
-            # Part B (Higher intensity)
             329.6, 0, 392.0, 0, 329.6, 0, 369.9, 0,
             329.6, 0, 311.1, 0, 246.9, 0, 329.6, 0,
             329.6, 0, 587.3, 587.3, 329.6, 0, 493.9, 0,
             329.6, 0, 659.3, 0, 587.3, 493.9, 329.6, 0,
-            # Part B again
             329.6, 0, 392.0, 0, 329.6, 0, 369.9, 0,
             329.6, 0, 311.1, 0, 246.9, 0, 329.6, 0,
             329.6, 0, 587.3, 587.3, 329.6, 0, 493.9, 0,
             329.6, 0, 659.3, 0, 587.3, 493.9, 329.6, 0,
-            
-            # Part C (Bridge/Variation)
             329.6, 0, 392.0, 392.0, 329.6, 0, 440.0, 0,
             329.6, 0, 392.0, 0, 369.9, 369.9, 329.6, 0,
             329.6, 0, 493.9, 0, 329.6, 0, 587.3, 0,
             329.6, 0, 659.3, 0, 587.3, 493.9, 329.6, 0,
-            
-            # Part C again
             329.6, 0, 392.0, 392.0, 329.6, 0, 440.0, 0,
             329.6, 0, 392.0, 0, 369.9, 369.9, 329.6, 0,
             329.6, 0, 493.9, 0, 329.6, 0, 587.3, 0,
             329.6, 0, 659.3, 0, 587.3, 493.9, 329.6, 0,
-            
-            # Part A Return
             329.6, 0, 392.0, 0, 329.6, 0, 369.9, 0,
             329.6, 0, 311.1, 0, 246.9, 0, 329.6, 0,
             329.6, 0, 392.0, 392.0, 329.6, 0, 369.9, 0,
             329.6, 0, 493.9, 0, 392.0, 369.9, 329.6, 0,
-            
-            # Epic Outro
             329.6, 0, 659.3, 659.3, 329.6, 0, 587.3, 0,
             329.6, 0, 493.9, 0, 392.0, 0, 329.6, 0,
             329.6, 0, 783.9, 783.9, 329.6, 0, 659.3, 0,
             329.6, 0, 587.3, 0, 493.9, 392.0, 329.6, 0,
-
             329.6, 0, 392.0, 0, 329.6, 0, 369.9, 0,
             329.6, 0, 311.1, 0, 246.9, 0, 329.6, 0,
             329.6, 0, 587.3, 587.3, 329.6, 0, 493.9, 0,
             329.6, 0, 659.3, 0, 587.3, 493.9, 329.6, 0,
         ]
         
-        # 808 Bass Pattern
+        # Evolving variations: pitched up, then arpeggiated
+        cb_notes = cb_base + [n * 1.5 if n > 0 else 0 for n in cb_base] + [n * 2.0 if n > 0 else 0 for n in cb_base] + [n * 0.75 if n > 0 else 0 for n in cb_base]
+        
+        # 808 Bass Pattern (much longer and more complex)
         bass_pitches = [
             41.2, 0, 0, 0, 0, 0, 41.2, 0,
             41.2, 0, 0, 0, 0, 0, 49.0, 0,
@@ -541,7 +527,7 @@ class WinCurlAudioEngine:
             41.2, 0, 0, 0, 0, 0, 49.0, 0,
             41.2, 0, 0, 0, 0, 0, 41.2, 0,
             55.0, 0, 0, 0, 0, 0, 0, 0,
-        ] * 2
+        ] * 16
 
         # Pre-compute noise array for fast hi-hats/snares
         noise = [random.uniform(-1.0, 1.0) for _ in range(44100)]
@@ -559,15 +545,16 @@ class WinCurlAudioEngine:
                 b_t = t - (last_bass_step * step_len)
                 if b_t < 1.0:
                     b_freq = bass_pitches[last_bass_step % len(bass_pitches)]
+                    if step >= 512: b_freq *= 1.0 + math.sin(b_t * math.pi * 8) * 0.03 # Wobbly bass in second half
                     # Correct integral of frequency envelope for phase
                     integral_env = (1.0 - math.exp(-b_t * 12.0)) / 12.0
                     phase = (b_freq * b_t + b_freq * 0.5 * integral_env) % 1.0
                     wave = math.sin(phase * 2 * math.pi)
                     # Hard overdrive distortion
-                    wave = max(-0.85, min(0.85, wave * 8.0))
-                    bass = wave * math.exp(-b_t * 1.5) * 0.6
+                    wave = max(-0.95, min(0.95, wave * 12.0))
+                    bass = wave * math.exp(-b_t * 1.5) * 0.75
                 
-            # --- DRIFT PHONK COWBELL (Dual Square Wave) ---
+            # --- DRIFT PHONK COWBELL & SYNTH LEAD ---
             cowbell = 0.0
             last_cb_step = step
             while last_cb_step >= 0 and cb_notes[last_cb_step % len(cb_notes)] == 0: last_cb_step -= 1
@@ -577,14 +564,22 @@ class WinCurlAudioEngine:
                     cb_freq = cb_notes[last_cb_step % len(cb_notes)]
                     v1 = 1.0 if ((cb_t * cb_freq) % 1.0) < 0.5 else -1.0
                     v2 = 1.0 if ((cb_t * cb_freq * 1.48) % 1.0) < 0.5 else -1.0
-                    cowbell = (v1 + v2) * 0.5 * math.exp(-cb_t * 15.0) * 0.35
+                    # Add a sawtooth lead for the second half
+                    synth = 0.0
+                    if step >= 256:
+                        mod = 1.0 + math.sin(t * 15) * 0.05
+                        synth = (2.0 * ((cb_t * cb_freq * 2.0 * mod) % 1.0) - 1.0) * math.exp(-cb_t * 5.0) * 0.5
+                    if step >= 768:
+                        synth += (2.0 * ((cb_t * cb_freq * 3.0) % 1.0) - 1.0) * math.exp(-cb_t * 8.0) * 0.3 # Higher octave layer
+                    cowbell = (v1 + v2) * 0.5 * math.exp(-cb_t * 15.0) * 0.35 + synth
                     
             # --- TRAP PERCUSSION (Hats and Snare) ---
             hat = 0.0
-            # Hi-hat ratchets (32nd notes) on specific steps
-            hh_t = (step_t % (step_len / 2.0)) if step in [14, 15, 30, 31] else step_t
+            # Hi-hat ratchets (32nd notes) on specific steps, extra ratchets later in the song
+            is_ratchet = step % 16 in [14, 15] or (step >= 512 and step % 16 in [6, 7])
+            hh_t = (step_t % (step_len / 2.0)) if is_ratchet else step_t
             if hh_t < 0.1:
-                hat = noise[i % 44100] * math.exp(-hh_t * 45.0) * 0.2
+                hat = noise[i % 44100] * math.exp(-hh_t * 45.0) * 0.3
                 
             snare = 0.0
             if step % 16 == 8: # Half-time snare on beat 3
@@ -592,11 +587,11 @@ class WinCurlAudioEngine:
                     sn_phase = 250 * step_t + (250 / 30.0) * (1.0 - math.exp(-step_t * 30.0))
                     sn_body = math.sin(sn_phase * 2 * math.pi) * math.exp(-step_t * 25.0)
                     sn_noise = noise[(i + 1000) % 44100] * math.exp(-step_t * 15.0)
-                    snare = (sn_body + sn_noise * 1.5) * 0.45
+                    snare = (sn_body + sn_noise * 1.5) * 0.55
             
             # --- MASTERING (Soft Clipping / Saturation) ---
             mixed = bass + cowbell + hat + snare
-            mixed = math.tanh(mixed * 2.5) * 0.7 # Analog warmth & limiting
+            mixed = math.tanh(mixed * 2.8) * 0.7 # Analog warmth & limiting
             
             sample = int(max(-32768, min(32767, mixed * 32767)))
             struct.pack_into('<hh', buf, i * 4, sample, sample)
@@ -621,6 +616,9 @@ class WinCurlAudioEngine:
     def play_throw(self): self.ch_sfx.play(self.snd_throw)
     
     def play_clack(self, force): 
+        now = pygame.time.get_ticks()
+        if hasattr(self, 'last_clack') and now - self.last_clack < 150: return
+        self.last_clack = now
         ch = pygame.mixer.find_channel()
         if ch:
             ch.play(self.snd_clack)
@@ -1096,7 +1094,7 @@ class WinCurl3:
         os.environ['SDL_RENDER_SCALE_QUALITY'] = '1'
             
         pygame.display.init()
-        pygame.display.set_caption("WinCurl version 3.0")
+        pygame.display.set_caption("WinCurl version 3.0 Build 17")
 
         info = pygame.display.Info()
         
@@ -1449,8 +1447,8 @@ class WinCurl3:
         if abs(pull.x) < 2.0: 
             pull.x = 0
             
-        if pull.length() > 5 and pull.y < 0:
-            self.active_stone.vel = pull.normalize() * min(28.0, pull.length() / 10.0) 
+        if pull.length() > 20:
+            self.active_stone.vel = pull.normalize() * min(16.0, pull.length() / 14.0) 
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
@@ -1616,8 +1614,11 @@ class WinCurl3:
                 self.fire_stone()
             return
 
-        if self.game_mode not in ["HOST", "JOIN"] and event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
-            self.audio.play_click(); self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0); return
+        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
+            self.audio.play_click()
+            if self.game_mode in ["HOST", "JOIN"]: self.return_to_menu()
+            else: self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
+            return
         
         if self.turn_state == "END":
             if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_next_end.collidepoint(mouse_pos.x, mouse_pos.y): self.advance_end_logic()
@@ -1764,13 +1765,15 @@ class WinCurl3:
             self.app_state = "COIN_TOSS"; self.coin_timer = 60; self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
             self.audio.stop_music(); self.audio.play_cheer()
             
-        data = self.net.receive_action()
-        if data:
+        while True:
+            data = self.net.receive_action()
+            if not data: break
+            
             if data.get('cmd') == 'chat':
                 self.chat_messages.append({"text": f"{self.net.opponent.split('!')[0]}: {data['msg']}", "time": pygame.time.get_ticks()})
             elif data.get('cmd') == 'coin' and self.game_mode == "JOIN": self.coin_flip_result = data['result']
             elif data.get('cmd') == 'shoot':
-                if len(self.stones) == getattr(self, 'total_stones_played', 0):
+                if getattr(self, 'turn_state', 'NONE') == "SLIDING":
                     self.current_team = 1 if getattr(self, 'current_team', 0) == 0 else 0
                     self.spawn_next_stone()
                 self.active_stone.vel = pygame.math.Vector2(data['vx'], data['vy']); self.active_stone.curl = data['c']; self.active_stone.is_moving = True
@@ -1795,8 +1798,6 @@ class WinCurl3:
                 self.audio.play_cheer()
                 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
-        elif self.game_mode == "HOST" and self.app_state == "PLAY" and getattr(self, 'turn_state', 'MENU') == "SLIDING" and self.frames_elapsed % 60 == 0: 
-            self.net.send_action({'cmd': 'sync', 'st': self.turn_state, 't': self.current_team, 'sc': self.score, 's': [s.get_state() for s in self.stones]})
 
     def draw_menu(self):
         if not getattr(self, 'played_intro', False):
@@ -1826,8 +1827,9 @@ class WinCurl3:
         self.title_rainbow_frame.blit(self.rainbow_grad, (-offset, 0), special_flags=pygame.BLEND_RGB_MULT)
         self.canvas.blit(self.title_rainbow_frame, (bx, by))
         
-        status_string = "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
-        lbl_status = self.small_font.render(status_string, True, (140, 165, 200)); self.canvas.blit(lbl_status, (cx - lbl_status.get_width()//2, 210))
+        status_string = f"STATUS: ERROR - {self.net.connection_error}" if getattr(self.net, 'connection_error', "") else "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
+        color = HOUSE_RED if getattr(self.net, 'connection_error', "") else (TEAM_YELLOW if self.net.connecting or self.net.matched or self.net.running else (150, 160, 180))
+        status_lbl = self.small_font.render(status_string, True, color); self.canvas.blit(status_lbl, (cx - status_lbl.get_width()//2, 210))
 
         for btn in self.menu_buttons:
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -2008,19 +2010,39 @@ class WinCurl3:
         # Netcode Chat Render Support
         if self.game_mode in ["HOST", "JOIN"]:
             current_time = pygame.time.get_ticks()
-            y_offset = BASE_HEIGHT - 450
-            for c_msg in self.chat_messages[-5:]:
-                age = current_time - c_msg['time']
-                if age < 8000:
-                    alpha = 255 if age < 6000 else int(255 * (1.0 - (age - 6000)/2000.0))
-                    txt_surf = self.small_font.render(c_msg['text'], True, PURPLE_SUIT)
-                    txt_surf.set_alpha(alpha)
-                    self.canvas.blit(txt_surf, (50, y_offset))
+            active_chat = [c for c in self.chat_messages[-5:] if current_time - c['time'] < 8000]
+            max_alpha = 0
+            if self.typing_chat: max_alpha = 255
+            elif active_chat:
+                for c in active_chat:
+                    age = current_time - c['time']
+                    max_alpha = max(max_alpha, 255 if age < 6000 else int(255 * (1.0 - (age - 6000)/2000.0)))
+            
+            if max_alpha > 0:
+                chat_h = 40 + len(active_chat) * 40
+                if self.typing_chat: chat_h += 60
+                chat_rect = pygame.Rect(40, BASE_HEIGHT - 250 - chat_h, 800, chat_h)
+                
+                glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40), 16, False)[1].copy()
+                glass_surf.set_alpha(max_alpha)
+                self.canvas.blit(glass_surf, chat_rect)
+                
+                y_offset = chat_rect.y + 20
+                for c in active_chat:
+                    txt_surf = self.small_font.render(c['text'], True, WHITE).copy()
+                    txt_surf.set_alpha(max_alpha)
+                    self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 40
                     
-            if self.typing_chat:
-                txt_surf = self.small_font.render("Chat: " + self.chat_input + "_", True, HOUSE_RED)
-                self.canvas.blit(txt_surf, (50, BASE_HEIGHT - 100))
+                if self.typing_chat:
+                    if active_chat:
+                        line_surf = pygame.Surface((chat_rect.w - 40, 2), pygame.SRCALPHA)
+                        line_surf.fill((100, 110, 130, max_alpha))
+                        self.canvas.blit(line_surf, (chat_rect.x + 20, y_offset))
+                    y_offset += 15
+                    txt_surf = self.small_font.render("Say: " + self.chat_input + "_", True, TEAM_YELLOW).copy()
+                    txt_surf.set_alpha(max_alpha)
+                    self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                 
             if self.net.matched and getattr(self.net, 'opponent', None):
                 opp_surf = self.small_font.render(f"VS: {self.net.opponent.split('!')[0]}", True, BLACK)
@@ -2042,7 +2064,7 @@ class WinCurl3:
             if self.is_dragging:
                 pull = pygame.math.Vector2(-self.virtual_pull.x / 4.0, -self.virtual_pull.y)
                 if pull.length() > 5:
-                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(42.0, pull.length() / 10.0)
+                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(16.0, pull.length() / 14.0)
                     svel_len = svel.length(); curl_factor = self.selected_curl * 0.05
                     sx, sy, px, py = svel.x, svel.y, spos.x, spos.y
                     rad_conv = math.pi / 180.0
@@ -2200,7 +2222,9 @@ class WinCurl3:
 
                     if event.key == K_ESCAPE:
                         if self.app_state == "PLAY":
-                            self.audio.play_click(); self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
+                            self.audio.play_click()
+                            if self.game_mode in ["HOST", "JOIN"]: self.return_to_menu()
+                            else: self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
                         elif self.app_state == "PAUSED":
                             self.audio.play_click(); self.app_state = "PLAY"
                         elif self.app_state == "ROOM_PROMPT":
@@ -2252,6 +2276,7 @@ class WinCurl3:
                 self.update_physics(); self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui()
             elif self.app_state == "PAUSED": 
+                if self.game_mode in ["HOST", "JOIN"]: self.update_physics()
                 self.draw_ice(); [s.draw(self.canvas) for s in self.stones]; self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui(); self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER": self.draw_match_over_screen()
                 
@@ -2260,12 +2285,10 @@ class WinCurl3:
 # --- DAL.NET IRC Socket Manager ---
 class IRCNetworkManager:
     def __init__(self):
-        if IS_ANDROID: pygame.mixer.pre_init(44100, -16, 2, 4096)
-        else: pygame.mixer.pre_init(44100, -16, 2, 1024)
-        pygame.mixer.init()
         self.sock = None; self.running = False; self.connecting = False; self.matched = False
         self.username = ""; self.opponent = ""; self.channel = "#wincurl3_net"
         self.room_display = ""
+        self.connection_error = ""
         self.tx_queue = queue.Queue(); self.rx_queue = queue.Queue(); self.is_host = False
 
     def connect(self, username, is_host, room_name="", preferred_color=0):
@@ -2277,13 +2300,23 @@ class IRCNetworkManager:
         self.room_display = f"'{safe_room}'"
         
         self.preferred_color = preferred_color
+        self.connection_error = ""
         self.is_host = is_host; self.connecting = True; self.running = True
         threading.Thread(target=self._irc_thread, daemon=True).start()
 
     def _irc_thread(self):
         def enc_msg(msg_dict): return "Z" + base64.b64encode(zlib.compress(json.dumps(msg_dict).encode('utf-8'))).decode('utf-8')
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); self.sock.connect(("irc.dal.net", 6667))
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.settimeout(5.0)
+            try:
+                self.sock.connect(("irc.dal.net", 6667))
+            except Exception as e:
+                print("DNS/IPv6 Failed, trying IPv4 fallback:", e)
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.sock.settimeout(5.0)
+                self.sock.connect(("194.14.236.50", 6667)) # Dal.net fallback IP
+            self.sock.settimeout(None)
             self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
             buffer = ""
             last_hello_time = 0
@@ -2339,7 +2372,9 @@ class IRCNetworkManager:
                                     self.rx_queue.put(msg_data)
                             except: pass
                 except socket.timeout: pass
-        except Exception: pass
+        except Exception as e:
+            self.connection_error = str(e)
+            print("NETWORK ERROR:", e)
         finally: self.close()
 
     def send_action(self, data_dict):
