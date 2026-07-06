@@ -4,7 +4,7 @@ package.name = wincurl3
 package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav
-version = 18
+version = 17
 # Add hostpython3==3.10.14 to the list
 requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer
 orientation = portrait
