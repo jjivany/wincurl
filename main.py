@@ -227,11 +227,12 @@ class WinCurlAudioEngine:
         self.last_call = 0
 
     def _synthesize_heavy_bg(self):
-        import os, io
+        import os, io, pygame
         if os.path.exists("theme.mp3"):
             self.snd_music = "theme.mp3"
-        elif os.path.exists("theme.ogg"):
-            self.snd_music = "theme.ogg"
+        elif os.path.exists("theme.wav"):
+            with open("theme.wav", "rb") as f:
+                self.snd_music = pygame.mixer.Sound(file=io.BytesIO(f.read()))
         else:
             self.snd_music = self._synthesize_theme_song(return_path=True)
             
@@ -284,14 +285,12 @@ class WinCurlAudioEngine:
         return os.path.join(base_dir, ".wincurl_cache")
 
     def _get_cached_sound(self, cache_key):
-        import os, io, threading
+        import os, io, threading, pygame
         cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
                     data = f.read()
-                    if threading.current_thread() != threading.main_thread():
-                        return io.BytesIO(data)
                     return pygame.mixer.Sound(file=io.BytesIO(data))
             except: pass
         return None
@@ -320,9 +319,7 @@ class WinCurlAudioEngine:
             
         if return_path: return None
         
-        import io, threading
-        if threading.current_thread() != threading.main_thread():
-            return io.BytesIO(wav)
+        import io, threading, pygame
         return pygame.mixer.Sound(file=io.BytesIO(wav))
 
     def _synthesize_sega_speech(self):
