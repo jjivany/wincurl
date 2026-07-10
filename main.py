@@ -163,7 +163,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 19C")
+print("     [SYSTEM] WINCURL 3 BUILD 20")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -914,14 +914,18 @@ class AnimatedCurler:
 
             # Base head (Hair/Back of head)
             if not override_color:
-                for r in range(20, 0, -1):
-                    shade = max(0, min(255, 60 + r * 3))
-                    px = int(ix - (20-r)*0.1)
-                    py = int(iy - (20-r)*0.2)
-                    rw = max(1, int((head_rw/20.0)*r))
-                    rh = max(1, int((head_rh/20.0)*r))
-                    # Brownish hair gradient
-                    pygame.draw.ellipse(surface, (shade, int(shade*0.75), int(shade*0.55)), (px - rw, py - rh, rw*2, rh*2))
+                pygame.draw.ellipse(surface, (30, 15, 10), (ix-head_rw, iy-head_rh, head_rw*2, head_rh*2))
+                for i in range(16):
+                    a1 = i * (math.pi / 8) + 0.1
+                    hx1 = ix + math.cos(a1 - 0.2) * (head_rw - 4)
+                    hy1 = iy + math.sin(a1 - 0.2) * (head_rh - 4)
+                    hx2 = ix + math.cos(a1 + 0.2) * (head_rw - 4)
+                    hy2 = iy + math.sin(a1 + 0.2) * (head_rh - 4)
+                    tip_x = ix + math.cos(a1 + 0.1) * (head_rw + 4 + (i%3)*2)
+                    tip_y = iy + math.sin(a1 + 0.1) * (head_rh + 4 + (i%3)*2)
+                    shade = 50 + (i % 4) * 12
+                    c_hair = (shade, int(shade*0.65), int(shade*0.45))
+                    pygame.draw.polygon(surface, c_hair, [(hx1, hy1), (hx2, hy2), (tip_x, tip_y)])
             else:
                 pygame.draw.ellipse(surface, c((80, 50, 30)), (ix-head_rw, iy-head_rh, head_rw*2, head_rh*2))
 
@@ -1215,7 +1219,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 19c{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 20{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
@@ -1961,7 +1965,7 @@ class WinCurl3:
         self.canvas.fill((10, 12, 16))
         self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
             
-        if not getattr(self, 'is_music_muted', False) and self.app_state == "MENU":
+        if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"]:
             self.audio.play_music()
         else:
             self.audio.stop_music()
@@ -2378,6 +2382,8 @@ class WinCurl3:
                                     self.net.send_action({'cmd': 'chat', 'msg': self.chat_input})
                                     self.chat_messages.append({"text": f"Me: {self.chat_input}", "time": pygame.time.get_ticks()})
                                 self.typing_chat = False
+                                try: pygame.key.stop_text_input()
+                                except: pass
                                 self.chat_input = ""
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
@@ -2385,6 +2391,8 @@ class WinCurl3:
                         else:
                             if event.key == K_t or event.key == K_RETURN:
                                 self.typing_chat = True
+                                try: pygame.key.start_text_input()
+                                except: pass
                                 continue
 
                     if event.key == K_ESCAPE:
@@ -2557,7 +2565,12 @@ class IRCNetworkManager:
             try: self.sock.close()
             except: pass
 
-if __name__ == "__main__":
+def main():
+    import os
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
     game = WinCurl3()
     game.setup_display()
     game.run()
+
+if __name__ == "__main__":
+    main()
