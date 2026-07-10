@@ -305,7 +305,7 @@ class WinCurlAudioEngine:
         self.snd_red_wins = None
         self.snd_ylw_wins = None
         
-        threading.Thread(target=self._synthesize_heavy_bg, daemon=True).start()
+        self._synthesize_heavy_bg()
         
         self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
         self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
@@ -313,22 +313,34 @@ class WinCurlAudioEngine:
 
     def _synthesize_heavy_bg(self):
         import os, io, pygame
-        if os.path.exists("theme.mp3"):
-            self.snd_music = "theme.mp3"
-        elif os.path.exists("theme.wav"):
-            with open("theme.wav", "rb") as f:
-                self.snd_music = pygame.mixer.Sound(file=io.BytesIO(f.read()))
-        else:
-            self.snd_music = self._synthesize_theme_song(return_path=True)
-            
-        self.snd_speech = self._synthesize_sega_speech()  
-        self.snd_cheer = self._synthesize_cheer()
-        self.snd_end_match = self._synthesize_end_of_match()
-        self.snd_hurry = self._synthesize_vosim_phrase("HURRY", 0.7)
-        self.snd_hard = self._synthesize_vosim_phrase("HARD", 0.65)
-        self.snd_chal_comp = self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5)
-        self.snd_red_wins = self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2)
-        self.snd_ylw_wins = self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4)
+        asset_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        def load_sound(filename, fallback):
+            try:
+                # Try relative path first (works better on Android via SDL_RWops)
+                return pygame.mixer.Sound(filename)
+            except:
+                try:
+                    # Fallback to absolute path
+                    return pygame.mixer.Sound(os.path.join(asset_dir, filename))
+                except:
+                    return fallback()
+
+        self.snd_music = load_sound("theme.wav", lambda: self._synthesize_theme_song(return_path=True))
+        if isinstance(self.snd_music, str): # Return path fallback handling
+            try:
+                with open(self.snd_music, "rb") as f:
+                    self.snd_music = pygame.mixer.Sound(file=io.BytesIO(f.read()))
+            except: pass
+
+        self.snd_speech = load_sound("sega_speech.wav", self._synthesize_sega_speech)
+        self.snd_cheer = load_sound("cheer.wav", self._synthesize_cheer)
+        self.snd_end_match = load_sound("end_match.wav", self._synthesize_end_of_match)
+        self.snd_hurry = load_sound("vosim_HURRY.wav", lambda: self._synthesize_vosim_phrase("HURRY", 0.7))
+        self.snd_hard = load_sound("vosim_HARD.wav", lambda: self._synthesize_vosim_phrase("HARD", 0.65))
+        self.snd_chal_comp = load_sound("vosim_CHALLENGE_COMPLETE.wav", lambda: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5))
+        self.snd_red_wins = load_sound("vosim_RED_TEAM_WINS.wav", lambda: self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2))
+        self.snd_ylw_wins = load_sound("vosim_YELLOW_TEAM_WINS.wav", lambda: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4))
         
     def process_pending_sounds(self):
         import io, pygame
@@ -351,7 +363,10 @@ class WinCurlAudioEngine:
 
     def _get_cache_dir(self):
         import os, tempfile
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        try:
+            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
+        except:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
         cache_dir = os.path.join(base_dir, "wincurl_cache")
         try:
             os.makedirs(cache_dir, exist_ok=True)
@@ -884,6 +899,8 @@ class Stone:
         surface.blit(Stone.cached_hl, (self.pos.x - self.radius, self.pos.y - self.radius))
 
 class AnimatedCurler:
+    _head_cache = {}
+
     def __init__(self, hack_pos):
         self.hack_pos = pygame.math.Vector2(hack_pos); self.delivery_progress = 0.0; self.state = "IDLE"
         
@@ -908,52 +925,67 @@ class AnimatedCurler:
             hl_col = (min(255, color[0]+60), min(255, color[1]+60), min(255, color[2]+60))
             pygame.draw.line(surf, hl_col, (start[0]-2, start[1]), (end[0]-2, end[1]), max(1, width - 8))
 
-        def head(x, y):
-            ix, iy = int(x), int(y)
-            head_rw, head_rh = 17, 22
+        def head(ix, iy):
+            cache_key = (self.tc, override_color)
+            if cache_key not in AnimatedCurler._head_cache:
+                surf = pygame.Surface((60, 80), pygame.SRCALPHA)
+                cx, cy = 30, 40
+                
+                head_rw, head_rh = 15, 12
+                # Base skin tone
+                pygame.draw.ellipse(surf, c((240, 200, 180)), (cx-head_rw, cy-head_rh, head_rw*2, head_rh*2))
 
-            # Base head (Hair/Back of head)
-            if not override_color:
-                pygame.draw.ellipse(surface, (30, 15, 10), (ix-head_rw, iy-head_rh, head_rw*2, head_rh*2))
-                for i in range(16):
-                    a1 = i * (math.pi / 8) + 0.1
-                    hx1 = ix + math.cos(a1 - 0.2) * (head_rw - 4)
-                    hy1 = iy + math.sin(a1 - 0.2) * (head_rh - 4)
-                    hx2 = ix + math.cos(a1 + 0.2) * (head_rw - 4)
-                    hy2 = iy + math.sin(a1 + 0.2) * (head_rh - 4)
-                    tip_x = ix + math.cos(a1 + 0.1) * (head_rw + 4 + (i%3)*2)
-                    tip_y = iy + math.sin(a1 + 0.1) * (head_rh + 4 + (i%3)*2)
-                    shade = 50 + (i % 4) * 12
-                    c_hair = (shade, int(shade*0.65), int(shade*0.45))
-                    pygame.draw.polygon(surface, c_hair, [(hx1, hy1), (hx2, hy2), (tip_x, tip_y)])
-            else:
-                pygame.draw.ellipse(surface, c((80, 50, 30)), (ix-head_rw, iy-head_rh, head_rw*2, head_rh*2))
+                if not override_color:
+                    import math
+                    import random
+                    random.seed(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
+                    hair_poly = []
+                    shade = max(0, self.tc[0]-100)
+                    hair_color = (shade, int(shade*0.75), int(shade*0.55))
+                    
+                    # Draw spiky procedural hair
+                    for angle in range(0, 361, 15):
+                        rad = math.radians(angle)
+                        base_r = head_rw * 1.1
+                        # Hair is longer at the bottom/back of the head
+                        if 0 <= angle <= 180:
+                            spike = random.uniform(0, 8)
+                            r = base_r + spike
+                        else:
+                            r = base_r
+                        hair_poly.append((cx + math.cos(rad)*r, cy + math.sin(rad)*r))
+                    
+                    pygame.draw.polygon(surf, hair_color, hair_poly)
+                else:
+                    pygame.draw.ellipse(surf, c((80, 50, 30)), (cx-head_rw, cy-head_rh, head_rw*2, head_rh*2))
 
-            # Beanie Base
-            hat_rw, hat_rh = 19, 14
-            hat_shade = (max(0, self.tc[0]-80), max(0, self.tc[1]-80), max(0, self.tc[2]-80))
+                # Beanie Base
+                hat_rw, hat_rh = 19, 14
+                hat_shade = (max(0, self.tc[0]-80), max(0, self.tc[1]-80), max(0, self.tc[2]-80))
+                
+                # The beanie pulled down over the back of the head
+                pygame.draw.ellipse(surf, c(hat_shade), (cx-hat_rw-1, cy-head_rh-6, hat_rw*2+2, hat_rh*2+2))
+                pygame.draw.ellipse(surf, c(self.tc), (cx-hat_rw, cy-head_rh-5, hat_rw*2, hat_rh*2))
+
+                if not override_color:
+                    pygame.draw.ellipse(surf, (min(255, self.tc[0]+40), min(255, self.tc[1]+40), min(255, self.tc[2]+40)), (cx-hat_rw+4, cy-head_rh-3, hat_rw*2-8, 6))
+
+                # Beanie Brim (Curves across the back of the head)
+                pygame.draw.rect(surf, c(hat_shade), (cx-hat_rw-2, cy-head_rh+4, hat_rw*2+4, 10), border_radius=4)
+                pygame.draw.rect(surf, c(self.tc), (cx-hat_rw-1, cy-head_rh+5, hat_rw*2+2, 8), border_radius=3)
+                pygame.draw.rect(surf, c(CYAN_ACCENT), (cx-hat_rw-1, cy-head_rh+7, hat_rw*2+2, 3), border_radius=1)
+
+                # Pom-pom (Slightly shifted up for back perspective)
+                if not override_color:
+                    for r in range(9, 0, -1):
+                        s = 140 + r*11
+                        pygame.draw.circle(surf, (s,s,s), (cx, cy-head_rh-9), r)
+                else:
+                    pygame.draw.circle(surf, c((180,180,180)), (cx, cy-head_rh-9), 9)
+                    
+                AnimatedCurler._head_cache[cache_key] = surf
             
-            # The beanie pulled down over the back of the head
-            pygame.draw.ellipse(surface, c(hat_shade), (ix-hat_rw-1, iy-head_rh-6, hat_rw*2+2, hat_rh*2+2))
-            pygame.draw.ellipse(surface, c(self.tc), (ix-hat_rw, iy-head_rh-5, hat_rw*2, hat_rh*2))
-
-            if not override_color:
-                specular = pygame.Surface((hat_rw*2, hat_rh*2), pygame.SRCALPHA)
-                pygame.draw.ellipse(specular, (255, 255, 255, 40), (4, 2, hat_rw*2-8, 6))
-                surface.blit(specular, (ix-hat_rw, iy-head_rh-5))
-
-            # Beanie Brim (Curves across the back of the head)
-            pygame.draw.rect(surface, c(hat_shade), (ix-hat_rw-2, iy-head_rh+4, hat_rw*2+4, 10), border_radius=4)
-            pygame.draw.rect(surface, c(self.tc), (ix-hat_rw-1, iy-head_rh+5, hat_rw*2+2, 8), border_radius=3)
-            pygame.draw.rect(surface, c(CYAN_ACCENT), (ix-hat_rw-1, iy-head_rh+7, hat_rw*2+2, 3), border_radius=1)
-
-            # Pom-pom (Slightly shifted up for back perspective)
-            if not override_color:
-                for r in range(9, 0, -1):
-                    s = 140 + r*11
-                    pygame.draw.circle(surface, (s,s,s), (ix, iy-head_rh-9), r)
-            else:
-                pygame.draw.circle(surface, c((255, 255, 255)), (ix, iy-head_rh-9), 9)
+            surface.blit(AnimatedCurler._head_cache[cache_key], (ix - 30, iy - 40))
 
         if self.state == "BACKSWING":
             # 3D Legs
@@ -1280,7 +1312,10 @@ class WinCurl3:
         self.dragging_slider = False
         self.drag_start_pos = None
         
-        base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
+        try:
+            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
+        except:
+            base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
         self.load_progress()
         
@@ -1388,11 +1423,9 @@ class WinCurl3:
         was_typing = getattr(self, 'typing_target', None) is not None
         self.typing_target = target
         if target is not None and not was_typing:
-            try: pygame.key.start_text_input()
-            except: pass
+            pass # Removed start_text_input to prevent Android lag
         elif target is None and was_typing:
-            try: pygame.key.stop_text_input()
-            except: pass
+            pass # Removed stop_text_input
 
     def toggle_fullscreen(self):
         self.is_fullscreen = not self.is_fullscreen
@@ -1957,7 +1990,9 @@ class WinCurl3:
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
 
     def draw_menu(self):
-        if not getattr(self, 'played_intro', False):
+        self.frames_since_start = getattr(self, 'frames_since_start', 0) + 1
+        
+        if not getattr(self, 'played_intro', False) and self.frames_since_start >= 30:
             if getattr(self.audio, 'snd_speech', None):
                 self.audio.ch_sfx.play(self.audio.snd_speech)
                 self.played_intro = True
@@ -1965,9 +2000,9 @@ class WinCurl3:
         self.canvas.fill((10, 12, 16))
         self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
             
-        if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"]:
+        if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"] and self.frames_since_start >= 210:
             self.audio.play_music()
-        else:
+        elif getattr(self, 'is_music_muted', False) or self.app_state not in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"]:
             self.audio.stop_music()
             
         self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
@@ -2382,8 +2417,6 @@ class WinCurl3:
                                     self.net.send_action({'cmd': 'chat', 'msg': self.chat_input})
                                     self.chat_messages.append({"text": f"Me: {self.chat_input}", "time": pygame.time.get_ticks()})
                                 self.typing_chat = False
-                                try: pygame.key.stop_text_input()
-                                except: pass
                                 self.chat_input = ""
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
@@ -2391,8 +2424,6 @@ class WinCurl3:
                         else:
                             if event.key == K_t or event.key == K_RETURN:
                                 self.typing_chat = True
-                                try: pygame.key.start_text_input()
-                                except: pass
                                 continue
 
                     if event.key == K_ESCAPE:
@@ -2424,8 +2455,10 @@ class WinCurl3:
                 elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
 
             if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "MATCH_OVER"]:
-                if not getattr(self, 'is_music_muted', False): self.audio.play_music()
-                else: self.audio.stop_music()
+                if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_since_start', 0) >= 210: 
+                    self.audio.play_music()
+                else: 
+                    self.audio.stop_music()
             else:
                 self.audio.stop_music()
                 
@@ -2566,8 +2599,9 @@ class IRCNetworkManager:
             except: pass
 
 def main():
-    import os
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    import os, sys
+    if not hasattr(sys, 'getandroidapilevel'):
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
     game = WinCurl3()
     game.setup_display()
     game.run()
