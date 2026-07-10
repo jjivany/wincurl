@@ -756,9 +756,9 @@ class WinCurlAudioEngine:
 
 # --- Visual Effects & Geometry ---
 class Starfield:
-    def __init__(self, count=150, max_w=BASE_WIDTH, max_h=BASE_HEIGHT):
-        self.max_h = max_h
-        self.stars = [(random.randint(0, max_w), random.randint(0, max_h), random.uniform(0.5, 3.0)) for _ in range(count)]
+    def __init__(self, count=150, max_w=None, max_h=None):
+        self.max_h = max_h or BASE_HEIGHT
+        self.stars = [(random.randint(0, max_w or BASE_WIDTH), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)]
         self.colors = {s: (int(min(255, 30 + s*60)),)*3 for _, _, s in self.stars}
         
     def draw(self, surface, speed_mult=1.0):
@@ -856,9 +856,9 @@ class Stone:
         
         return s
 
-    def get_state(self): return [round(self.pos.x, 1), round(self.pos.y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
-    def set_state(self, state):
-        nx, ny, nvx, nvy, self.team, self.curl, self.rotation, self.is_moving = state
+    def get_state(self, offset_y=0): return [round(self.pos.x, 1), round(self.pos.y - offset_y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
+    def set_state(self, s, offset_y=0):
+        nx, ny, nvx, nvy, self.team, self.curl, self.rotation, self.is_moving = s[0], s[1] + offset_y, s[2], s[3], s[4], s[5], s[6], s[7]
         now = pygame.time.get_ticks()
         if hasattr(self, 'last_collision_time') and now - self.last_collision_time < 400: return
         new_pos = pygame.math.Vector2(nx, ny); new_vel = pygame.math.Vector2(nvx, nvy)
@@ -1255,6 +1255,11 @@ class WinCurl3:
 
         info = pygame.display.Info()
         
+        global BASE_HEIGHT
+        if IS_ANDROID and info.current_w > 0 and info.current_h > 0:
+            aspect = info.current_h / info.current_w
+            BASE_HEIGHT = int(BASE_WIDTH * aspect)
+        
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
@@ -1319,8 +1324,8 @@ class WinCurl3:
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
         self.load_progress()
         
-        self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, 350)
-        self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, BASE_HEIGHT - 150)
+        self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 - 650)
+        self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 + 650)
         self.curler_anim = AnimatedCurler(self.hack_pos)
         self.starfield = Starfield(count=50 if IS_ANDROID else 150)
         if self.is_4k:
@@ -1399,6 +1404,7 @@ class WinCurl3:
         pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
         pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
         pygame.draw.line(self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10)
+        pygame.draw.line(self.static_ice_surface, (10, 10, 10), (0, self.house_pos.y - 220), (BASE_WIDTH, self.house_pos.y - 220), 4)
         
         house_layer = pygame.Surface((440, 440))
         house_layer.fill((255, 0, 255))
@@ -1422,12 +1428,12 @@ class WinCurl3:
     def set_typing_target(self, target):
         if getattr(self, 'typing_target', None) == target: return
         was_typing = getattr(self, 'typing_target', None) is not None
+        if was_typing: self.save_progress()
         self.typing_target = target
-        if target is not None and not was_typing:
-            try: pygame.key.start_text_input()
-            except: pass
-        elif target is None and was_typing:
-            try: pygame.key.stop_text_input()
+        if IS_ANDROID:
+            try:
+                if target is not None: pygame.key.start_text_input()
+                else: pygame.key.stop_text_input()
             except: pass
 
     def toggle_fullscreen(self):
@@ -1668,7 +1674,8 @@ class WinCurl3:
     def handle_menu_events(self, event):
         mouse_pos = getattr(event, 'pos', self.get_pointer_pos())
         mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
-        curr_hov = next((b["id"] for b in self.menu_buttons if 300<mx<900 and b["y"]<my<b["y"]+110*b["scale"]), None)
+        menu_my = my - getattr(self, 'menu_dy', 0)
+        curr_hov = next((b["id"] for b in self.menu_buttons if 300<mx<900 and b["y"]<menu_my<b["y"]+110*b["scale"]), None)
         if curr_hov != self.last_hovered:
             if curr_hov: self.audio.play_hover()
             self.last_hovered = curr_hov
@@ -1684,12 +1691,12 @@ class WinCurl3:
             self.last_click_time = now
 
             if self.typing_target:
-                if not (300 < mx < 900 and 1000 < my < 1200):
+                if not (300 < mx < 900 and 950 < menu_my < 1070):
                     self.set_typing_target(None)
 
             if 300 < mx < 900:
                 for b in self.menu_buttons:
-                    if b["y"] < my < b["y"] + 110 * b["scale"]:
+                    if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
@@ -1708,17 +1715,17 @@ class WinCurl3:
                 self.audio.play_click()
                 self.save_progress()
             
-            if 330 < mx < 870 and 1450 < my < 1650: 
+            if 330 < mx < 870 and 1450 < menu_my < 1650: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.audio.play_hover()
                 self.save_progress()
         elif event.type == MOUSEMOTION and self.get_pointer_pressed():
-            if 330 < mx < 870 and 1450 < my < 1650: 
+            if 330 < mx < 870 and 1450 < menu_my < 1650: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
-            elif event.key == K_BACKSPACE: self.username = self.username[:-1]
+            elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -1902,7 +1909,7 @@ class WinCurl3:
                 
                 # Absolute End of Slide Sync Broadcast for Netcode
                 if self.game_mode == "HOST" and hasattr(self, 'was_moving_last_frame') and self.was_moving_last_frame:
-                    self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state() for s in self.stones]})
+                    self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state((BASE_HEIGHT//2)+100) for s in self.stones]})
                 
                 if self.game_mode == "CHALLENGE":
                     if self.stones_thrown[0] == 1: 
@@ -1980,7 +1987,7 @@ class WinCurl3:
                 for i, s_data in enumerate(data['stones']):
                     if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
                         if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
-                    self.stones[i].set_state(s_data)
+                    self.stones[i].set_state(s_data, (BASE_HEIGHT//2)+100)
             elif data.get('cmd') == 'sync' and self.game_mode == "JOIN":
                 self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
                 while len(self.stones) < len(data['s']): self.stones.append(Stone(0, 0, 0))
@@ -2019,9 +2026,10 @@ class WinCurl3:
         elif getattr(self, 'is_music_muted', False) or self.app_state not in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"]:
             self.audio.stop_music()
             
-        self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
+        self.menu_dy = (BASE_HEIGHT - 1920) // 2
+        self.menu_stone.draw(self.canvas, cx, 300 + self.menu_dy, self.get_pointer_pos())
         
-        bx, by = cx - self.title_base.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
+        bx, by = cx - self.title_base.get_width()//2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15) 
         
         # Draw pre-rendered soft outline (requires just 1 blit instead of 36)
         pad = 9 # outline_size (7) + 2
@@ -2036,7 +2044,7 @@ class WinCurl3:
         
         status_string = f"STATUS: ERROR - {self.net.connection_error}" if getattr(self.net, 'connection_error', "") else "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
         color = HOUSE_RED if getattr(self.net, 'connection_error', "") else (TEAM_YELLOW if self.net.connecting or self.net.matched or self.net.running else (150, 160, 180))
-        status_lbl = self.small_font.render(status_string, True, color); self.canvas.blit(status_lbl, (cx - status_lbl.get_width()//2, 210))
+        status_lbl = self.small_font.render(status_string, True, color); self.canvas.blit(status_lbl, (cx - status_lbl.get_width()//2, 210 + self.menu_dy))
 
         for btn in self.menu_buttons:
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -2050,7 +2058,7 @@ class WinCurl3:
             if abs(btn["scale"] - target_scale) < 0.005: btn["scale"] = target_scale
             else: btn["scale"] += (target_scale - btn["scale"]) * 0.25 
             b_w, b_h = int(600 * btn["scale"]), int(100 * btn["scale"])
-            rect = pygame.Rect(cx - b_w//2, btn["y"] + (100 - b_h)//2, b_w, b_h)
+            rect = pygame.Rect(cx - b_w//2, btn["y"] + self.menu_dy + (100 - b_h)//2, b_w, b_h)
             
             draw_glass_rect(self.canvas, rect, btn["color"], rect.h // 2, is_hovered)
             
@@ -2080,10 +2088,10 @@ class WinCurl3:
                     img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
                 self.canvas.blit(img, img.get_rect(center=rect.center))
 
-        pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1550, 500, 16), border_radius=8)
+        pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1550 + self.menu_dy, 500, 16), border_radius=8)
         handle_x = cx - 250 + int((self.ai_difficulty - 1) / 9.0 * 500)
-        pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558), 26, 4)
-        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490))
+        pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558 + self.menu_dy), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558 + self.menu_dy), 26, 4)
+        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490 + self.menu_dy))
         
         # Draw Mute Button
         draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(self.get_pointer_pos()))
@@ -2431,9 +2439,11 @@ class WinCurl3:
                     elif self.app_state == "MENU" and self.typing_target == "name":
                         if len(self.username) + len(event.text) <= 15:
                             self.username += event.text
+                            self.save_progress()
                     elif self.app_state == "ROOM_PROMPT" and self.typing_target == "room":
                         if len(self.room_text) + len(event.text) <= 15:
                             self.room_text += event.text
+                            self.save_progress()
 
                 if event.type == KEYDOWN:
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"]:
