@@ -1342,6 +1342,7 @@ class WinCurl3:
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
         self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 220, 140, 180, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
+        self.btn_chat = pygame.Rect(BASE_WIDTH - 420, 140, 180, 60)
         self.btn_quit_main, self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+40, 500, 100), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
@@ -1423,9 +1424,11 @@ class WinCurl3:
         was_typing = getattr(self, 'typing_target', None) is not None
         self.typing_target = target
         if target is not None and not was_typing:
-            pass # Removed start_text_input to prevent Android lag
+            try: pygame.key.start_text_input()
+            except: pass
         elif target is None and was_typing:
-            pass # Removed stop_text_input
+            try: pygame.key.stop_text_input()
+            except: pass
 
     def toggle_fullscreen(self):
         self.is_fullscreen = not self.is_fullscreen
@@ -1775,11 +1778,22 @@ class WinCurl3:
                 self.fire_stone()
             return
 
-        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
-            self.audio.play_click()
-            if self.game_mode in ["HOST", "JOIN"]: self.return_to_menu()
-            else: self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
-            return
+        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
+            if self.game_mode in ["HOST", "JOIN"] and self.btn_chat.collidepoint(mouse_pos.x, mouse_pos.y):
+                self.audio.play_click()
+                self.typing_chat = not self.typing_chat
+                if self.typing_chat:
+                    try: pygame.key.start_text_input()
+                    except: pass
+                else:
+                    try: pygame.key.stop_text_input()
+                    except: pass
+                return
+            if self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
+                self.audio.play_click()
+                if self.game_mode in ["HOST", "JOIN"]: self.return_to_menu()
+                else: self.app_state = "PAUSED"; self.pause_anim = 0.0; self.audio.update_slide(0.0); self.audio.update_sweep(0.0)
+                return
         
         if self.turn_state == "END":
             if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1 and self.btn_next_end.collidepoint(mouse_pos.x, mouse_pos.y): self.advance_end_logic()
@@ -2198,6 +2212,9 @@ class WinCurl3:
         lbl_p = self.small_font.render(btn_text, True, BLACK)
         if self.game_mode in ("HOST", "JOIN"):
             self.canvas.blit(lbl_p, (self.btn_pause.centerx - lbl_p.get_width()//2, self.btn_pause.centery - lbl_p.get_height()//2))
+            draw_glass_rect(self.canvas, self.btn_chat, (50, 55, 65) if not self.typing_chat else (80, 150, 80), self.btn_chat.h // 2, self.btn_chat.collidepoint(m_pos.x, m_pos.y))
+            lbl_chat = self.small_font.render("CHAT", True, BLACK)
+            self.canvas.blit(lbl_chat, (self.btn_chat.centerx - lbl_chat.get_width()//2, self.btn_chat.centery - lbl_chat.get_height()//2))
         else:
             total_w = 22 + 12 + lbl_p.get_width()
             start_x = self.btn_pause.centerx - total_w // 2
@@ -2221,13 +2238,19 @@ class WinCurl3:
                 chat_rect = pygame.Rect(40, BASE_HEIGHT - 250 - chat_h, 800, chat_h)
                 
                 glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40), 16, False)[1].copy()
-                glass_surf.set_alpha(max_alpha)
+                if max_alpha < 255:
+                    temp = pygame.Surface(glass_surf.get_size(), pygame.SRCALPHA)
+                    temp.fill((255, 255, 255, max_alpha))
+                    glass_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.canvas.blit(glass_surf, chat_rect)
                 
                 y_offset = chat_rect.y + 20
                 for c in active_chat:
                     txt_surf = self.chat_font.render(c['text'], True, (200, 200, 200)).copy()
-                    txt_surf.set_alpha(max_alpha)
+                    if max_alpha < 255:
+                        temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
+                        temp.fill((255, 255, 255, max_alpha))
+                        txt_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 40
                     
@@ -2238,12 +2261,15 @@ class WinCurl3:
                         self.canvas.blit(line_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 15
                     txt_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, TEAM_YELLOW).copy()
-                    txt_surf.set_alpha(max_alpha)
+                    if max_alpha < 255:
+                        temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
+                        temp.fill((255, 255, 255, max_alpha))
+                        txt_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                 
             if self.net.matched and getattr(self.net, 'opponent', None):
                 opp_surf = self.small_font.render(f"VS: {self.net.opponent.split('!')[0]}", True, BLACK)
-                self.canvas.blit(opp_surf, (BASE_WIDTH - 500, 150))
+                self.canvas.blit(opp_surf, (40, 150))
 
         if self.turn_state == "AIMING":
             if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
@@ -2418,12 +2444,16 @@ class WinCurl3:
                                     self.chat_messages.append({"text": f"Me: {self.chat_input}", "time": pygame.time.get_ticks()})
                                 self.typing_chat = False
                                 self.chat_input = ""
+                                try: pygame.key.stop_text_input()
+                                except: pass
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
                             continue
                         else:
                             if event.key == K_t or event.key == K_RETURN:
                                 self.typing_chat = True
+                                try: pygame.key.start_text_input()
+                                except: pass
                                 continue
 
                     if event.key == K_ESCAPE:
