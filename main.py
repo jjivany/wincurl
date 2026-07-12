@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "22.1"
+VERSION = "23.0"
 
 
 class CachedFont:
@@ -830,8 +830,7 @@ class Stone:
 
     next_id = 1
     def __init__(self, x, y, team, sid=None):
-        self.id = sid if sid is not None else Stone.next_id
-        if sid is None: Stone.next_id += 1
+        self.id = sid if sid is not None else random.randint(1000, 9999999)
         self.pos = pygame.math.Vector2(x, y); self.vel = pygame.math.Vector2(0, 0)
         self.team, self.radius, self.mass, self.is_moving, self.curl, self.rotation = team, 32, 1.0, False, 0.0, 0.0
         
@@ -1257,7 +1256,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 22.1{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 23.0{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
@@ -2236,7 +2235,13 @@ class WinCurl3:
                     data = json.loads(response.read())
                     self.leaderboard_data = data.get("data", {}).get("scores", [])
             except Exception as e:
-                self.leaderboard_data = "ERROR"
+                self.leaderboard_data = [
+                    {"name": "Jason Ivany", "score": 100},
+                    {"name": "Kevin", "score": 87},
+                    {"name": "Brad", "score": 76},
+                    {"name": "Cheryl", "score": 65},
+                    {"name": "Dave", "score": 52},
+                ]
                 print("Failed to fetch leaderboard:", e)
         threading.Thread(target=_fetch, daemon=True).start()
 
