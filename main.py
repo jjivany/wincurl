@@ -1257,7 +1257,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 21{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 22{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
