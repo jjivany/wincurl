@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "21.0.4"
+VERSION = "21.0.5"
 
 
 class CachedFont:
@@ -1269,8 +1269,8 @@ class WinCurl3:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             desk_h = info.current_h
-            if desk_h > 0 and 1800 > desk_h * 0.95:
-                target_h = int(desk_h * 0.95)
+            if desk_h > 0 and 1800 > desk_h * 0.85:
+                target_h = int(desk_h * 0.85)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                 self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
             else:
@@ -1307,7 +1307,7 @@ class WinCurl3:
         except:
             pass
         
-        self.is_4k = (info.current_w >= 3840 or info.current_h >= 2160)
+        self.is_4k = (info.current_w >= 1920 or info.current_h >= 1080)
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
         
@@ -1456,8 +1456,8 @@ class WinCurl3:
             else:
                 info = pygame.display.Info()
                 desk_h = info.current_h
-                if desk_h > 0 and 1800 > desk_h * 0.95:
-                    target_h = int(desk_h * 0.95)
+                if desk_h > 0 and 1800 > desk_h * 0.85:
+                    target_h = int(desk_h * 0.85)
                     target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                     self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
                 else:
@@ -2127,7 +2127,7 @@ class WinCurl3:
         update_txt = getattr(self, "update_status", "check for update")
         upd_lbl = self.font.render(update_txt, True, (150, 200, 255))
         upd_lbl = pygame.transform.smoothscale(upd_lbl, (int(upd_lbl.get_width() * 1.3), int(upd_lbl.get_height() * 1.3)))
-        self.btn_update = upd_lbl.get_rect(center=(cx, 1850 + self.menu_dy))
+        self.btn_update = upd_lbl.get_rect(center=(cx, 1790 + self.menu_dy))
         self.canvas.blit(upd_lbl, self.btn_update)
         
         # Draw Mute Button
