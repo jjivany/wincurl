@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "21.0"
+VERSION = "21.0.2"
 
 
 class CachedFont:
@@ -2136,14 +2136,18 @@ class WinCurl3:
             import urllib.request
             import sys, os, re
             
-            url_main = "https://raw.githubusercontent.com/jjivany/wincurl/main/wincurl_android/main.py"
+            url_main = "https://raw.githubusercontent.com/jjivany/wincurl/main/main.py"
             req = urllib.request.Request(url_main, headers={'User-Agent': 'Mozilla/5.0'})
             try:
                 with urllib.request.urlopen(req) as response:
                     new_code = response.read().decode('utf-8')
                 m = re.search(r'VERSION\s*=\s*"([^"]+)"', new_code)
                 remote_version = m.group(1) if m else "0"
-                if float(remote_version) <= float(VERSION):
+                
+                def parse_ver(v):
+                    return tuple(map(int, v.split('.')))
+                
+                if parse_ver(remote_version) <= parse_ver(VERSION):
                     self.update_status = "no update available"
                     self.is_updating = False
                     return
@@ -2172,7 +2176,7 @@ class WinCurl3:
                     Uri = autoclass('android.net.Uri')
                     Environment = autoclass('android.os.Environment')
                     
-                    apk_url = "https://raw.githubusercontent.com/jjivany/wincurl/main/wincurl_android/bin/wincurl3-" + remote_version + "-arm64-v8a-debug.apk"
+                    apk_url = "https://raw.githubusercontent.com/jjivany/wincurl/main/wincurl_latest.apk"
                     activity = autoclass('org.kivy.android.PythonActivity').mActivity
                     
                     request = DownloadManagerRequest(Uri.parse(apk_url))
