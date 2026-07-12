@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "22.0"
+VERSION = "22.1"
 
 
 class CachedFont:
@@ -1257,7 +1257,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 22{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 22.1{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
