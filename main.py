@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "21.0.5"
+VERSION = "21.1"
 
 
 class CachedFont:
@@ -117,48 +117,34 @@ import wave
 import os
 
 def vibrate_android(ms):
-    # 1. Try Pyjnius
-    try:
-        from jnius import autoclass
-        Context = autoclass('android.content.Context')
-        activity = None
-        for act_name in ['org.kivy.android.PythonActivity', 'org.libsdl.app.SDLActivity']:
-            try: activity = autoclass(act_name).mActivity
-            except: pass
-            if not activity:
-                try: activity = autoclass(act_name).getContext()
-                except: pass
-            if activity: break
-        if activity:
-            vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
-            if vibrator and vibrator.hasVibrator():
-                try:
-                    VERSION = autoclass('android.os.Build$VERSION')
-                    if VERSION.SDK_INT >= 26:
-                        VibrationEffect = autoclass('android.os.VibrationEffect')
-                        vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
-                    else:
-                        vibrator.vibrate(int(ms))
-                except Exception as e:
-                    print("Pyjnius vibration failed with effect:", e)
-                    vibrator.vibrate(int(ms))
-                return
-    except Exception as e:
-        print("Pyjnius vibration failed:", e)
-    
-    # 2. Try Plyer
     try:
         from plyer import vibrator
         vibrator.vibrate(time=ms/1000.0)
         return
-    except: pass
+    except Exception as e:
+        print("Plyer vibration failed:", e)
 
-    # 3. Try Pygame Rumble
+    try:
+        from jnius import autoclass
+        Context = autoclass('android.content.Context')
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        vibrator = PythonActivity.mActivity.getSystemService(Context.VIBRATOR_SERVICE)
+        if vibrator and vibrator.hasVibrator():
+            VERSION = autoclass('android.os.Build$VERSION')
+            if VERSION.SDK_INT >= 26:
+                VibrationEffect = autoclass('android.os.VibrationEffect')
+                vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
+            else:
+                vibrator.vibrate(int(ms))
+            return
+    except Exception as e:
+        print("Pyjnius vibration failed:", e)
+        
     try:
         if pygame.joystick.get_count() > 0:
             joy = pygame.joystick.Joystick(0)
             if not joy.get_init(): joy.init()
-            joy.rumble(1.0, 1.0, int(ms))
+            joy.rumble(0.5, 0.5, int(ms))
     except: pass
 
 # Define this immediately after imports
@@ -218,7 +204,7 @@ class UICache:
     
     @classmethod
     def get_glass(cls, w, h, base_color, radius, hovered):
-        key = (w, h, base_color, radius, hovered)
+        key = (w, h, tuple(base_color), radius, hovered)
         if key not in cls.glass_surfs:
             # 1. Shadow (No need for 2x, just draw and scale? Actually, 1x is fine for shadow)
             shadow = pygame.Surface((w+10, h+10), pygame.SRCALPHA).convert_alpha()
@@ -238,7 +224,8 @@ class UICache:
             content = pygame.Surface((tw, th), pygame.SRCALPHA)
             content.fill((0, 0, 0, 0))
             
-            c = pygame.Color(*base_color[:3], 150)
+            a = base_color[3] if len(base_color) > 3 else 150
+            c = pygame.Color(*base_color[:3], a)
             pygame.draw.rect(content, c, (0, 0, tw, th))
             pygame.draw.rect(content, (255, 255, 255, 60), (0, 0, tw, th//2))
             pygame.draw.ellipse(content, (255, 255, 255, 90), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
@@ -368,26 +355,29 @@ class WinCurlAudioEngine:
 
     def _get_cache_dir(self):
         import os, tempfile
-        try:
-            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
-        except:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-        cache_dir = os.path.join(base_dir, "wincurl_cache")
-        try:
-            os.makedirs(cache_dir, exist_ok=True)
-            test_file = os.path.join(cache_dir, ".test")
-            with open(test_file, "w") as f: f.write("ok")
-            os.remove(test_file)
-            return cache_dir
-        except: pass
-        
+        if IS_ANDROID:
+            try:
+                from jnius import autoclass
+                PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                cache_dir = os.path.join(PythonActivity.mActivity.getCacheDir().getAbsolutePath(), "wincurl_cache")
+                os.makedirs(cache_dir, exist_ok=True)
+                return cache_dir
+            except: pass
+            
         try:
             cache_dir = os.path.join(tempfile.gettempdir(), "wincurl_cache")
             os.makedirs(cache_dir, exist_ok=True)
             return cache_dir
         except: pass
         
-        return os.path.join(base_dir, "wincurl_cache")
+        try:
+            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
+            cache_dir = os.path.join(base_dir, "wincurl_cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            return cache_dir
+        except: pass
+        
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "wincurl_cache")
 
     def _get_cached_sound(self, cache_key):
         import os, io, threading, pygame
@@ -1356,8 +1346,8 @@ class WinCurl3:
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
         
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
-        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 220, 140, 180, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
-        self.btn_chat = pygame.Rect(BASE_WIDTH - 420, 140, 180, 60)
+        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 280, 140, 240, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
+        self.btn_chat = pygame.Rect(BASE_WIDTH - 500, 140, 180, 60)
         self.btn_quit_main, self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+40, 500, 100), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
@@ -2394,7 +2384,7 @@ class WinCurl3:
                 if self.typing_chat: chat_h += 60
                 chat_rect = pygame.Rect(40, BASE_HEIGHT - 250 - chat_h, 800, chat_h)
                 
-                glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40), 16, False)[1].copy()
+                glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40, 200), 16, False)[1].copy()
                 if max_alpha < 255:
                     temp = pygame.Surface(glass_surf.get_size(), pygame.SRCALPHA)
                     temp.fill((255, 255, 255, max_alpha))
@@ -2403,11 +2393,14 @@ class WinCurl3:
                 
                 y_offset = chat_rect.y + 20
                 for c in active_chat:
-                    txt_surf = self.chat_font.render(c['text'], True, (200, 200, 200)).copy()
+                    txt_surf = self.chat_font.render(c['text'], True, (255, 255, 255)).copy()
+                    shd_surf = self.chat_font.render(c['text'], True, (0, 0, 0)).copy()
                     if max_alpha < 255:
                         temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
                         temp.fill((255, 255, 255, max_alpha))
                         txt_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                        shd_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                    self.canvas.blit(shd_surf, (chat_rect.x + 22, y_offset + 2))
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 40
                     
@@ -2418,10 +2411,13 @@ class WinCurl3:
                         self.canvas.blit(line_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 15
                     txt_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, TEAM_YELLOW).copy()
+                    shd_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, (0, 0, 0)).copy()
                     if max_alpha < 255:
                         temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
                         temp.fill((255, 255, 255, max_alpha))
                         txt_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                        shd_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                    self.canvas.blit(shd_surf, (chat_rect.x + 22, y_offset + 2))
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                 
             if self.net.matched and getattr(self.net, 'opponent', None):
