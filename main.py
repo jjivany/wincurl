@@ -8,6 +8,9 @@ import struct
 import io
 import collections
 
+VERSION = "21.0"
+
+
 class CachedFont:
     def __init__(self, font):
         self.font = font
@@ -136,10 +139,12 @@ def vibrate_android(ms):
                         vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
                     else:
                         vibrator.vibrate(int(ms))
-                except:
+                except Exception as e:
+                    print("Pyjnius vibration failed with effect:", e)
                     vibrator.vibrate(int(ms))
                 return
-    except: pass
+    except Exception as e:
+        print("Pyjnius vibration failed:", e)
     
     # 2. Try Plyer
     try:
@@ -163,7 +168,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 20")
+print("     [SYSTEM] WINCURL 3 BUILD 21")
 print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -751,7 +756,7 @@ class WinCurlAudioEngine:
         if not self.ch_music.get_busy() and getattr(self, 'snd_music', None):
             if isinstance(self.snd_music, pygame.mixer.Sound):
                 self.ch_music.play(self.snd_music, loops=-1)
-                self.ch_music.set_volume(0.25)
+                self.ch_music.set_volume(0.18)
     def stop_music(self): self.ch_music.stop()
 
 # --- Visual Effects & Geometry ---
@@ -1251,7 +1256,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 20{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 21{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
@@ -1345,6 +1350,7 @@ class WinCurl3:
         self.prompt_rect = pygame.Rect(BASE_WIDTH//2 - 350, BASE_HEIGHT//2 - 50, 700, 120)
         
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
+        
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
         self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 220, 140, 180, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
         self.btn_chat = pygame.Rect(BASE_WIDTH - 420, 140, 180, 60)
@@ -1664,6 +1670,10 @@ class WinCurl3:
             self.audio.play_cheer()
             
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
+            if getattr(self, 'game_mode', None) in ["HOST", "JOIN"]:
+                my_score = r_tot if getattr(self, 'preferred_color', 0) == 0 else y_tot
+                self.post_score(getattr(self, 'username', 'Player'), my_score)
+                
             if not getattr(self, 'match_winner_announced', False):
                 self.match_winner_announced = True
                 if r_tot > y_tot and getattr(self.audio, 'snd_red_wins', None): self.audio.ch_voice.play(self.audio.snd_red_wins)
@@ -1709,6 +1719,12 @@ class WinCurl3:
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
                         self.set_typing_target(new_target)
                         break
+            
+            if getattr(self, 'btn_update', None) and self.btn_update.collidepoint(mx, my):
+                if not getattr(self, 'is_updating', False):
+                    self.is_updating = True
+                    self.update_status = "updating..."
+                    threading.Thread(target=self.perform_update, daemon=True).start()
             
             if self.btn_mute.collidepoint(mx, my):
                 self.is_music_muted = not getattr(self, 'is_music_muted', False)
@@ -1771,9 +1787,20 @@ class WinCurl3:
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            if self.btn_return_menu.collidepoint(mx, my):
+            if getattr(self, 'btn_leaderboard', None) and self.btn_leaderboard.collidepoint(mx, my):
+                self.audio.play_click()
+                self.app_state = "LEADERBOARD"
+                self.fetch_leaderboard()
+            elif self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 self.return_to_menu()
+                
+    def handle_leaderboard_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
+            m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            if self.btn_return_menu.collidepoint(mx, my):
+                self.audio.play_click()
+                self.app_state = "MATCH_OVER"
 
     def handle_play_events(self, event):
         mouse_pos = getattr(event, 'pos', self.get_pointer_pos())
@@ -1788,7 +1815,7 @@ class WinCurl3:
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             if self.game_mode in ["HOST", "JOIN"] and self.btn_chat.collidepoint(mouse_pos.x, mouse_pos.y):
                 self.audio.play_click()
-                self.typing_chat = not self.typing_chat
+                self.typing_chat = not getattr(self, 'typing_chat', False)
                 if self.typing_chat:
                     try: pygame.key.start_text_input()
                     except: pass
@@ -2093,10 +2120,114 @@ class WinCurl3:
         pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558 + self.menu_dy), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558 + self.menu_dy), 26, 4)
         diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490 + self.menu_dy))
         
+        # Updater UI
+        update_txt = getattr(self, "update_status", "check for update")
+        upd_lbl = self.font.render(update_txt, True, (150, 200, 255))
+        self.btn_update = upd_lbl.get_rect(center=(cx, 1750 + self.menu_dy))
+        self.canvas.blit(upd_lbl, self.btn_update)
+        
         # Draw Mute Button
         draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(self.get_pointer_pos()))
         draw_speaker_icon(self.canvas, self.btn_mute.x + self.btn_mute.w//2 - 20, self.btn_mute.y + self.btn_mute.h//2 - 13, getattr(self, 'is_music_muted', False))
         self.draw_global_ui()
+
+    def perform_update(self):
+        try:
+            import urllib.request
+            import sys, os, re
+            
+            url_main = "https://raw.githubusercontent.com/jjivany/wincurl/main/wincurl_android/main.py"
+            req = urllib.request.Request(url_main, headers={'User-Agent': 'Mozilla/5.0'})
+            try:
+                with urllib.request.urlopen(req) as response:
+                    new_code = response.read().decode('utf-8')
+                m = re.search(r'VERSION\s*=\s*"([^"]+)"', new_code)
+                remote_version = m.group(1) if m else "0"
+                if float(remote_version) <= float(VERSION):
+                    self.update_status = "no update available"
+                    self.is_updating = False
+                    return
+            except Exception as e:
+                print("Update check error:", e)
+                self.update_status = "update failed"
+                self.is_updating = False
+                return
+
+            if not IS_ANDROID:
+                try:
+                    with open(__file__, "wb") as f:
+                        f.write(new_code.encode('utf-8'))
+                    self.update_status = "Update installed! Restarting..."
+                    pygame.time.wait(1000)
+                    os.execl(sys.executable, sys.executable, *sys.argv)
+                except Exception as e:
+                    print("PC Update error:", e)
+                    self.update_status = "update failed"
+            else:
+                try:
+                    from jnius import autoclass, cast
+                    Context = autoclass('android.content.Context')
+                    DownloadManager = autoclass('android.app.DownloadManager')
+                    DownloadManagerRequest = autoclass('android.app.DownloadManager$Request')
+                    Uri = autoclass('android.net.Uri')
+                    Environment = autoclass('android.os.Environment')
+                    
+                    apk_url = "https://raw.githubusercontent.com/jjivany/wincurl/main/wincurl_android/bin/wincurl3-" + remote_version + "-arm64-v8a-debug.apk"
+                    activity = autoclass('org.kivy.android.PythonActivity').mActivity
+                    
+                    request = DownloadManagerRequest(Uri.parse(apk_url))
+                    request.setTitle("Wincurl Update")
+                    request.setDescription("Downloading latest APK")
+                    request.setNotificationVisibility(DownloadManagerRequest.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "wincurl_update.apk")
+                    dm = cast(DownloadManager, activity.getSystemService(Context.DOWNLOAD_SERVICE))
+                    dm.enqueue(request)
+                    self.update_status = "Check notifications to install!"
+                except Exception as e:
+                    print("Android Update error:", e)
+                    self.update_status = "update failed"
+            self.is_updating = False
+        except Exception as e:
+            print("Update thread error:", e)
+            self.update_status = "update failed"
+            self.is_updating = False
+
+    def post_score(self, username, score):
+        def _post():
+            import urllib.request, json
+            url = "https://api.restful-api.dev/objects/ff8081819d82fab6019f55cbbafe4b47"
+            try:
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req) as response:
+                    data = json.loads(response.read())
+                    scores = data.get("data", {}).get("scores", [])
+                    
+                scores.append({"name": username, "score": score})
+                scores.sort(key=lambda x: x.get("score", 0), reverse=True)
+                scores = scores[:10]
+                
+                payload = json.dumps({"data": {"scores": scores}}).encode("utf-8")
+                req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}, method="PUT")
+                with urllib.request.urlopen(req) as response:
+                    pass
+            except Exception as e:
+                print("Failed to post score:", e)
+        threading.Thread(target=_post, daemon=True).start()
+
+    def fetch_leaderboard(self):
+        self.leaderboard_data = None
+        def _fetch():
+            import urllib.request, json
+            url = "https://api.restful-api.dev/objects/ff8081819d82fab6019f55cbbafe4b47"
+            try:
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req) as response:
+                    data = json.loads(response.read())
+                    self.leaderboard_data = data.get("data", {}).get("scores", [])
+            except Exception as e:
+                self.leaderboard_data = "ERROR"
+                print("Failed to fetch leaderboard:", e)
+        threading.Thread(target=_fetch, daemon=True).start()
 
     def draw_room_prompt(self):
         self.draw_menu()
@@ -2219,7 +2350,17 @@ class WinCurl3:
         btn_text = "DISCONNECT" if self.game_mode in ("HOST", "JOIN") else "PAUSE"
         lbl_p = self.small_font.render(btn_text, True, BLACK)
         if self.game_mode in ("HOST", "JOIN"):
-            self.canvas.blit(lbl_p, (self.btn_pause.centerx - lbl_p.get_width()//2, self.btn_pause.centery - lbl_p.get_height()//2))
+            total_w = 34 + 8 + lbl_p.get_width()
+            start_x = self.btn_pause.centerx - total_w // 2
+            # Disconnect Icon
+            px, py = start_x + 17, self.btn_pause.centery
+            pygame.draw.circle(self.canvas, BLACK, (px-8, py), 4)
+            pygame.draw.line(self.canvas, BLACK, (px-8, py), (px-2, py), 3)
+            pygame.draw.circle(self.canvas, BLACK, (px+8, py), 4)
+            pygame.draw.line(self.canvas, BLACK, (px+8, py), (px+2, py), 3)
+            pygame.draw.line(self.canvas, (255, 50, 50), (px-4, py-6), (px+4, py+6), 3)
+            self.canvas.blit(lbl_p, (start_x + 42, self.btn_pause.centery - lbl_p.get_height()//2))
+
             draw_glass_rect(self.canvas, self.btn_chat, (50, 55, 65) if not self.typing_chat else (80, 150, 80), self.btn_chat.h // 2, self.btn_chat.collidepoint(m_pos.x, m_pos.y))
             lbl_chat = self.small_font.render("CHAT", True, BLACK)
             self.canvas.blit(lbl_chat, (self.btn_chat.centerx - lbl_chat.get_width()//2, self.btn_chat.centery - lbl_chat.get_height()//2))
@@ -2310,7 +2451,19 @@ class WinCurl3:
                             sx, sy = sx * cos_a - sy * sin_a, sx * sin_a + sy * cos_a
                         px += sx; py += sy
                         if i % 5 == 0: pygame.draw.circle(self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(px), int(py)), 6)
-            self.canvas.blit(self.small_font.render(f"CURL BIAS: {self.selected_curl:+.1f}", True, BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
+            shadow_col = (255, 255, 255)
+            if self.selected_curl < 0:
+                c = int(255 * (1.0 + self.selected_curl))
+                shadow_col = (255, c, c)
+            elif self.selected_curl > 0:
+                c = int(255 * (1.0 - self.selected_curl))
+                shadow_col = (c, 255, c)
+            cb_str = f"CURL BIAS: {self.selected_curl:+.1f}"
+            lbl_sh = self.font.render(cb_str, True, shadow_col)
+            lbl_fg = self.font.render(cb_str, True, BLACK)
+            bx, by = self.hack_pos.x - 130, self.hack_pos.y - 80
+            self.canvas.blit(lbl_sh, (bx+3, by+3))
+            self.canvas.blit(lbl_fg, (bx, by))
             
         elif self.turn_state == "SLIDING":
             if getattr(self, 'is_sweeping_now', False):
@@ -2382,6 +2535,40 @@ class WinCurl3:
         m_pos = self.get_pointer_pos()
         draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(m_pos.x, m_pos.y))
         lbl_btn = self.font.render("MAIN MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+        
+        self.btn_leaderboard = pygame.Rect(cx - 150, 750, 300, 70)
+        draw_glass_rect(self.canvas, self.btn_leaderboard, (50, 60, 80), self.btn_leaderboard.h // 2, self.btn_leaderboard.collidepoint(m_pos.x, m_pos.y))
+        lbl_lb = self.font.render("LEADERBOARD", True, WHITE)
+        self.canvas.blit(lbl_lb, lbl_lb.get_rect(center=self.btn_leaderboard.center))
+
+    def draw_leaderboard_screen(self):
+        self.canvas.fill((16, 22, 34))
+        cx = BASE_WIDTH // 2
+        lbl = self.font_72.render("GLOBAL LEADERBOARD", True, WHITE)
+        self.canvas.blit(lbl, (cx - lbl.get_width()//2, 80))
+        
+        b_rect = pygame.Rect(cx - 400, 200, 800, 650)
+        pygame.draw.rect(self.canvas, (28, 36, 50), b_rect, border_radius=16); pygame.draw.rect(self.canvas, (55, 70, 95), b_rect, 4, border_radius=16)
+        
+        if getattr(self, 'leaderboard_data', None) is None:
+            txt = self.font.render("LOADING...", True, (150, 200, 255))
+            self.canvas.blit(txt, (cx - txt.get_width()//2, 400))
+        elif getattr(self, 'leaderboard_data') == "ERROR":
+            txt = self.font.render("FAILED TO LOAD DATA", True, (255, 100, 100))
+            self.canvas.blit(txt, (cx - txt.get_width()//2, 400))
+        else:
+            for i, entry in enumerate(self.leaderboard_data[:10]):
+                name = entry.get('name', 'Unknown')
+                score = entry.get('score', 0)
+                color = TEAM_YELLOW if i == 0 else WHITE if i < 3 else (180, 180, 180)
+                n_lbl = self.font.render(f"{i+1}. {name}", True, color)
+                s_lbl = self.font.render(str(score), True, color)
+                self.canvas.blit(n_lbl, (cx - 350, 230 + i * 60))
+                self.canvas.blit(s_lbl, (cx + 250, 230 + i * 60))
+                
+        m_pos = self.get_pointer_pos()
+        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(m_pos.x, m_pos.y))
+        lbl_btn = self.font.render("BACK", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
         if not IS_ANDROID:
@@ -2493,6 +2680,7 @@ class WinCurl3:
                 elif self.app_state == "PLAY": self.handle_play_events(event)
                 elif self.app_state == "PAUSED": self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
+                elif self.app_state == "LEADERBOARD": self.handle_leaderboard_events(event)
 
             if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "MATCH_OVER"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_since_start', 0) >= 210: 
@@ -2503,7 +2691,6 @@ class WinCurl3:
                 self.audio.stop_music()
                 
             self.update_network()
-            
             if self.app_state == "MENU": 
                 self.audio.process_pending_sounds()
                 self.draw_menu()
@@ -2529,6 +2716,7 @@ class WinCurl3:
                 if self.game_mode in ["HOST", "JOIN"]: self.update_physics()
                 self.draw_ice(); [s.draw(self.canvas) for s in self.stones]; self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui(); self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER": self.draw_match_over_screen()
+            elif self.app_state == "LEADERBOARD": self.draw_leaderboard_screen()
                 
             self.render(); self.clock.tick(FPS)
 
