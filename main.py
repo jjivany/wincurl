@@ -154,8 +154,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 22")
-print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
+print("     [SYSTEM] WINCURL 3 BUILD 23")
+print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
 
