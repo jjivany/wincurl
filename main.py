@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "21.1"
+VERSION = "22.0"
 
 
 class CachedFont:
@@ -725,7 +725,13 @@ class WinCurlAudioEngine:
     def play_cheer(self): 
         if not self.ch_crowd.get_busy() and getattr(self, 'snd_cheer', None): self.ch_crowd.play(self.snd_cheer)
     def update_slide(self, speed): self.ch_slide.set_volume(min(0.15, speed * 0.04) if speed > 0.05 else 0.0)
-    def update_sweep(self, intensity): self.ch_sweep.set_volume(min(0.5, intensity * 0.06))
+    def update_sweep(self, intensity):
+        self.ch_sweep.set_volume(min(0.5, intensity * 0.06))
+        if IS_ANDROID and intensity > 0.1:
+            now = pygame.time.get_ticks()
+            if not hasattr(self, 'last_sweep_vib') or now - getattr(self, 'last_sweep_vib', 0) > 100:
+                self.last_sweep_vib = now
+                vibrate_android(15)
     def play_throw(self): 
         if getattr(self, 'snd_throw', None): self.ch_sfx.play(self.snd_throw)
     
@@ -742,6 +748,7 @@ class WinCurlAudioEngine:
         if getattr(self, 'snd_hover', None): self.ch_ui.play(self.snd_hover)
     def play_click(self): 
         if getattr(self, 'snd_click', None): self.ch_ui.play(self.snd_click)
+        if IS_ANDROID: vibrate_android(15)
     def play_music(self): 
         if not self.ch_music.get_busy() and getattr(self, 'snd_music', None):
             if isinstance(self.snd_music, pygame.mixer.Sound):
@@ -821,7 +828,10 @@ class Stone:
     cached_ylw_base = None
     cached_hl = None
 
-    def __init__(self, x, y, team):
+    next_id = 1
+    def __init__(self, x, y, team, sid=None):
+        self.id = sid if sid is not None else Stone.next_id
+        if sid is None: Stone.next_id += 1
         self.pos = pygame.math.Vector2(x, y); self.vel = pygame.math.Vector2(0, 0)
         self.team, self.radius, self.mass, self.is_moving, self.curl, self.rotation = team, 32, 1.0, False, 0.0, 0.0
         
@@ -851,9 +861,10 @@ class Stone:
         
         return s
 
-    def get_state(self, offset_y=0): return [round(self.pos.x, 1), round(self.pos.y - offset_y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
+    def get_state(self, offset_y=0): return [round(self.pos.x, 1), round(self.pos.y - offset_y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving, getattr(self, 'id', -1)]
     def set_state(self, s, offset_y=0):
         nx, ny, nvx, nvy, self.team, self.curl, self.rotation, self.is_moving = s[0], s[1] + offset_y, s[2], s[3], s[4], s[5], s[6], s[7]
+        if len(s) > 8: self.id = s[8]
         now = pygame.time.get_ticks()
         if hasattr(self, 'last_collision_time') and now - self.last_collision_time < 400: return
         new_pos = pygame.math.Vector2(nx, ny); new_vel = pygame.math.Vector2(nvx, nvy)
@@ -1621,7 +1632,7 @@ class WinCurl3:
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
-            if self.game_mode in ["HOST", "JOIN"]: self.net.send_action({'cmd': 'shoot', 'vx': self.active_stone.vel.x, 'vy': self.active_stone.vel.y, 'c': self.selected_curl})
+            if self.game_mode in ["HOST", "JOIN"]: self.net.send_action({'cmd': 'shoot', 'vx': self.active_stone.vel.x, 'vy': self.active_stone.vel.y, 'c': self.selected_curl, 'sid': getattr(self.active_stone, 'id', -1)})
         else: self.curler_anim.update("IDLE")
         self.is_dragging = False; self.virtual_pull = pygame.math.Vector2(0, 0)
         self.drag_start_pos = None
@@ -1990,37 +2001,39 @@ class WinCurl3:
                 if getattr(self, 'turn_state', 'NONE') == "SLIDING":
                     self.current_team = 1 if getattr(self, 'current_team', 0) == 0 else 0
                     self.spawn_next_stone()
+                if 'sid' in data: self.active_stone.id = data['sid']
                 self.active_stone.vel = pygame.math.Vector2(data['vx'], data['vy']); self.active_stone.curl = data['c']; self.active_stone.is_moving = True
                 self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"; self.audio.play_throw()
                 self.curler_anim.update("LUNGING")
             elif data.get('cmd') == 'sweep':
                 self.sweep_power = data['p']
                 self.remote_sweep_timer = 20
-            elif data.get('cmd') == 'sync_state' and self.game_mode == "JOIN":
-                while len(self.stones) < len(data['stones']): self.stones.append(Stone(0, 0, 0))
-                if len(data['stones']) < len(self.stones):
-                    new_stones = []
-                    for i in range(len(self.stones)):
-                        if i < len(data['stones']): new_stones.append(self.stones[i])
-                        elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
-                    self.stones = new_stones
-                for i, s_data in enumerate(data['stones']):
-                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
-                        if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
-                    self.stones[i].set_state(s_data, (BASE_HEIGHT//2)+100)
-            elif data.get('cmd') == 'sync' and self.game_mode == "JOIN":
-                self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
-                while len(self.stones) < len(data['s']): self.stones.append(Stone(0, 0, 0))
-                if len(data['s']) < len(self.stones):
-                    new_stones = []
-                    for i in range(len(self.stones)):
-                        if i < len(data['s']): new_stones.append(self.stones[i])
-                        elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
-                    self.stones = new_stones
-                for i, s_data in enumerate(data['s']):
-                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
-                        if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
-                    self.stones[i].set_state(s_data)
+            elif data.get('cmd') in ('sync_state', 'sync') and self.game_mode == "JOIN":
+                if data.get('cmd') == 'sync':
+                    self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
+                stones_data = data.get('stones') if 'stones' in data else data.get('s', [])
+                offset_y = ((BASE_HEIGHT//2)+100) if data.get('cmd') == 'sync_state' else 0
+                new_stones = []
+                for i, s_data in enumerate(stones_data):
+                    sid = s_data[8] if len(s_data) > 8 else None
+                    if sid is not None and sid != -1:
+                        existing = next((s for s in self.stones if getattr(s, 'id', -1) == sid), None)
+                    else:
+                        existing = self.stones[i] if i < len(self.stones) else None
+                    
+                    if existing:
+                        if hasattr(self, 'active_stone') and existing == self.active_stone:
+                            if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: pass
+                            else: existing.set_state(s_data, offset_y)
+                        else: existing.set_state(s_data, offset_y)
+                        new_stones.append(existing)
+                    else:
+                        ns = Stone(0, 0, 0)
+                        ns.set_state(s_data, offset_y)
+                        new_stones.append(ns)
+                if hasattr(self, 'active_stone') and self.active_stone not in new_stones:
+                    new_stones.append(self.active_stone)
+                self.stones = new_stones
             elif data.get('cmd') == 'set_color':
                 self.preferred_color = 1 - data['color']
             elif data.get('cmd') == 'opponent_left':
