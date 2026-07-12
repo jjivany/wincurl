@@ -1627,7 +1627,7 @@ class WinCurl3:
         
         self.curler_anim.update("LUNGING"); self.audio.play_throw()
         self.active_stone.vel = (target - self.hack_pos).normalize() * req_spd; self.active_stone.curl = random.choice([-0.55, 0.55]); self.active_stone.is_moving = True
-        self.stones_thrown[1] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
+        self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
 
     def fire_stone(self):
         if getattr(self, 'pull_history', []):
