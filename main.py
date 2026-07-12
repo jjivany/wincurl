@@ -318,11 +318,7 @@ class WinCurlAudioEngine:
                 except:
                     return fallback()
 
-        theme_path = os.path.join(asset_dir, "theme.wav")
-        self.snd_music = "theme.wav" if os.path.exists("theme.wav") else (theme_path if os.path.exists(theme_path) else None)
-        if not self.snd_music:
-            try: self.snd_music = self._synthesize_theme_song(return_path=True)
-            except: self.snd_music = None
+        self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
 
         self.snd_speech = load_sound("sega_speech.wav", self._synthesize_sega_speech)
         self.snd_cheer = load_sound("cheer.wav", self._synthesize_cheer)
@@ -749,13 +745,28 @@ class WinCurlAudioEngine:
         if getattr(self, 'snd_click', None): self.ch_ui.play(self.snd_click)
         if IS_ANDROID: vibrate_android(15)
     def play_music(self):
-        if not getattr(self, 'sfx_on', True) or self.snd_music is None: return
+        if not getattr(self, 'sfx_on', True) or not getattr(self, 'snd_music', None): return
         if not pygame.mixer.music.get_busy():
-            try:
-                pygame.mixer.music.load(self.snd_music)
+            loaded = False
+            if isinstance(self.snd_music, list):
+                for p in self.snd_music:
+                    try:
+                        pygame.mixer.music.load(p)
+                        loaded = True; break
+                    except: pass
+                if not loaded:
+                    try:
+                        fallback = self._synthesize_theme_song(return_path=True)
+                        pygame.mixer.music.load(fallback)
+                        loaded = True
+                    except: pass
+            elif isinstance(self.snd_music, str):
+                try:
+                    pygame.mixer.music.load(self.snd_music); loaded = True
+                except: pass
+            if loaded:
                 pygame.mixer.music.set_volume(0.25)
                 pygame.mixer.music.play(-1)
-            except: pass
     def stop_music(self):
         pygame.mixer.music.stop()
 
@@ -946,7 +957,7 @@ class AnimatedCurler:
                 if not override_color:
                     import math
                     import random
-                    random.seed(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
+                    rng = random.Random(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
                     hair_poly = []
                     shade = max(0, self.tc[0]-100)
                     hair_color = (shade, int(shade*0.75), int(shade*0.55))
@@ -957,7 +968,7 @@ class AnimatedCurler:
                         base_r = head_rw * 1.1
                         # Hair is longer at the bottom/back of the head
                         if 0 <= angle <= 180:
-                            spike = random.uniform(0, 8)
+                            spike = rng.uniform(0, 8)
                             r = base_r + spike
                         else:
                             r = base_r
@@ -1566,7 +1577,6 @@ class WinCurl3:
     def reset_end(self):
         self.stones = []; self.stones_thrown = {0: 0, 1: 0}
         self.current_team = 1 if getattr(self, 'hammer_team', 0) == 0 else 0
-        random.seed(self.total_stones_played + self.current_end + sum(self.score[0]) + sum(self.score[1]))
         self.reset_turn_vars()
 
     def spawn_next_stone(self): self.active_stone = Stone(self.hack_pos.x, self.hack_pos.y, self.current_team); self.stones.append(self.active_stone)
