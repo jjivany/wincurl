@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "21.0.2"
+VERSION = "21.0.3"
 
 
 class CachedFont:
@@ -1325,7 +1325,11 @@ class WinCurl3:
         try:
             base_dir = pygame.system.get_pref_path("jason", "wincurl3")
         except:
-            base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
+            if IS_ANDROID:
+                app_dir = os.path.dirname(os.path.abspath(__file__))
+                base_dir = os.environ.get('ANDROID_PRIVATE', os.path.abspath(os.path.join(app_dir, '..')))
+            else:
+                base_dir = os.path.expanduser("~")
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
         self.load_progress()
         
@@ -1581,8 +1585,7 @@ class WinCurl3:
                             self.audio.play_clack(impulse * 12); self.shake_amount = min(25.0, impulse * 4.0)
                             if IS_ANDROID:
                                 try:
-                                    from plyer import vibrator
-                                    vibrator.vibrate(time=0.05)
+                                    vibrate_android(50)
                                 except: pass
                             mid_x, mid_y = (s1.pos.x + s2.pos.x) / 2, (s1.pos.y + s2.pos.y) / 2
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
@@ -2123,7 +2126,8 @@ class WinCurl3:
         # Updater UI
         update_txt = getattr(self, "update_status", "check for update")
         upd_lbl = self.font.render(update_txt, True, (150, 200, 255))
-        self.btn_update = upd_lbl.get_rect(center=(cx, 1750 + self.menu_dy))
+        upd_lbl = pygame.transform.smoothscale(upd_lbl, (int(upd_lbl.get_width() * 1.3), int(upd_lbl.get_height() * 1.3)))
+        self.btn_update = upd_lbl.get_rect(center=(cx, 1850 + self.menu_dy))
         self.canvas.blit(upd_lbl, self.btn_update)
         
         # Draw Mute Button
