@@ -4,7 +4,7 @@ package.name = wincurl3
 package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
-version = 20.1
+version = 21.0
 # (str) Icon of the application
 icon.filename = icon.png
 
@@ -23,4 +23,4 @@ p4a.setup_py = false
 
 [buildozer]
 log_level = 2
-android.numeric_version = 2012
+android.numeric_version = 2100
