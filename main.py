@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "24"
+VERSION = "26"
 
 
 class CachedFont:
@@ -154,7 +154,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 24")
+print("     [SYSTEM] WINCURL 3 BUILD 26")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -290,21 +290,13 @@ class WinCurlAudioEngine:
         self.snd_hover = None; self.snd_click = None
         
         self._synthesize_heavy_bg()
-        
-        def _bg_sfx():
-            self.snd_slide = self._synthesize_rumble(return_bytes=True)
-            self.snd_sweep = self._synthesize_sweep(return_bytes=True)
-            self.snd_throw = self._synthesize_throw(return_bytes=True)
-            self.snd_clack = self._synthesize_clack(return_bytes=True)
-            self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine", return_bytes=True)
-            self.snd_click = self._synthesize_ui_sound(587, 0.12, "square", return_bytes=True)
-        import threading
-        threading.Thread(target=_bg_sfx, daemon=True).start()
         self.last_call = 0
 
     def _synthesize_heavy_bg(self):
-        import os, io, pygame
+        import os, io, pygame, threading
         asset_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        pending_tasks = []
         
         def load_sound(attr_name, filename, fallback):
             try:
@@ -313,12 +305,7 @@ class WinCurlAudioEngine:
                 try:
                     setattr(self, attr_name, pygame.mixer.Sound(os.path.join(asset_dir, filename)))
                 except:
-                    import threading
-                    def bg_task():
-                        try:
-                            setattr(self, attr_name, fallback(return_bytes=True))
-                        except Exception as e: pass
-                    threading.Thread(target=bg_task, daemon=True).start()
+                    pending_tasks.append((attr_name, fallback))
 
         self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
 
@@ -330,6 +317,23 @@ class WinCurlAudioEngine:
         load_sound("snd_chal_comp", "vosim_CHALLENGE_COMPLETE.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5, return_bytes=return_bytes))
         load_sound("snd_red_wins", "vosim_RED_TEAM_WINS.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2, return_bytes=return_bytes))
         load_sound("snd_ylw_wins", "vosim_YELLOW_TEAM_WINS.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4, return_bytes=return_bytes))
+        
+        pending_tasks.extend([
+            ("snd_slide", self._synthesize_rumble),
+            ("snd_sweep", self._synthesize_sweep),
+            ("snd_throw", self._synthesize_throw),
+            ("snd_clack", self._synthesize_clack),
+            ("snd_hover", lambda return_bytes=False: self._synthesize_ui_sound(440, 0.05, "sine", return_bytes=return_bytes)),
+            ("snd_click", lambda return_bytes=False: self._synthesize_ui_sound(587, 0.12, "square", return_bytes=return_bytes))
+        ])
+
+        def bg_worker():
+            for attr_name, fallback in pending_tasks:
+                try:
+                    setattr(self, attr_name, fallback(return_bytes=True))
+                except Exception as e: pass
+                    
+        threading.Thread(target=bg_worker, daemon=True).start()
         
     def process_pending_sounds(self):
         import io, pygame
@@ -1280,7 +1284,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 24{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 26{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
@@ -2052,7 +2056,8 @@ class WinCurl3:
                         new_stones.append(ns)
                 
                 if hasattr(self, 'active_stone') and self.active_stone in self.stones and self.active_stone not in new_stones:
-                    new_stones.append(self.active_stone)
+                    if getattr(self, 'turn_state', 'NONE') == "AIMING":
+                        new_stones.append(self.active_stone)
 
                 self.stones = new_stones
             elif data.get('cmd') == 'set_color':

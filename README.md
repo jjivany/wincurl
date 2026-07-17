@@ -25,7 +25,7 @@
 
 📦 Getting Started:
 
-    Clone the repository or use pip: pip3 install wincurl3
+    Clone the repository.
 
     Install dependencies:
 
@@ -39,13 +39,13 @@
 
 This project is configured for automated Android deployment via GitHub Actions, when they work.
 
-    Android support is still being optimized, grab the latest APK from the repo.
+    Android perf is still being optimized, grab the latest APK from the repo.
 
 🤝 Contributing:
 
 Contributions are welcome! Please open an issue or submit a pull request if you'd like to improve the physics engine or add new features.
 
-"WinCurl" version 3.0 is a spiritual successor to and derives inspiration from WinCurl 2.0:
+"WinCurl" version 3.0 is a spiritual successor and derives inspiration from WinCurl 2.0:
 https://archive.org/details/WCURLD
 
 Developed with ❤️ using Arch Linux and some help from Gemini 3.1 Pro.

@@ -1,3 +1,4 @@
 .buildozer/
 .venv/
 __pycache__/
+*.apk
