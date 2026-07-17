@@ -282,59 +282,66 @@ class WinCurlAudioEngine:
         
         self.sfx_on = True
         
-        self.snd_slide = self._synthesize_rumble(); self.snd_sweep = self._synthesize_sweep()
-        self.snd_throw = self._synthesize_throw(); self.snd_clack = self._synthesize_clack()
-        self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine")
-        self.snd_click = self._synthesize_ui_sound(587, 0.12, "square")
-        
-        self.snd_music = None
-        self.snd_speech = None
-        self.snd_cheer = None
-        self.snd_end_match = None
-        self.snd_hurry = None
-        self.snd_hard = None
-        self.snd_chal_comp = None
-        self.snd_red_wins = None
-        self.snd_ylw_wins = None
+        self.snd_music = None; self.snd_speech = None; self.snd_cheer = None
+        self.snd_end_match = None; self.snd_hurry = None; self.snd_hard = None
+        self.snd_chal_comp = None; self.snd_red_wins = None; self.snd_ylw_wins = None
+        self.snd_slide = None; self.snd_sweep = None
+        self.snd_throw = None; self.snd_clack = None
+        self.snd_hover = None; self.snd_click = None
         
         self._synthesize_heavy_bg()
         
-        self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
-        self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
+        def _bg_sfx():
+            self.snd_slide = self._synthesize_rumble(return_bytes=True)
+            self.snd_sweep = self._synthesize_sweep(return_bytes=True)
+            self.snd_throw = self._synthesize_throw(return_bytes=True)
+            self.snd_clack = self._synthesize_clack(return_bytes=True)
+            self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine", return_bytes=True)
+            self.snd_click = self._synthesize_ui_sound(587, 0.12, "square", return_bytes=True)
+        import threading
+        threading.Thread(target=_bg_sfx, daemon=True).start()
         self.last_call = 0
 
     def _synthesize_heavy_bg(self):
         import os, io, pygame
         asset_dir = os.path.dirname(os.path.abspath(__file__))
         
-        def load_sound(filename, fallback):
+        def load_sound(attr_name, filename, fallback):
             try:
-                # Try relative path first (works better on Android via SDL_RWops)
-                return pygame.mixer.Sound(filename)
+                setattr(self, attr_name, pygame.mixer.Sound(filename))
             except:
                 try:
-                    # Fallback to absolute path
-                    return pygame.mixer.Sound(os.path.join(asset_dir, filename))
+                    setattr(self, attr_name, pygame.mixer.Sound(os.path.join(asset_dir, filename)))
                 except:
-                    return fallback()
+                    import threading
+                    def bg_task():
+                        try:
+                            setattr(self, attr_name, fallback(return_bytes=True))
+                        except Exception as e: pass
+                    threading.Thread(target=bg_task, daemon=True).start()
 
         self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
 
-        self.snd_speech = load_sound("sega_speech.wav", self._synthesize_sega_speech)
-        self.snd_cheer = load_sound("cheer.wav", self._synthesize_cheer)
-        self.snd_end_match = load_sound("end_match.wav", self._synthesize_end_of_match)
-        self.snd_hurry = load_sound("vosim_HURRY.wav", lambda: self._synthesize_vosim_phrase("HURRY", 0.7))
-        self.snd_hard = load_sound("vosim_HARD.wav", lambda: self._synthesize_vosim_phrase("HARD", 0.65))
-        self.snd_chal_comp = load_sound("vosim_CHALLENGE_COMPLETE.wav", lambda: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5))
-        self.snd_red_wins = load_sound("vosim_RED_TEAM_WINS.wav", lambda: self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2))
-        self.snd_ylw_wins = load_sound("vosim_YELLOW_TEAM_WINS.wav", lambda: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4))
+        load_sound("snd_speech", "sega_speech.wav", self._synthesize_sega_speech)
+        load_sound("snd_cheer", "cheer.wav", self._synthesize_cheer)
+        load_sound("snd_end_match", "end_match.wav", self._synthesize_end_of_match)
+        load_sound("snd_hurry", "vosim_HURRY.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
+        load_sound("snd_hard", "vosim_HARD.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
+        load_sound("snd_chal_comp", "vosim_CHALLENGE_COMPLETE.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5, return_bytes=return_bytes))
+        load_sound("snd_red_wins", "vosim_RED_TEAM_WINS.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2, return_bytes=return_bytes))
+        load_sound("snd_ylw_wins", "vosim_YELLOW_TEAM_WINS.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4, return_bytes=return_bytes))
         
     def process_pending_sounds(self):
         import io, pygame
-        for attr in ['snd_speech', 'snd_cheer', 'snd_end_match', 'snd_hurry', 'snd_hard', 'snd_chal_comp', 'snd_red_wins', 'snd_ylw_wins']:
+        for attr in ['snd_speech', 'snd_cheer', 'snd_end_match', 'snd_hurry', 'snd_hard', 'snd_chal_comp', 'snd_red_wins', 'snd_ylw_wins',
+                     'snd_slide', 'snd_sweep', 'snd_throw', 'snd_clack', 'snd_hover', 'snd_click']:
             val = getattr(self, attr, None)
             if isinstance(val, io.BytesIO):
-                try: setattr(self, attr, pygame.mixer.Sound(file=val))
+                try: 
+                    snd = pygame.mixer.Sound(file=val)
+                    setattr(self, attr, snd)
+                    if attr == 'snd_slide': self.ch_slide.play(snd, loops=-1); self.ch_slide.set_volume(0.0)
+                    elif attr == 'snd_sweep': self.ch_sweep.play(snd, loops=-1); self.ch_sweep.set_volume(0.0)
                 except Exception as e: print("Sound load error:", e); setattr(self, attr, None)
             elif isinstance(val, str):
                 try: setattr(self, attr, pygame.mixer.Sound(file=val))
@@ -374,18 +381,19 @@ class WinCurlAudioEngine:
         
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "wincurl_cache")
 
-    def _get_cached_sound(self, cache_key):
+    def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
         cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
                     data = f.read()
+                    if return_bytes: return io.BytesIO(data)
                     return pygame.mixer.Sound(file=io.BytesIO(data))
             except: pass
         return None
 
-    def _create_wav_sound(self, byte_buffer, sample_rate=44100, cache_key=None, return_path=False, channels=2):
+    def _create_wav_sound(self, byte_buffer, sample_rate=44100, cache_key=None, return_path=False, channels=2, return_bytes=False):
         import os, struct, io, threading
         data_size = len(byte_buffer)
         bits = 16
@@ -408,12 +416,13 @@ class WinCurlAudioEngine:
             except: pass
             
         if return_path: return None
+        if return_bytes: return io.BytesIO(wav)
         
         import io, threading, pygame
         return pygame.mixer.Sound(file=io.BytesIO(wav))
 
-    def _synthesize_sega_speech(self):
-        cached = self._get_cached_sound("sega_speech")
+    def _synthesize_sega_speech(self, return_bytes=False):
+        cached = self._get_cached_sound("sega_speech", return_bytes=return_bytes)
         if cached: return cached
         steps = int(44100 * 3.0); buf = bytearray(steps * 4)
         w_f1, w_f2, w_f3 = [(0.0,300),(0.9,400),(1.4,250)], [(0.0,600),(0.9,1900),(1.4,1200)], [(0.0,2200),(0.9,2400),(1.4,2600)]
@@ -443,10 +452,10 @@ class WinCurlAudioEngine:
                 val = (val / 3.0) * env * 1.8
             sample = int(max(-1.0, min(1.0, val)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100, cache_key="sega_speech")
+        return self._create_wav_sound(buf, 44100, cache_key="sega_speech", return_bytes=return_bytes)
 
-    def _synthesize_vosim_phrase(self, phrase, duration):
-        cached = self._get_cached_sound(f"vosim_{phrase}")
+    def _synthesize_vosim_phrase(self, phrase, duration, return_bytes=False):
+        cached = self._get_cached_sound(f"vosim_{phrase}", return_bytes=return_bytes)
         if cached: return cached
         SR = 44100
         steps = int(SR * duration); buf = bytearray(steps * 4)
@@ -510,10 +519,10 @@ class WinCurlAudioEngine:
             val = (math.sin(2*math.pi*get_val(t,f1_env)*phase/f0) + math.sin(2*math.pi*get_val(t,f2_env)*phase/f0)*0.6 + math.sin(2*math.pi*get_val(t,f3_env)*phase/f0)*0.3) * decay
             sample = int(max(-1.0, min(1.0, (val*0.6 + noise) * env)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key="end_match")
+        return self._create_wav_sound(buf, SR, cache_key="end_match", return_bytes=return_bytes)
 
-    def _synthesize_cheer(self):
-        cached = self._get_cached_sound("cheer")
+    def _synthesize_cheer(self, return_bytes=False):
+        cached = self._get_cached_sound("cheer", return_bytes=return_bytes)
         if cached: return cached
         SR = 11025
         duration = 3.5; steps = int(SR * duration); buf = bytearray(steps * 4); val = 0.0
@@ -521,50 +530,51 @@ class WinCurlAudioEngine:
             t = i / SR; val += (random.uniform(-1.0, 1.0) - val) * 0.02 
             sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t*12))) 
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key="cheer")
+        return self._create_wav_sound(buf, SR, cache_key="cheer", return_bytes=return_bytes)
 
-    def _synthesize_rumble(self):
-        cached = self._get_cached_sound("whoosh")
+    def _synthesize_rumble(self, return_bytes=False):
+        cached = self._get_cached_sound("whoosh", return_bytes=return_bytes)
         if cached: return cached
         buf = bytearray(44100 * 4); v = 0.0
         for i in range(44100):
             v = max(-0.4, min(0.4, (v + random.uniform(-0.08, 0.08)) * 0.98))
             struct.pack_into('<hh', buf, i * 4, int(v * 32767), int(v * 32767))
-        return self._create_wav_sound(buf, 44100, cache_key="whoosh")
+        return self._create_wav_sound(buf, 44100, cache_key="whoosh", return_bytes=return_bytes)
 
-    def _synthesize_sweep(self):
-        cached = self._get_cached_sound("sweep")
+    def _synthesize_sweep(self, return_bytes=False):
+        cached = self._get_cached_sound("sweep", return_bytes=return_bytes)
         if cached: return cached
         buf = bytearray(22050 * 4)
         for i in range(22050): struct.pack_into('<hh', buf, i*4, int(random.uniform(-0.15, 0.15)*32767), int(random.uniform(-0.15, 0.15)*32767))
-        return self._create_wav_sound(buf, 22050, cache_key="sweep")
+        return self._create_wav_sound(buf, 22050, cache_key="sweep", return_bytes=return_bytes)
 
-    def _synthesize_throw(self):
-        cached = self._get_cached_sound("throw")
+    def _synthesize_throw(self, return_bytes=False):
+        cached = self._get_cached_sound("throw", return_bytes=return_bytes)
         if cached: return cached
         duration = 0.5; steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
-            t = i / 44100; sample = int(math.sin(2 * math.pi * (180 - (t * 100)) * t) * (math.sin(t * math.pi / duration) * math.exp(-t * 2)) * 32767 * 0.7)
+            t = i / 44100; val = math.sin(2 * math.pi * (180 - (t * 100)) * t) * (math.sin(t * math.pi / duration) * math.exp(-t * 2))
+            sample = int(max(-1.0, min(1.0, val * 0.5)) * 32767)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100, cache_key="throw")
+        return self._create_wav_sound(buf, 44100, cache_key="throw", return_bytes=return_bytes)
 
-    def _synthesize_clack(self):
-        cached = self._get_cached_sound("clack")
+    def _synthesize_clack(self, return_bytes=False):
+        cached = self._get_cached_sound("clack", return_bytes=return_bytes)
         if cached: return cached
         buf = bytearray(11025 * 4)
         for i in range(11025):
             t = i / 11025; sample = int(math.sin(2 * math.pi * (220 + random.uniform(-20, 20)) * t) * math.exp(-t * 25) * 32767)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 11025, cache_key="clack")
+        return self._create_wav_sound(buf, 11025, cache_key="clack", return_bytes=return_bytes)
 
-    def _synthesize_ui_sound(self, frequency, duration, type="sine"):
-        cached = self._get_cached_sound(f"ui_{frequency}_{duration}_{type}")
+    def _synthesize_ui_sound(self, frequency, duration, type="sine", return_bytes=False):
+        cached = self._get_cached_sound(f"ui_{frequency}_{duration}_{type}", return_bytes=return_bytes)
         if cached: return cached
         steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
             t = i / 44100; val = math.sin(2 * math.pi * frequency * t) if type == "sine" else (1.0 if math.sin(2 * math.pi * frequency * t) > 0 else -1.0)
             struct.pack_into('<hh', buf, i * 4, int(val * math.exp(-t * (1.0 / duration * 3)) * 12000), int(val * math.exp(-t * (1.0 / duration * 3)) * 12000))
-        return self._create_wav_sound(buf, 44100, cache_key=f"ui_{frequency}_{duration}_{type}")
+        return self._create_wav_sound(buf, 44100, cache_key=f"ui_{frequency}_{duration}_{type}", return_bytes=return_bytes)
 
     def _synthesize_theme_song(self, return_path=False):
         import os
@@ -2040,6 +2050,10 @@ class WinCurl3:
                         ns = Stone(0, 0, 0)
                         ns.set_state(s_data, offset_y)
                         new_stones.append(ns)
+                
+                if hasattr(self, 'active_stone') and self.active_stone in self.stones and self.active_stone not in new_stones:
+                    new_stones.append(self.active_stone)
+
                 self.stones = new_stones
             elif data.get('cmd') == 'set_color':
                 self.preferred_color = 1 - data['color']
