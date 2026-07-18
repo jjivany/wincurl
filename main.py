@@ -2110,6 +2110,7 @@ class WinCurl3:
                 self.played_intro = True
             
         self.canvas.fill((10, 12, 16))
+        self.last_starfield_speed = 2.0
         self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
             
         if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU"] and self.frames_since_start >= 210:
@@ -2301,11 +2302,8 @@ class WinCurl3:
 
 
     def draw_options_menu(self):
-        self.screen.fill((10, 12, 16))
-        if not IS_ANDROID and getattr(self, 'border_starfield', None):
-            self.border_starfield.draw(self.screen, 0.5)
-        
         self.canvas.fill((10, 12, 16))
+        self.last_starfield_speed = 0.5
         self.starfield.draw(self.canvas, 0.5)
         
         cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
@@ -2342,7 +2340,7 @@ class WinCurl3:
                 text = "Bilinear Filtering: " + ("ON" if getattr(self, 'bilinear_on', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'bilinear_on', False) else TEAM_YELLOW
             elif btn["id"] == "light_filter":
-                text = "Lower Spec Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
+                text = "Bilinear Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'lighter_filter', False) else TEAM_YELLOW
             else: text = btn["text"]
 
@@ -2432,7 +2430,7 @@ class WinCurl3:
             
 
     def draw_challenge_menu(self):
-        self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
+        self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 2.0; self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("SELECT CHALLENGE", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
         
@@ -2680,6 +2678,7 @@ class WinCurl3:
     def draw_pause_screen(self):
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
+        self.last_starfield_speed = 0.5 * self.pause_anim
         self.starfield.draw(self.canvas, 0.5 * self.pause_anim)
         m_pos = self.get_pointer_pos()
         
@@ -2782,7 +2781,7 @@ class WinCurl3:
         self.screen.fill((10, 12, 16))
         
         if not IS_ANDROID and getattr(self, 'border_starfield', None):
-            self.border_starfield.draw(self.screen, 0.5)
+            self.border_starfield.draw(self.screen, getattr(self, 'last_starfield_speed', 0.5) * scale)
         
         if IS_ANDROID:
             if getattr(self, 'bilinear_on', False):
