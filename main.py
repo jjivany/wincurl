@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "29"
+VERSION = "28"
 
 
 class CachedFont:
