@@ -2312,8 +2312,10 @@ class WinCurl3:
         self.title_rainbow_frame.blit(self.rainbow_grad, (-offset, 0), special_flags=pygame.BLEND_RGB_MULT)
         self.canvas.blit(self.title_rainbow_frame, (bx, by))
         
-        lbl_v = self.font_72.render(f"OPTIONS (Build {VERSION})", True, WHITE)
-        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 340 + getattr(self, 'menu_dy', 0)))
+        lbl_v = self.font_72.render("OPTIONS", True, WHITE)
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 320 + getattr(self, 'menu_dy', 0)))
+        lbl_build = self.font.render(f"(Build {VERSION})", True, (150, 160, 180))
+        self.canvas.blit(lbl_build, (cx - lbl_build.get_width()//2, 385 + getattr(self, 'menu_dy', 0)))
 
         for btn in self.options_buttons:
             if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] in ["vibrate", "bilinear"]):
