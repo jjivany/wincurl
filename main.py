@@ -154,7 +154,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print("     [SYSTEM] WINCURL 3 BUILD 26")
+print(f"     [SYSTEM] WINCURL 3 BUILD {VERSION}")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
@@ -1284,7 +1284,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build 26{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build {VERSION}{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
