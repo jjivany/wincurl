@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "28"
+VERSION = "29"
 
 
 class CachedFont:
@@ -1465,6 +1465,18 @@ class WinCurl3:
             pygame.draw.circle(house_layer, c, (220, 220), r, w)
         self.static_ice_surface.blit(house_layer, (int(self.house_pos.x - 220), int(self.house_pos.y - 220)))
         
+        # Cache the Hack
+        cx = self.hack_pos.x
+        hack_y = self.hack_pos.y + 35
+        pygame.draw.rect(self.static_ice_surface, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
+        pygame.draw.rect(self.static_ice_surface, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
+        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 18), (cx - 45, hack_y + 21)]
+        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), left_pad)
+        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), left_pad, 2)
+        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 18), (cx + 45, hack_y + 21)]
+        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), right_pad)
+        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), right_pad, 2)
+        
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         overlay.fill((235, 245, 255, 15))
         self.static_ice_surface.blit(overlay, (0, 0))
@@ -1944,8 +1956,26 @@ class WinCurl3:
             if self.is_sweeping_now:
                 self.sweep_power = min(12.0, self.sweep_power + delta * 0.18)
                 self.audio.play_curler_call(self.sweep_power)
-                for _ in range(2 if IS_ANDROID else 3): self.particles.append({'pos': mouse_pos + pygame.math.Vector2(random.uniform(-30, 30), random.uniform(-30, 30)), 'vel': pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-3, 0)), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'sweep'})
-
+                if self.is_sweeping:
+                    if self.sweep_power < 1.0: self.sweep_power += 0.1
+                else:
+                    if self.sweep_power > 0.0: self.sweep_power -= 0.02
+                self.sweep_power = max(0.0, min(1.0, self.sweep_power))
+                
+                if self.is_sweeping and self.sweep_power > 0:
+                    self.audio.update_sweep(self.sweep_power)
+                    if not getattr(self, 'last_sweep_sound', False):
+                        self.audio.play_sweep_start(); self.last_sweep_sound = True
+                else:
+                    self.audio.update_sweep(0.0)
+                    if getattr(self, 'last_sweep_sound', False):
+                        self.audio.play_sweep_stop(); self.last_sweep_sound = False
+                        
+                mouse_pos = self.get_pointer_pos()
+                
+                if self.is_sweeping and (not IS_ANDROID or random.random() < 0.33):
+                    for _ in range(1 if IS_ANDROID else 3): self.particles.append({'pos': mouse_pos + pygame.math.Vector2(random.uniform(-30, 30), random.uniform(-30, 30)), 'vel': pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-3, 0)), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'sweep'})
+                    
             for s in self.stones:
                 can_player_sweep = is_sweeping and (mouse_pos - s.pos).length() < 350
                 is_remote_sweeping = getattr(self, 'remote_sweep_timer', 0) > 0
@@ -2463,24 +2493,6 @@ class WinCurl3:
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
-        
-        cx = self.hack_pos.x
-        hack_y = self.hack_pos.y + 35
-        
-        # Black bar behind the foot pads
-        pygame.draw.rect(self.canvas, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
-        # Center support
-        pygame.draw.rect(self.canvas, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
-        
-        # Left foot pad (25% taller)
-        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 18), (cx - 45, hack_y + 21)]
-        pygame.draw.polygon(self.canvas, (20, 20, 22), left_pad)
-        pygame.draw.polygon(self.canvas, (60, 60, 65), left_pad, 2)
-        
-        # Right foot pad (25% taller)
-        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 18), (cx + 45, hack_y + 21)]
-        pygame.draw.polygon(self.canvas, (20, 20, 22), right_pad)
-        pygame.draw.polygon(self.canvas, (60, 60, 65), right_pad, 2)
 
     def draw_ui(self):
         if not hasattr(self, 'score_bg'):
@@ -2792,8 +2804,13 @@ class WinCurl3:
         pygame.display.flip()
 
     def run(self):
+        self.accumulator = 0.0
+        FIXED_DT = 1000.0 / FPS
         while True:
-            self.frames_elapsed += 1
+            ms_passed = self.clock.tick(FPS)
+            self.accumulator += ms_passed
+            if self.accumulator > 200: self.accumulator = 200 # Prevent spiral of death
+            
             for event in pygame.event.get():
                 if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
                 
@@ -2884,6 +2901,16 @@ class WinCurl3:
                 self.audio.stop_music()
                 
             self.update_network()
+            
+            # Physics loop (Fixed timestep)
+            while self.accumulator >= FIXED_DT:
+                self.frames_elapsed += 1
+                if self.app_state == "PLAY":
+                    self.update_physics()
+                elif self.app_state == "PAUSED" and self.game_mode in ["HOST", "JOIN"]:
+                    self.update_physics()
+                self.accumulator -= FIXED_DT
+                
             if self.app_state == "MENU": 
                 self.audio.process_pending_sounds()
                 self.draw_menu()
@@ -2904,15 +2931,14 @@ class WinCurl3:
                         self.app_state = "PLAY"; self.reset_end()
                 self.draw_coin_toss_screen()
             elif self.app_state == "PLAY":
-                self.update_physics(); self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
+                self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui()
             elif self.app_state == "PAUSED": 
-                if self.game_mode in ["HOST", "JOIN"]: self.update_physics()
                 self.draw_ice(); [s.draw(self.canvas) for s in self.stones]; self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui(); self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER": self.draw_match_over_screen()
             elif self.app_state == "LEADERBOARD": self.draw_leaderboard_screen()
                 
-            self.render(); self.clock.tick(FPS)
+            self.render()
 
 # --- DAL.NET IRC Socket Manager ---
 class IRCNetworkManager:
