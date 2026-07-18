@@ -1,11 +1,11 @@
 from setuptools import setup
 setup(
     name='wincurl3',
-    version='25.0',
+    version='27.0',
     description='WinCurl 3 - A Multiplayer Curling Simulator',
     author='Jason',
     packages=['wincurl3'],
-    package_dir={'wincurl3': 'wincurl_android'},
+    package_dir={'wincurl3': '.'},
     include_package_data=True,
     install_requires=[
         'pygame-ce>=2.5.0',
