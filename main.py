@@ -1955,11 +1955,11 @@ class WinCurl3:
                 s.update(actual_sweep, FRICTION_BASE)
                 if s.is_moving and s.vel.length() > 0.5: self.particles.append({'pos': s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)), 'vel': s.vel * -0.1, 'life': 1.0, 'decay': random.uniform(0.01, 0.03), 'type': 'trail'})
             
-            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 15 == 0:
+            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 60 == 0:
                 if self.sweep_power > 0.1 or getattr(self, 'last_sent_sweep', 0.0) > 0.1:
                     self.net.send_action({'cmd': 'sweep', 'p': round(self.sweep_power, 2)})
                     self.last_sent_sweep = self.sweep_power
-            if self.game_mode == "HOST" and self.frames_elapsed % 30 == 0:
+            if self.game_mode == "HOST" and self.frames_elapsed % 60 == 0:
                 self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state((BASE_HEIGHT//2)+100) for s in self.stones]})
             
             if getattr(self, 'remote_sweep_timer', 0) > 0:
