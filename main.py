@@ -2345,11 +2345,31 @@ class WinCurl3:
             rect = pygame.Rect(cx - 300*btn["scale"], btn["y"] + getattr(self, 'menu_dy', 0) - 15*btn["scale"], 600*btn["scale"], 95*btn["scale"])
             draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
             
-            img = self.font.render(text, True, WHITE) if btn["id"] not in ["fxaa", "vibrate"] else self.chat_font.render(text, True, WHITE)
-            if img.get_width() > rect.w - 40:
-                scale = (rect.w - 40) / img.get_width()
-                img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
-            self.canvas.blit(img, img.get_rect(center=rect.center))
+            if btn["id"] == "color":
+                img = self.font.render(text, True, WHITE)
+                txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
+                self.canvas.blit(img, txt_rect)
+                
+                rock_x = txt_rect.right + 40
+                rock_y = rect.centery
+                stone_c = TEAM_YELLOW if self.preferred_color else HOUSE_RED
+                rock_r = 26
+                pygame.draw.circle(self.canvas, (160, 165, 170), (rock_x, rock_y), rock_r)
+                pygame.draw.circle(self.canvas, (100, 105, 110), (rock_x, rock_y), rock_r, 2)
+                pygame.draw.circle(self.canvas, stone_c, (rock_x, rock_y), 16)
+                pygame.draw.circle(self.canvas, (max(0, stone_c[0]-50), max(0, stone_c[1]-50), max(0, stone_c[2]-50)), (rock_x, rock_y), 16, 2)
+                pygame.draw.line(self.canvas, BLACK, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 10)
+                pygame.draw.circle(self.canvas, BLACK, (rock_x - 12, rock_y), 5)
+                pygame.draw.circle(self.canvas, BLACK, (rock_x + 12, rock_y), 5)
+                pygame.draw.line(self.canvas, stone_c, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 6)
+                pygame.draw.circle(self.canvas, stone_c, (rock_x - 12, rock_y), 3)
+                pygame.draw.circle(self.canvas, stone_c, (rock_x + 12, rock_y), 3)
+            else:
+                img = self.font.render(text, True, WHITE) if btn["id"] not in ["fxaa", "vibrate"] else self.chat_font.render(text, True, WHITE)
+                if img.get_width() > rect.w - 40:
+                    scale = (rect.w - 40) / img.get_width()
+                    img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
+                self.canvas.blit(img, img.get_rect(center=rect.center))
 
         self.draw_global_ui()
 
