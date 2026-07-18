@@ -1408,7 +1408,7 @@ class WinCurl3:
             {"id": "vibrate", "y": 720, "text": "Vibration:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "bilinear", "y": 840, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "fxaa", "y": 720, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "light_filter", "y": 840, "text": "Lighter Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "light_filter", "y": 840, "text": "Lower Spec Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "back", "y": 1200, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
@@ -2333,7 +2333,7 @@ class WinCurl3:
                 text = "Bilinear Filtering: " + ("ON" if getattr(self, 'bilinear_on', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'bilinear_on', False) else TEAM_YELLOW
             elif btn["id"] == "light_filter":
-                text = "Lighter Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
+                text = "Lower Spec Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'lighter_filter', False) else TEAM_YELLOW
             else: text = btn["text"]
 
