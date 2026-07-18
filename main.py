@@ -116,7 +116,11 @@ from pygame.locals import *
 import wave
 import os
 
+VIBRATE_ENABLED = True
+
 def vibrate_android(ms):
+    global VIBRATE_ENABLED
+    if not VIBRATE_ENABLED: return
     try:
         from plyer import vibrator
         vibrator.vibrate(time=ms/1000.0)
@@ -1513,13 +1517,16 @@ class WinCurl3:
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
                 self.is_music_muted = data.get("is_music_muted", False)
-                self.vibrate_on = data.get("vibrate_on", True)
+                self.vibrate_on = data.get("vibrate_enabled", True)
                 self.fxaa_on = data.get("fxaa_on", False)
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
         except:
             self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
             self.vibrate_on = True; self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
+
+        global VIBRATE_ENABLED
+        VIBRATE_ENABLED = self.vibrate_on
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -1529,7 +1536,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "vibrate_on": getattr(self, 'vibrate_on', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False)}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "vibrate_enabled": getattr(self, 'vibrate_on', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -2408,7 +2415,11 @@ class WinCurl3:
                         new_target = None
                         if b["id"] == "name": new_target = "name"
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
-                        elif b["id"] == "vibrate": self.vibrate_on = not getattr(self, 'vibrate_on', False); self.save_progress()
+                        elif b["id"] == "vibrate":
+                            self.vibrate_on = not getattr(self, 'vibrate_on', False)
+                            global VIBRATE_ENABLED
+                            VIBRATE_ENABLED = self.vibrate_on
+                            self.save_progress()
                         elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
                         elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
                         elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
