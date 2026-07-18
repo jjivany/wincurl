@@ -2300,9 +2300,18 @@ class WinCurl3:
         
         self.canvas.fill((10, 12, 16))
         self.starfield.draw(self.canvas, 0.5)
-        self.draw_logo()
         
-        cx = BASE_WIDTH // 2
+        cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
+        self.menu_dy = (BASE_HEIGHT - 1920) // 2
+        bx, by = cx - self.title_base.get_width()//2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15) 
+        pad = 9
+        self.canvas.blit(self.title_outline, (bx - pad, by - pad))
+        offset = int((pygame.time.get_ticks() * 0.15) % 150)
+        self.title_rainbow_frame.fill((0, 0, 0, 0))
+        self.title_rainbow_frame.blit(self.title_base, (0, 0))
+        self.title_rainbow_frame.blit(self.rainbow_grad, (-offset, 0), special_flags=pygame.BLEND_RGB_MULT)
+        self.canvas.blit(self.title_rainbow_frame, (bx, by))
+        
         lbl_v = self.font_72.render(f"OPTIONS (Build {VERSION})", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 340 + getattr(self, 'menu_dy', 0)))
 
