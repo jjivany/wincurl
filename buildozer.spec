@@ -13,7 +13,7 @@ icon.filename = icon.png
 requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer,pyjnius
 orientation = portrait
 fullscreen = 1
-android.archs = arm64-v8a
+android.archs = armeabi-v7a
 android.ndk = 25b
 android.api = 33
 android.minapi = 24
