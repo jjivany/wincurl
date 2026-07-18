@@ -1199,7 +1199,7 @@ class WinCurl3:
             "hard": {"error_multiplier": 0.2, "takeout_chance": 0.8, "guard_chance": 0.7}
         }
         
-        t_text = '"WinCurl" 3'
+        t_text = 'WinCurl 3'
         
         # Use standard Pygame font for the original heavy bold look.
         # Render at exactly 2x scale (210) to bypass SDL_ttf hinting clipping bugs on the top edge of letters like "C".
