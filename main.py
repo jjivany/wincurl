@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "27"
+VERSION = "29"
 
 
 class CachedFont:
@@ -1409,10 +1409,10 @@ class WinCurl3:
         self.options_buttons = [
             {"id": "name", "y": 480, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
             {"id": "color", "y": 600, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "vibrate", "y": 720, "text": "Vibration:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "bilinear", "y": 840, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "fxaa", "y": 720, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "light_filter", "y": 840, "text": "Lower Spec Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "bilinear", "y": 720, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "fxaa", "y": 840, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "light_filter", "y": 960, "text": "Lower Spec Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1080, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
             {"id": "back", "y": 1200, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
@@ -1517,16 +1517,12 @@ class WinCurl3:
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
                 self.is_music_muted = data.get("is_music_muted", False)
-                self.vibrate_on = data.get("vibrate_enabled", True)
                 self.fxaa_on = data.get("fxaa_on", False)
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
         except:
             self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
-            self.vibrate_on = True; self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
-
-        global VIBRATE_ENABLED
-        VIBRATE_ENABLED = self.vibrate_on
+            self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -1536,7 +1532,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "vibrate_enabled": getattr(self, 'vibrate_on', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False)}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -1772,12 +1768,6 @@ class WinCurl3:
                         self.set_typing_target(new_target)
                         break
             
-            if getattr(self, 'btn_update', None) and self.btn_update.collidepoint(mx, my):
-                if not getattr(self, 'is_updating', False):
-                    self.is_updating = True
-                    self.update_status = "updating..."
-                    threading.Thread(target=self.perform_update, daemon=True).start()
-            
             if self.btn_mute.collidepoint(mx, my):
                 self.is_music_muted = not getattr(self, 'is_music_muted', False)
                 self.audio.play_click()
@@ -1861,6 +1851,14 @@ class WinCurl3:
         
         if event.type == getattr(pygame, 'FINGERDOWN', 1792):
             self.last_finger_id = event.finger_id
+            if self.turn_state == "AIMING":
+                finger_x = event.x * self.screen.get_width()
+                finger_y = event.y * self.screen.get_height()
+                fpos = self.scale_mouse((finger_x, finger_y))
+                if getattr(self, 'btn_curl_l', None) and self.btn_curl_l.collidepoint(fpos.x, fpos.y):
+                    self.selected_curl = max(-1.0, self.selected_curl - 0.2); self.audio.play_hover()
+                elif getattr(self, 'btn_curl_r', None) and self.btn_curl_r.collidepoint(fpos.x, fpos.y):
+                    self.selected_curl = min(1.0, self.selected_curl + 0.2); self.audio.play_hover()
             
         if event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1 and self.is_dragging:
             # On Android, if we started drag with a finger, the MOUSEBUTTONUP might have 'mouse' as f_id,
@@ -2181,13 +2179,6 @@ class WinCurl3:
         pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558 + self.menu_dy), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558 + self.menu_dy), 26, 4)
         diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490 + self.menu_dy))
         
-        # Updater UI
-        update_txt = getattr(self, "update_status", "check for update")
-        upd_lbl = self.font.render(update_txt, True, (150, 200, 255))
-        upd_lbl = pygame.transform.smoothscale(upd_lbl, (int(upd_lbl.get_width() * 1.3), int(upd_lbl.get_height() * 1.3)))
-        self.btn_update = upd_lbl.get_rect(center=(cx, 1790 + self.menu_dy))
-        self.canvas.blit(upd_lbl, self.btn_update)
-        
         # Draw Mute Button
         draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(self.get_pointer_pos()))
         draw_speaker_icon(self.canvas, self.btn_mute.x + self.btn_mute.w//2 - 20, self.btn_mute.y + self.btn_mute.h//2 - 13, getattr(self, 'is_music_muted', False))
@@ -2323,16 +2314,13 @@ class WinCurl3:
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width()//2, 385 + getattr(self, 'menu_dy', 0)))
 
         for btn in self.options_buttons:
-            if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] in ["vibrate", "bilinear"]):
+            if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] == "bilinear"):
                 continue
                 
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
             elif btn["id"] == "color": 
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
-            elif btn["id"] == "vibrate":
-                text = "Vibration: " + ("ON 📳" if getattr(self, 'vibrate_on', False) else "OFF")
-                btn["color"] = (40, 120, 60) if getattr(self, 'vibrate_on', False) else TEAM_YELLOW
             elif btn["id"] == "fxaa":
                 text = "FXAA: " + ("ON 🪄" if getattr(self, 'fxaa_on', False) else "OFF 🖥️")
                 btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
@@ -2340,8 +2328,10 @@ class WinCurl3:
                 text = "Bilinear Filtering: " + ("ON" if getattr(self, 'bilinear_on', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'bilinear_on', False) else TEAM_YELLOW
             elif btn["id"] == "light_filter":
-                text = "Bilinear Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
+                text = "Lower Spec Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'lighter_filter', False) else TEAM_YELLOW
+            elif btn["id"] == "update":
+                text = getattr(self, "update_status", "Check for update")
             else: text = btn["text"]
 
             is_hovered = (self.last_hovered == "opt_" + btn["id"])
@@ -2372,7 +2362,7 @@ class WinCurl3:
                 pygame.draw.circle(self.canvas, stone_c, (rock_x - 12, rock_y), 3)
                 pygame.draw.circle(self.canvas, stone_c, (rock_x + 12, rock_y), 3)
             else:
-                img = self.font.render(text, True, WHITE) if btn["id"] not in ["fxaa", "vibrate"] else self.chat_font.render(text, True, WHITE)
+                img = self.font.render(text, True, WHITE) if btn["id"] != "fxaa" else self.chat_font.render(text, True, WHITE)
                 if img.get_width() > rect.w - 40:
                     scale = (rect.w - 40) / img.get_width()
                     img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
@@ -2387,7 +2377,7 @@ class WinCurl3:
         
         curr_hov = None
         for b in self.options_buttons:
-            if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] in ["vibrate", "bilinear"]): continue
+            if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
             if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
                 curr_hov = "opt_" + b["id"]
                 break
@@ -2407,20 +2397,20 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.options_buttons:
-                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] in ["vibrate", "bilinear"]): continue
+                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
                     if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "name": new_target = "name"
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
-                        elif b["id"] == "vibrate":
-                            self.vibrate_on = not getattr(self, 'vibrate_on', False)
-                            global VIBRATE_ENABLED
-                            VIBRATE_ENABLED = self.vibrate_on
-                            self.save_progress()
                         elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
                         elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
                         elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
+                        elif b["id"] == "update":
+                            if not getattr(self, 'is_updating', False):
+                                self.is_updating = True
+                                self.update_status = "updating..."
+                                threading.Thread(target=self.perform_update, daemon=True).start()
                         elif b["id"] == "back": self.app_state = "MENU"
                         self.set_typing_target(new_target)
                         break
