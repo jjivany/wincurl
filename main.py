@@ -1500,7 +1500,7 @@ class WinCurl3:
                 else:
                     self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF)
             ww, wh = self.screen.get_size()
-            self.border_starfield = Starfield(ww, wh)
+            self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
         
     def load_progress(self):
         try:
