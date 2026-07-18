@@ -1852,8 +1852,13 @@ class WinCurl3:
         if isinstance(mouse_pos, tuple): mouse_pos = pygame.math.Vector2(mouse_pos)
         f_id = getattr(event, 'finger_id', 'mouse')
         
+        if event.type == getattr(pygame, 'FINGERDOWN', 1792):
+            self.last_finger_id = event.finger_id
+            
         if event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1 and self.is_dragging:
-            if getattr(self, 'drag_finger_id', None) == f_id:
+            # On Android, if we started drag with a finger, the MOUSEBUTTONUP might have 'mouse' as f_id,
+            # so we should also accept it if IS_ANDROID
+            if getattr(self, 'drag_finger_id', None) == f_id or (IS_ANDROID and f_id == 'mouse'):
                 self.fire_stone()
             return
 
@@ -1890,11 +1895,11 @@ class WinCurl3:
                 elif (mouse_pos - self.active_stone.pos).length() < 90 and not self.is_dragging: 
                     self.is_dragging = True
                     self.drag_start_pos = mouse_pos
-                    self.drag_finger_id = f_id
+                    self.drag_finger_id = getattr(self, 'last_finger_id', f_id) if IS_ANDROID else f_id
                     self.pull_history = []
                     self.virtual_pull = pygame.math.Vector2(0, 0)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, 'drag_start_pos', None):
-                if f_id == getattr(self, 'drag_finger_id', None):
+                if f_id == getattr(self, 'drag_finger_id', None) or (IS_ANDROID and f_id == 'mouse'):
                     self.virtual_pull = self.drag_start_pos - mouse_pos
                     if not IS_ANDROID: self.virtual_pull.x *= 0.25; self.virtual_pull.y *= 0.5
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
