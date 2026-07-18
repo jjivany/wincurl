@@ -2819,7 +2819,7 @@ class WinCurl3:
 
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
-                    self.border_starfield = Starfield(event.w, event.h)
+                    self.border_starfield = Starfield(count=400, max_w=event.w, max_h=event.h)
                 
                 if event.type == getattr(pygame, 'TEXTINPUT', 771):
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"] and self.typing_chat:
