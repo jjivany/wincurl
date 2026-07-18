@@ -1513,13 +1513,13 @@ class WinCurl3:
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
                 self.is_music_muted = data.get("is_music_muted", False)
-                self.vibrate_on = data.get("vibrate_on", False)
+                self.vibrate_on = data.get("vibrate_on", True)
                 self.fxaa_on = data.get("fxaa_on", False)
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
         except:
             self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
-            self.vibrate_on = False; self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
+            self.vibrate_on = True; self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
