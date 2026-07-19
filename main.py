@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "33"
+VERSION = "34"
 
 
 class CachedFont:
@@ -2001,12 +2001,8 @@ class WinCurl3:
                 
                 if is_sweeping and self.sweep_power > 0:
                     self.audio.update_sweep(self.sweep_power)
-                    if not getattr(self, 'last_sweep_sound', False):
-                        self.audio.play_sweep_start(); self.last_sweep_sound = True
                 else:
                     self.audio.update_sweep(0.0)
-                    if getattr(self, 'last_sweep_sound', False):
-                        self.audio.play_sweep_stop(); self.last_sweep_sound = False
                         
                 mouse_pos = self.get_pointer_pos()
                 
