@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "30"
+VERSION = "30.2"
 
 
 class CachedFont:
@@ -747,7 +747,7 @@ class WinCurlAudioEngine:
             self.ch_crowd.play(self.snd_cheer)
     def update_slide(self, speed): self.ch_slide.set_volume((min(0.15, speed * 0.04) if speed > 0.05 else 0.0) * getattr(self, 'master_volume', 1.0))
     def update_sweep(self, intensity):
-        self.ch_sweep.set_volume(min(0.5, intensity * 0.06) * getattr(self, 'master_volume', 1.0))
+        self.ch_sweep.set_volume(min(0.8, intensity * 0.8) * getattr(self, 'master_volume', 1.0))
         if IS_ANDROID and intensity > 0.1:
             now = pygame.time.get_ticks()
             if not hasattr(self, 'last_sweep_vib') or now - getattr(self, 'last_sweep_vib', 0) > 100:
