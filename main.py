@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "30"
+VERSION = "33"
 
 
 class CachedFont:
@@ -1418,13 +1418,16 @@ class WinCurl3:
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
         
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
-        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 280, 140, 240, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
+        self.btn_pause = pygame.Rect(BASE_WIDTH - 280, 140, 240, 60)
+        self.btn_resume = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-160, 500, 100)
+        self.btn_options_pause = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-40, 500, 100)
         self.btn_chat = pygame.Rect(BASE_WIDTH - 500, 140, 180, 60)
-        self.btn_quit_main, self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+40, 500, 100), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
+        self.btn_quit_main = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+80, 500, 100)
+        self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
         
-        self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 250, 60)
+        # self.btn_fs removed in favor of options menu button
 
         self.menu_buttons = [
             {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
@@ -1437,14 +1440,15 @@ class WinCurl3:
         ]
         
         self.options_buttons = [
-            {"id": "master_vol", "y": 480, "text": "Master Volume", "color": (150, 180, 200), "scale": 1.0},
+            {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
             {"id": "name", "y": 600, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
             {"id": "color", "y": 720, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
             {"id": "bilinear", "y": 840, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "fxaa", "y": 960, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "light_filter", "y": 1080, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1200, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1320, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "light_filter", "y": 1080, "text": "Lighter ICE:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "fullscreen", "y": 1200, "text": "Toggle Fullscreen", "color": (100, 200, 150), "scale": 1.0},
+            {"id": "update", "y": 1320, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1440, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
 
@@ -1807,7 +1811,7 @@ class WinCurl3:
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
-                        elif b["id"] == "options": self.app_state = "OPTIONS_MENU"
+                        elif b["id"] == "options": self.app_state = "OPTIONS_MENU"; self.prev_state = "MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
@@ -1867,6 +1871,7 @@ class WinCurl3:
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_resume.collidepoint(mx, my): self.audio.play_click(); self.app_state = "PLAY"
+            elif self.btn_options_pause.collidepoint(mx, my): self.audio.play_click(); self.app_state = "OPTIONS_MENU"; self.prev_state = "PAUSED"
             elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.return_to_menu()
                 
     def handle_match_over_events(self, event):
@@ -1988,13 +1993,13 @@ class WinCurl3:
             if self.is_sweeping_now:
                 self.sweep_power = min(12.0, self.sweep_power + delta * 0.18)
                 self.audio.play_curler_call(self.sweep_power)
-                if self.is_sweeping:
+                if is_sweeping:
                     if self.sweep_power < 1.0: self.sweep_power += 0.1
                 else:
                     if self.sweep_power > 0.0: self.sweep_power -= 0.02
                 self.sweep_power = max(0.0, min(1.0, self.sweep_power))
                 
-                if self.is_sweeping and self.sweep_power > 0:
+                if is_sweeping and self.sweep_power > 0:
                     self.audio.update_sweep(self.sweep_power)
                     if not getattr(self, 'last_sweep_sound', False):
                         self.audio.play_sweep_start(); self.last_sweep_sound = True
@@ -2005,7 +2010,7 @@ class WinCurl3:
                         
                 mouse_pos = self.get_pointer_pos()
                 
-                if self.is_sweeping and (not IS_ANDROID or random.random() < 0.33):
+                if is_sweeping and (not IS_ANDROID or random.random() < 0.33):
                     for _ in range(1 if IS_ANDROID else 3): self.particles.append({'pos': mouse_pos + pygame.math.Vector2(random.uniform(-30, 30), random.uniform(-30, 30)), 'vel': pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-3, 0)), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'sweep'})
                     
             for s in self.stones:
@@ -2380,7 +2385,9 @@ class WinCurl3:
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
             elif btn["id"] == "master_vol":
-                text = "Master Volume"
+                text = "Volume"
+            elif btn["id"] == "fullscreen":
+                text = "Toggle Fullscreen"
             elif btn["id"] == "fxaa":
                 text = "FXAA: " + ("ON 🪄" if getattr(self, 'fxaa_on', False) else "OFF 🖥️")
                 btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
@@ -2466,7 +2473,7 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.options_buttons:
-                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
+                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter", "fullscreen"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
                     if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
@@ -2491,7 +2498,11 @@ class WinCurl3:
         if self.is_pointer_pressed:
             for b in self.options_buttons:
                 if b["id"] == "master_vol" and 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
-                    vol = max(0.0, min(1.0, (mx - (BASE_WIDTH//2 - 300*b["scale"] + 460)) / 240))
+                    text_str = "Volume"
+                    img = self.font.render(text_str, True, (255, 255, 255))
+                    txt_rect = img.get_rect(center=(BASE_WIDTH//2 - 300*b["scale"] + 160, b["y"] + 55 * b["scale"]))
+                    bar_x = txt_rect.right + 30
+                    vol = max(0.0, min(1.0, (mx - bar_x) / 240))
                     self.audio.set_master_volume(vol)
                     self.save_progress()
                     break
@@ -2741,7 +2752,11 @@ class WinCurl3:
         draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_btn = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
         
-        quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
+        opt_rect = self.btn_options_pause.move(int((1.0 - self.pause_anim) * 400), 0)
+        draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
+        lbl_opt = self.font.render("OPTIONS", True, WHITE); self.canvas.blit(lbl_opt, lbl_opt.get_rect(center=opt_rect.center))
+
+        quit_rect = self.btn_quit_main.move(-int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_q = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
 
@@ -2813,13 +2828,11 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
+        if self.app_state not in ["MENU", "OPTIONS_MENU", "CHALLENGE_MENU"]:
+            return
         m_pos = self.get_pointer_pos()
         draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(m_pos.x, m_pos.y))
         draw_speaker_icon(self.canvas, self.btn_mute.x + self.btn_mute.w//2 - 20, self.btn_mute.y + self.btn_mute.h//2 - 13, getattr(self, 'is_music_muted', False))
-        if not IS_ANDROID:
-            draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
-            lbl = self.small_font.render("FULLSCREEN", True, WHITE)
-            self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
 
     def render(self):
         ww, wh = self.screen.get_size()
@@ -2877,14 +2890,12 @@ class WinCurl3:
                         event = pygame.event.Event(event.type, button=getattr(event, 'button', 1), pos=self.current_mapped_pos, finger_id='mouse')
                         if event.type == MOUSEBUTTONDOWN:
                             mx, my = self.current_mapped_pos
-                            if self.btn_mute.collidepoint(mx, my):
-                                self.is_music_muted = not getattr(self, 'is_music_muted', False)
-                                self.audio.play_click()
-                                self.save_progress()
-                                continue
-                            if not IS_ANDROID and self.btn_fs.collidepoint(mx, my):
-                                self.toggle_fullscreen()
-                                continue
+                            if self.app_state in ["MENU", "OPTIONS_MENU", "CHALLENGE_MENU"]:
+                                if self.btn_mute.collidepoint(mx, my):
+                                    self.is_music_muted = not getattr(self, 'is_music_muted', False)
+                                    self.audio.play_click()
+                                    self.save_progress()
+                                    continue
 
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
@@ -2940,10 +2951,6 @@ class WinCurl3:
                     
                 if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
                     m_pos = self.get_pointer_pos()
-                    if self.app_state in ["MENU", "CHALLENGE_MENU", "ROOM_PROMPT", "MATCH_OVER"]:
-                        if not IS_ANDROID and self.btn_fs.collidepoint(m_pos.x, m_pos.y):
-                            self.toggle_fullscreen()
-                            continue
                 
                 if self.app_state == "MENU": self.handle_menu_events(event)
                 elif self.app_state == "ROOM_PROMPT": self.handle_room_prompt_events(event)
