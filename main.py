@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "34"
+VERSION = "30"
 
 
 class CachedFont:
@@ -1427,8 +1427,7 @@ class WinCurl3:
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
         
-        # self.btn_fs removed in favor of options menu button
-
+        self.btn_fs = pygame.Rect(BASE_WIDTH - 240, 30, 200, 60)
         self.menu_buttons = [
             {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
             {"id": "bot", "y": 600, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
@@ -2479,6 +2478,7 @@ class WinCurl3:
                         elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
                         elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
                         elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
+                        elif b["id"] == "fullscreen": self.toggle_fullscreen()
                         elif b["id"] == "update":
                             if not getattr(self, 'is_updating', False):
                                 self.is_updating = True
@@ -2829,6 +2829,10 @@ class WinCurl3:
         m_pos = self.get_pointer_pos()
         draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(m_pos.x, m_pos.y))
         draw_speaker_icon(self.canvas, self.btn_mute.x + self.btn_mute.w//2 - 20, self.btn_mute.y + self.btn_mute.h//2 - 13, getattr(self, 'is_music_muted', False))
+        if not IS_ANDROID:
+            draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), 16, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
+            fs_text = self.font.render("FULLSCREEN", True, WHITE)
+            self.canvas.blit(fs_text, fs_text.get_rect(center=self.btn_fs.center))
 
     def render(self):
         ww, wh = self.screen.get_size()
@@ -2892,6 +2896,10 @@ class WinCurl3:
                                     self.audio.play_click()
                                     self.save_progress()
                                     continue
+                                if not IS_ANDROID and self.btn_fs.collidepoint(mx, my):
+                                    self.audio.play_click()
+                                    self.toggle_fullscreen()
+                                    continue
 
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
@@ -2940,9 +2948,6 @@ class WinCurl3:
                             self.audio.play_click(); self.app_state = "PLAY"
                         elif self.app_state == "ROOM_PROMPT":
                             self.app_state = "MENU"; self.set_typing_target(None)
-                        continue
-                    elif event.key == K_f:
-                        if not IS_ANDROID: self.toggle_fullscreen()
                         continue
                     
                 if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
