@@ -1427,7 +1427,7 @@ class WinCurl3:
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
         
-        self.btn_fs = pygame.Rect(BASE_WIDTH - 240, 30, 200, 60)
+        self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 240, 60)
         self.menu_buttons = [
             {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
             {"id": "bot", "y": 600, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
