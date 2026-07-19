@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: wincurl3
+Version: 3.0.29
+Summary: WinCurl 3 - A Multiplayer Curling Simulator
+Author: Jason
+Requires-Python: >=3.8
+License-File: LICENSE
+Requires-Dist: pygame-ce>=2.5.0
+Dynamic: author
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -8,9 +8,6 @@ import struct
 import io
 import collections
 
-VERSION = "30"
-
-
 class CachedFont:
     def __init__(self, font):
         self.font = font
@@ -116,39 +113,47 @@ from pygame.locals import *
 import wave
 import os
 
-VIBRATE_ENABLED = True
-
 def vibrate_android(ms):
-    global VIBRATE_ENABLED
-    if not VIBRATE_ENABLED: return
+    # 1. Try Pyjnius
+    try:
+        from jnius import autoclass
+        Context = autoclass('android.content.Context')
+        activity = None
+        for act_name in ['org.kivy.android.PythonActivity', 'org.libsdl.app.SDLActivity']:
+            try: activity = autoclass(act_name).mActivity
+            except: pass
+            if not activity:
+                try: activity = autoclass(act_name).getContext()
+                except: pass
+            if activity: break
+        if activity:
+            vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
+            if vibrator and vibrator.hasVibrator():
+                try:
+                    VERSION = autoclass('android.os.Build$VERSION')
+                    if VERSION.SDK_INT >= 26:
+                        VibrationEffect = autoclass('android.os.VibrationEffect')
+                        vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
+                    else:
+                        vibrator.vibrate(int(ms))
+                except:
+                    vibrator.vibrate(int(ms))
+                return
+    except: pass
+    
+    # 2. Try Plyer
     try:
         from plyer import vibrator
         vibrator.vibrate(time=ms/1000.0)
         return
-    except Exception as e:
-        print("Plyer vibration failed:", e)
+    except: pass
 
-    try:
-        from jnius import autoclass
-        Context = autoclass('android.content.Context')
-        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-        vibrator = PythonActivity.mActivity.getSystemService(Context.VIBRATOR_SERVICE)
-        if vibrator and vibrator.hasVibrator():
-            VERSION = autoclass('android.os.Build$VERSION')
-            if VERSION.SDK_INT >= 26:
-                VibrationEffect = autoclass('android.os.VibrationEffect')
-                vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
-            else:
-                vibrator.vibrate(int(ms))
-            return
-    except Exception as e:
-        print("Pyjnius vibration failed:", e)
-        
+    # 3. Try Pygame Rumble
     try:
         if pygame.joystick.get_count() > 0:
             joy = pygame.joystick.Joystick(0)
             if not joy.get_init(): joy.init()
-            joy.rumble(0.5, 0.5, int(ms))
+            joy.rumble(1.0, 1.0, int(ms))
     except: pass
 
 # Define this immediately after imports
@@ -158,8 +163,8 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "="*80)
-print(f"     [SYSTEM] WINCURL 3 BUILD {VERSION}")
-print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
+print("     [SYSTEM] WINCURL 3 BUILD 20")
+print("     (3D STONES | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("="*80 + "\n")
 
 
@@ -208,7 +213,7 @@ class UICache:
     
     @classmethod
     def get_glass(cls, w, h, base_color, radius, hovered):
-        key = (w, h, tuple(base_color), radius, hovered)
+        key = (w, h, base_color, radius, hovered)
         if key not in cls.glass_surfs:
             # 1. Shadow (No need for 2x, just draw and scale? Actually, 1x is fine for shadow)
             shadow = pygame.Surface((w+10, h+10), pygame.SRCALPHA).convert_alpha()
@@ -228,8 +233,7 @@ class UICache:
             content = pygame.Surface((tw, th), pygame.SRCALPHA)
             content.fill((0, 0, 0, 0))
             
-            a = base_color[3] if len(base_color) > 3 else 150
-            c = pygame.Color(*base_color[:3], a)
+            c = pygame.Color(*base_color[:3], 150)
             pygame.draw.rect(content, c, (0, 0, tw, th))
             pygame.draw.rect(content, (255, 255, 255, 60), (0, 0, tw, th//2))
             pygame.draw.ellipse(content, (255, 255, 255, 90), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
@@ -286,76 +290,64 @@ class WinCurlAudioEngine:
         
         self.sfx_on = True
         
-        self.snd_music = None; self.snd_speech = None; self.snd_cheer = None
-        self.snd_end_match = None; self.snd_hurry = None; self.snd_hard = None
-        self.snd_chal_comp = None; self.snd_red_wins = None; self.snd_ylw_wins = None
-        self.snd_slide = None; self.snd_sweep = None
-        self.snd_throw = None; self.snd_clack = None
-        self.snd_hover = None; self.snd_click = None
+        self.snd_slide = self._synthesize_rumble(); self.snd_sweep = self._synthesize_sweep()
+        self.snd_throw = self._synthesize_throw(); self.snd_clack = self._synthesize_clack()
+        self.snd_hover = self._synthesize_ui_sound(440, 0.05, "sine")
+        self.snd_click = self._synthesize_ui_sound(587, 0.12, "square")
+        
+        self.snd_music = None
+        self.snd_speech = None
+        self.snd_cheer = None
+        self.snd_end_match = None
+        self.snd_hurry = None
+        self.snd_hard = None
+        self.snd_chal_comp = None
+        self.snd_red_wins = None
+        self.snd_ylw_wins = None
         
         self._synthesize_heavy_bg()
+        
+        self.ch_slide.play(self.snd_slide, loops=-1); self.ch_slide.set_volume(0.0)
+        self.ch_sweep.play(self.snd_sweep, loops=-1); self.ch_sweep.set_volume(0.0)
         self.last_call = 0
 
-    def set_master_volume(self, vol):
-        self.master_volume = vol
-        pygame.mixer.music.set_volume(vol)
-        for ch in [self.ch_slide, self.ch_sweep, self.ch_sfx, self.ch_ui, self.ch_music, self.ch_crowd, self.ch_voice]:
-            ch.set_volume(ch.get_volume() * vol if vol > 0 else 0)
-
     def _synthesize_heavy_bg(self):
-        import os, io, pygame, threading
+        import os, io, pygame
         asset_dir = os.path.dirname(os.path.abspath(__file__))
         
-        pending_tasks = []
-        
-        def load_sound(attr_name, filename, fallback):
+        def load_sound(filename, fallback):
             try:
-                setattr(self, attr_name, pygame.mixer.Sound(filename))
+                # Try relative path first (works better on Android via SDL_RWops)
+                return pygame.mixer.Sound(filename)
             except:
                 try:
-                    setattr(self, attr_name, pygame.mixer.Sound(os.path.join(asset_dir, filename)))
+                    # Fallback to absolute path
+                    return pygame.mixer.Sound(os.path.join(asset_dir, filename))
                 except:
-                    pending_tasks.append((attr_name, fallback))
+                    return fallback()
 
-        self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
+        self.snd_music = load_sound("theme.wav", lambda: self._synthesize_theme_song(return_path=True))
+        if isinstance(self.snd_music, str): # Return path fallback handling
+            try:
+                with open(self.snd_music, "rb") as f:
+                    self.snd_music = pygame.mixer.Sound(file=io.BytesIO(f.read()))
+            except: pass
 
-        load_sound("snd_speech", "sega_speech.wav", self._synthesize_sega_speech)
-        load_sound("snd_cheer", "cheer.wav", self._synthesize_cheer)
-        load_sound("snd_end_match", "end_match.wav", self._synthesize_end_of_match)
-        load_sound("snd_hurry", "vosim_HURRY.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
-        load_sound("snd_hard", "vosim_HARD.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
-        load_sound("snd_chal_comp", "challenge_complete.wav", None)
-        load_sound("snd_red_wins", "red_wins.wav", None)
-        load_sound("snd_ylw_wins", "yellow_wins.wav", None)
-        
-        pending_tasks.extend([
-            ("snd_slide", self._synthesize_rumble),
-            ("snd_sweep", self._synthesize_sweep),
-            ("snd_throw", self._synthesize_throw),
-            ("snd_clack", self._synthesize_clack),
-            ("snd_hover", lambda return_bytes=False: self._synthesize_ui_sound(440, 0.05, "sine", return_bytes=return_bytes)),
-            ("snd_click", lambda return_bytes=False: self._synthesize_ui_sound(587, 0.12, "square", return_bytes=return_bytes))
-        ])
-
-        def bg_worker():
-            for attr_name, fallback in pending_tasks:
-                try:
-                    setattr(self, attr_name, fallback(return_bytes=True))
-                except Exception as e: pass
-                    
-        threading.Thread(target=bg_worker, daemon=True).start()
+        self.snd_speech = load_sound("sega_speech.wav", self._synthesize_sega_speech)
+        self.snd_cheer = load_sound("cheer.wav", self._synthesize_cheer)
+        self.snd_end_match = load_sound("end_match.wav", self._synthesize_end_of_match)
+        self.snd_hurry = load_sound("vosim_HURRY.wav", lambda: self._synthesize_vosim_phrase("HURRY", 0.7))
+        self.snd_hard = load_sound("vosim_HARD.wav", lambda: self._synthesize_vosim_phrase("HARD", 0.65))
+        self.snd_chal_comp = load_sound("vosim_CHALLENGE_COMPLETE.wav", lambda: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 2.5))
+        self.snd_red_wins = load_sound("vosim_RED_TEAM_WINS.wav", lambda: self._synthesize_vosim_phrase("RED_TEAM_WINS", 2.2))
+        self.snd_ylw_wins = load_sound("vosim_YELLOW_TEAM_WINS.wav", lambda: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 2.4))
         
     def process_pending_sounds(self):
         import io, pygame
-        for attr in ['snd_speech', 'snd_cheer', 'snd_end_match', 'snd_hurry', 'snd_hard', 'snd_chal_comp', 'snd_red_wins', 'snd_ylw_wins',
-                     'snd_slide', 'snd_sweep', 'snd_throw', 'snd_clack', 'snd_hover', 'snd_click']:
+        for attr in ['snd_speech', 'snd_cheer', 'snd_end_match', 'snd_hurry', 'snd_hard', 'snd_chal_comp', 'snd_red_wins', 'snd_ylw_wins', 'snd_music']:
             val = getattr(self, attr, None)
             if isinstance(val, io.BytesIO):
-                try: 
-                    snd = pygame.mixer.Sound(file=val)
-                    setattr(self, attr, snd)
-                    if attr == 'snd_slide': self.ch_slide.play(snd, loops=-1); self.ch_slide.set_volume(0.0)
-                    elif attr == 'snd_sweep': self.ch_sweep.play(snd, loops=-1); self.ch_sweep.set_volume(0.0)
+                try: setattr(self, attr, pygame.mixer.Sound(file=val))
                 except Exception as e: print("Sound load error:", e); setattr(self, attr, None)
             elif isinstance(val, str):
                 try: setattr(self, attr, pygame.mixer.Sound(file=val))
@@ -371,43 +363,39 @@ class WinCurlAudioEngine:
 
     def _get_cache_dir(self):
         import os, tempfile
-        if IS_ANDROID:
-            try:
-                from jnius import autoclass
-                PythonActivity = autoclass('org.kivy.android.PythonActivity')
-                cache_dir = os.path.join(PythonActivity.mActivity.getCacheDir().getAbsolutePath(), "wincurl_cache")
-                os.makedirs(cache_dir, exist_ok=True)
-                return cache_dir
-            except: pass
-            
+        try:
+            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
+        except:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        cache_dir = os.path.join(base_dir, "wincurl_cache")
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            test_file = os.path.join(cache_dir, ".test")
+            with open(test_file, "w") as f: f.write("ok")
+            os.remove(test_file)
+            return cache_dir
+        except: pass
+        
         try:
             cache_dir = os.path.join(tempfile.gettempdir(), "wincurl_cache")
             os.makedirs(cache_dir, exist_ok=True)
             return cache_dir
         except: pass
         
-        try:
-            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
-            cache_dir = os.path.join(base_dir, "wincurl_cache")
-            os.makedirs(cache_dir, exist_ok=True)
-            return cache_dir
-        except: pass
-        
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "wincurl_cache")
+        return os.path.join(base_dir, "wincurl_cache")
 
-    def _get_cached_sound(self, cache_key, return_bytes=False):
+    def _get_cached_sound(self, cache_key):
         import os, io, threading, pygame
         cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
                     data = f.read()
-                    if return_bytes: return io.BytesIO(data)
                     return pygame.mixer.Sound(file=io.BytesIO(data))
             except: pass
         return None
 
-    def _create_wav_sound(self, byte_buffer, sample_rate=44100, cache_key=None, return_path=False, channels=2, return_bytes=False):
+    def _create_wav_sound(self, byte_buffer, sample_rate=44100, cache_key=None, return_path=False, channels=2):
         import os, struct, io, threading
         data_size = len(byte_buffer)
         bits = 16
@@ -430,13 +418,12 @@ class WinCurlAudioEngine:
             except: pass
             
         if return_path: return None
-        if return_bytes: return io.BytesIO(wav)
         
         import io, threading, pygame
         return pygame.mixer.Sound(file=io.BytesIO(wav))
 
-    def _synthesize_sega_speech(self, return_bytes=False):
-        cached = self._get_cached_sound("sega_speech", return_bytes=return_bytes)
+    def _synthesize_sega_speech(self):
+        cached = self._get_cached_sound("sega_speech")
         if cached: return cached
         steps = int(44100 * 3.0); buf = bytearray(steps * 4)
         w_f1, w_f2, w_f3 = [(0.0,300),(0.9,400),(1.4,250)], [(0.0,600),(0.9,1900),(1.4,1200)], [(0.0,2200),(0.9,2400),(1.4,2600)]
@@ -466,10 +453,10 @@ class WinCurlAudioEngine:
                 val = (val / 3.0) * env * 1.8
             sample = int(max(-1.0, min(1.0, val)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100, cache_key="sega_speech", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, 44100, cache_key="sega_speech")
 
-    def _synthesize_vosim_phrase(self, phrase, duration, return_bytes=False):
-        cached = self._get_cached_sound(f"vosim_{phrase}", return_bytes=return_bytes)
+    def _synthesize_vosim_phrase(self, phrase, duration):
+        cached = self._get_cached_sound(f"vosim_{phrase}")
         if cached: return cached
         SR = 44100
         steps = int(SR * duration); buf = bytearray(steps * 4)
@@ -533,10 +520,10 @@ class WinCurlAudioEngine:
             val = (math.sin(2*math.pi*get_val(t,f1_env)*phase/f0) + math.sin(2*math.pi*get_val(t,f2_env)*phase/f0)*0.6 + math.sin(2*math.pi*get_val(t,f3_env)*phase/f0)*0.3) * decay
             sample = int(max(-1.0, min(1.0, (val*0.6 + noise) * env)) * 24000)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key="end_match", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, SR, cache_key="end_match")
 
-    def _synthesize_cheer(self, return_bytes=False):
-        cached = self._get_cached_sound("cheer", return_bytes=return_bytes)
+    def _synthesize_cheer(self):
+        cached = self._get_cached_sound("cheer")
         if cached: return cached
         SR = 11025
         duration = 3.5; steps = int(SR * duration); buf = bytearray(steps * 4); val = 0.0
@@ -544,51 +531,50 @@ class WinCurlAudioEngine:
             t = i / SR; val += (random.uniform(-1.0, 1.0) - val) * 0.02 
             sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t*12))) 
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key="cheer", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, SR, cache_key="cheer")
 
-    def _synthesize_rumble(self, return_bytes=False):
-        cached = self._get_cached_sound("whoosh", return_bytes=return_bytes)
+    def _synthesize_rumble(self):
+        cached = self._get_cached_sound("whoosh")
         if cached: return cached
         buf = bytearray(44100 * 4); v = 0.0
         for i in range(44100):
             v = max(-0.4, min(0.4, (v + random.uniform(-0.08, 0.08)) * 0.98))
             struct.pack_into('<hh', buf, i * 4, int(v * 32767), int(v * 32767))
-        return self._create_wav_sound(buf, 44100, cache_key="whoosh", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, 44100, cache_key="whoosh")
 
-    def _synthesize_sweep(self, return_bytes=False):
-        cached = self._get_cached_sound("sweep", return_bytes=return_bytes)
+    def _synthesize_sweep(self):
+        cached = self._get_cached_sound("sweep")
         if cached: return cached
         buf = bytearray(22050 * 4)
         for i in range(22050): struct.pack_into('<hh', buf, i*4, int(random.uniform(-0.15, 0.15)*32767), int(random.uniform(-0.15, 0.15)*32767))
-        return self._create_wav_sound(buf, 22050, cache_key="sweep", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, 22050, cache_key="sweep")
 
-    def _synthesize_throw(self, return_bytes=False):
-        cached = self._get_cached_sound("throw", return_bytes=return_bytes)
+    def _synthesize_throw(self):
+        cached = self._get_cached_sound("throw")
         if cached: return cached
         duration = 0.5; steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
-            t = i / 44100; val = math.sin(2 * math.pi * (180 - (t * 100)) * t) * (math.sin(t * math.pi / duration) * math.exp(-t * 2))
-            sample = int(max(-1.0, min(1.0, val * 0.5)) * 32767)
+            t = i / 44100; sample = int(math.sin(2 * math.pi * (180 - (t * 100)) * t) * (math.sin(t * math.pi / duration) * math.exp(-t * 2)) * 32767 * 0.7)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 44100, cache_key="throw", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, 44100, cache_key="throw")
 
-    def _synthesize_clack(self, return_bytes=False):
-        cached = self._get_cached_sound("clack", return_bytes=return_bytes)
+    def _synthesize_clack(self):
+        cached = self._get_cached_sound("clack")
         if cached: return cached
         buf = bytearray(11025 * 4)
         for i in range(11025):
             t = i / 11025; sample = int(math.sin(2 * math.pi * (220 + random.uniform(-20, 20)) * t) * math.exp(-t * 25) * 32767)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, 11025, cache_key="clack", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, 11025, cache_key="clack")
 
-    def _synthesize_ui_sound(self, frequency, duration, type="sine", return_bytes=False):
-        cached = self._get_cached_sound(f"ui_{frequency}_{duration}_{type}", return_bytes=return_bytes)
+    def _synthesize_ui_sound(self, frequency, duration, type="sine"):
+        cached = self._get_cached_sound(f"ui_{frequency}_{duration}_{type}")
         if cached: return cached
         steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
             t = i / 44100; val = math.sin(2 * math.pi * frequency * t) if type == "sine" else (1.0 if math.sin(2 * math.pi * frequency * t) > 0 else -1.0)
             struct.pack_into('<hh', buf, i * 4, int(val * math.exp(-t * (1.0 / duration * 3)) * 12000), int(val * math.exp(-t * (1.0 / duration * 3)) * 12000))
-        return self._create_wav_sound(buf, 44100, cache_key=f"ui_{frequency}_{duration}_{type}", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, 44100, cache_key=f"ui_{frequency}_{duration}_{type}")
 
     def _synthesize_theme_song(self, return_path=False):
         import os
@@ -742,21 +728,11 @@ class WinCurlAudioEngine:
         self.ch_slide.set_volume(0.0); self.ch_sweep.set_volume(0.0); self.ch_sfx.stop(); self.ch_crowd.stop()
 
     def play_cheer(self): 
-        if not self.ch_crowd.get_busy() and getattr(self, 'snd_cheer', None): 
-            self.ch_crowd.set_volume(getattr(self, 'master_volume', 1.0))
-            self.ch_crowd.play(self.snd_cheer)
-    def update_slide(self, speed): self.ch_slide.set_volume((min(0.15, speed * 0.04) if speed > 0.05 else 0.0) * getattr(self, 'master_volume', 1.0))
-    def update_sweep(self, intensity):
-        self.ch_sweep.set_volume(min(0.5, intensity * 0.06) * getattr(self, 'master_volume', 1.0))
-        if IS_ANDROID and intensity > 0.1:
-            now = pygame.time.get_ticks()
-            if not hasattr(self, 'last_sweep_vib') or now - getattr(self, 'last_sweep_vib', 0) > 100:
-                self.last_sweep_vib = now
-                vibrate_android(15)
+        if not self.ch_crowd.get_busy() and getattr(self, 'snd_cheer', None): self.ch_crowd.play(self.snd_cheer)
+    def update_slide(self, speed): self.ch_slide.set_volume(min(0.15, speed * 0.04) if speed > 0.05 else 0.0)
+    def update_sweep(self, intensity): self.ch_sweep.set_volume(min(0.5, intensity * 0.06))
     def play_throw(self): 
-        if getattr(self, 'snd_throw', None): 
-            self.ch_sfx.set_volume(getattr(self, 'master_volume', 1.0))
-            self.ch_sfx.play(self.snd_throw)
+        if getattr(self, 'snd_throw', None): self.ch_sfx.play(self.snd_throw)
     
     def play_clack(self, force): 
         now = pygame.time.get_ticks()
@@ -765,49 +741,24 @@ class WinCurlAudioEngine:
         ch = pygame.mixer.find_channel()
         if ch and getattr(self, 'snd_clack', None):
             ch.play(self.snd_clack)
-            ch.set_volume(min(0.4, force * 0.05) * getattr(self, 'master_volume', 1.0))
+            ch.set_volume(min(0.4, force * 0.05))
 
     def play_hover(self): 
-        if getattr(self, 'snd_hover', None): 
-            self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0))
-            self.ch_ui.play(self.snd_hover)
+        if getattr(self, 'snd_hover', None): self.ch_ui.play(self.snd_hover)
     def play_click(self): 
-        if getattr(self, 'snd_click', None): 
-            self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0))
-            self.ch_ui.play(self.snd_click)
-        if IS_ANDROID: vibrate_android(15)
-    def play_music(self):
-        if not getattr(self, 'sfx_on', True) or not getattr(self, 'snd_music', None): return
-        pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0))
-        if not pygame.mixer.music.get_busy():
-            loaded = False
-            if isinstance(self.snd_music, list):
-                for p in self.snd_music:
-                    try:
-                        pygame.mixer.music.load(p)
-                        loaded = True; break
-                    except: pass
-                if not loaded:
-                    try:
-                        fallback = self._synthesize_theme_song(return_path=True)
-                        pygame.mixer.music.load(fallback)
-                        loaded = True
-                    except: pass
-            elif isinstance(self.snd_music, str):
-                try:
-                    pygame.mixer.music.load(self.snd_music); loaded = True
-                except: pass
-            if loaded:
-                pygame.mixer.music.set_volume(0.25)
-                pygame.mixer.music.play(-1)
-    def stop_music(self):
-        pygame.mixer.music.stop()
+        if getattr(self, 'snd_click', None): self.ch_ui.play(self.snd_click)
+    def play_music(self): 
+        if not self.ch_music.get_busy() and getattr(self, 'snd_music', None):
+            if isinstance(self.snd_music, pygame.mixer.Sound):
+                self.ch_music.play(self.snd_music, loops=-1)
+                self.ch_music.set_volume(0.25)
+    def stop_music(self): self.ch_music.stop()
 
 # --- Visual Effects & Geometry ---
 class Starfield:
-    def __init__(self, count=150, max_w=None, max_h=None):
-        self.max_h = max_h or BASE_HEIGHT
-        self.stars = [(random.randint(0, max_w or BASE_WIDTH), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)]
+    def __init__(self, count=150, max_w=BASE_WIDTH, max_h=BASE_HEIGHT):
+        self.max_h = max_h
+        self.stars = [(random.randint(0, max_w), random.randint(0, max_h), random.uniform(0.5, 3.0)) for _ in range(count)]
         self.colors = {s: (int(min(255, 30 + s*60)),)*3 for _, _, s in self.stars}
         
     def draw(self, surface, speed_mult=1.0):
@@ -875,9 +826,7 @@ class Stone:
     cached_ylw_base = None
     cached_hl = None
 
-    next_id = 1
-    def __init__(self, x, y, team, sid=None):
-        self.id = sid if sid is not None else random.randint(1000, 9999999)
+    def __init__(self, x, y, team):
         self.pos = pygame.math.Vector2(x, y); self.vel = pygame.math.Vector2(0, 0)
         self.team, self.radius, self.mass, self.is_moving, self.curl, self.rotation = team, 32, 1.0, False, 0.0, 0.0
         
@@ -907,17 +856,13 @@ class Stone:
         
         return s
 
-    def get_state(self, offset_y=0): return [round(self.pos.x, 1), round(self.pos.y - offset_y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving, getattr(self, 'id', -1)]
-    def set_state(self, s, offset_y=0):
-        nx, ny, nvx, nvy, self.team, self.curl, self.rotation, self.is_moving = s[0], s[1] + offset_y, s[2], s[3], s[4], s[5], s[6], s[7]
-        if len(s) > 8: self.id = s[8]
+    def get_state(self): return [round(self.pos.x, 1), round(self.pos.y, 1), round(self.vel.x, 2), round(self.vel.y, 2), self.team, round(self.curl, 2), round(self.rotation, 1), self.is_moving]
+    def set_state(self, state):
+        nx, ny, nvx, nvy, self.team, self.curl, self.rotation, self.is_moving = state
         now = pygame.time.get_ticks()
         if hasattr(self, 'last_collision_time') and now - self.last_collision_time < 400: return
         new_pos = pygame.math.Vector2(nx, ny); new_vel = pygame.math.Vector2(nvx, nvy)
         dist = (self.pos - new_pos).length()
-        if not self.is_moving and not s[7]:
-            self.pos.x, self.pos.y, self.vel.x, self.vel.y = nx, ny, nvx, nvy
-            return
         if dist > 80.0:
             self.pos.x, self.pos.y, self.vel.x, self.vel.y = nx, ny, nvx, nvy
         else:
@@ -974,28 +919,11 @@ class AnimatedCurler:
             if override_color:
                 pygame.draw.line(surf, override_color, start, end, width)
                 return
-            shadow_col = (max(0, color[0]-70), max(0, color[1]-70), max(0, color[2]-70))
-            mid_col = (max(0, color[0]-20), max(0, color[1]-20), max(0, color[2]-20))
-            hl_col = (min(255, color[0]+80), min(255, color[1]+80), min(255, color[2]+80))
+            shadow_col = (max(0, color[0]-50), max(0, color[1]-50), max(0, color[2]-50))
             pygame.draw.line(surf, shadow_col, start, end, width)
-            pygame.draw.line(surf, mid_col, start, end, max(2, width - 4))
-            pygame.draw.line(surf, color, start, end, max(1, width - 8))
-            pygame.draw.line(surf, hl_col, (start[0]-2, start[1]), (end[0]-2, end[1]), max(1, width - 12))
-
-        def draw_cylinder_rect(surf, color, rect, border_radius=0):
-            if override_color:
-                pygame.draw.rect(surf, override_color, rect, border_radius=border_radius)
-                return
-            x, y, w, h = rect
-            shadow_col = (max(0, color[0]-60), max(0, color[1]-60), max(0, color[2]-60))
-            hl_col = (min(255, color[0]+50), min(255, color[1]+50), min(255, color[2]+50))
-            
-            pygame.draw.rect(surf, shadow_col, (x, y, w, h), border_radius=border_radius)
-            if w > 8 and h > 4:
-                pygame.draw.rect(surf, color, (x+4, y+2, w-8, h-4), border_radius=max(0, border_radius-2))
-            if w > 20 and h > 8:
-                pygame.draw.rect(surf, hl_col, (x+10, y+4, w//2 - 6, h-8), border_radius=max(0, border_radius-4))
-                pygame.draw.rect(surf, color, (x+14, y+6, w//2 - 12, h-12), border_radius=max(0, border_radius-6))
+            pygame.draw.line(surf, color, start, end, max(2, width - 4))
+            hl_col = (min(255, color[0]+60), min(255, color[1]+60), min(255, color[2]+60))
+            pygame.draw.line(surf, hl_col, (start[0]-2, start[1]), (end[0]-2, end[1]), max(1, width - 8))
 
         def head(ix, iy):
             cache_key = (self.tc, override_color)
@@ -1010,7 +938,7 @@ class AnimatedCurler:
                 if not override_color:
                     import math
                     import random
-                    rng = random.Random(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
+                    random.seed(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
                     hair_poly = []
                     shade = max(0, self.tc[0]-100)
                     hair_color = (shade, int(shade*0.75), int(shade*0.55))
@@ -1021,7 +949,7 @@ class AnimatedCurler:
                         base_r = head_rw * 1.1
                         # Hair is longer at the bottom/back of the head
                         if 0 <= angle <= 180:
-                            spike = rng.uniform(0, 8)
+                            spike = random.uniform(0, 8)
                             r = base_r + spike
                         else:
                             r = base_r
@@ -1082,7 +1010,9 @@ class AnimatedCurler:
             if override_color:
                 pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-35, hy+20+offset_y, 70, 80), border_radius=16)
             else:
-                draw_cylinder_rect(surface, self.tc, (hx-36, hy+18+offset_y, 72, 84), border_radius=16)
+                pygame.draw.rect(surface, PURPLE_SHADOW, (hx-36, hy+18+offset_y, 72, 84), border_radius=16)
+                pygame.draw.rect(surface, PURPLE_SUIT, (hx-32, hy+20+offset_y, 64, 76), border_radius=14)
+                pygame.draw.rect(surface, (150, 55, 210), (hx-22, hy+24+offset_y, 30, 68), border_radius=10)
 
             # Tracksuit accent lines (Center zipper removed for back view)
             pygame.draw.line(surface, c(CYAN_ACCENT), (hx-20, hy+30+offset_y), (hx-20, hy+92+offset_y), 4)
@@ -1092,7 +1022,8 @@ class AnimatedCurler:
             if override_color:
                 pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-16, hy+10+offset_y, 32, 14), border_radius=4)
             else:
-                draw_cylinder_rect(surface, self.tc, (hx-17, hy+9+offset_y, 34, 16), border_radius=4)
+                pygame.draw.rect(surface, PURPLE_SHADOW, (hx-17, hy+9+offset_y, 34, 16), border_radius=4)
+                pygame.draw.rect(surface, PURPLE_SUIT, (hx-15, hy+11+offset_y, 30, 12), border_radius=3)
 
             # Full Head Overlap
             head(hx, hy - 8 + offset_y)
@@ -1105,14 +1036,13 @@ class AnimatedCurler:
             if not override_color: pygame.draw.ellipse(surface, HOUSE_RED, (hx-69, hy+1+offset_y, 24, 16))
             
             pygame.draw.ellipse(surface, c(PURPLE_SHADOW), (hx-48, hy+28+offset_y, 31, 56))
-            pygame.draw.ellipse(surface, c(self.tc), (hx-45, hy+30+offset_y, 25, 50))
+            pygame.draw.ellipse(surface, c(PURPLE_SUIT), (hx-45, hy+30+offset_y, 25, 50))
             pygame.draw.ellipse(surface, c(PURPLE_SHADOW), (hx+17, hy+28+offset_y, 31, 56))
-            pygame.draw.ellipse(surface, c(self.tc), (hx+20, hy+30+offset_y, 25, 50))
+            pygame.draw.ellipse(surface, c(PURPLE_SUIT), (hx+20, hy+30+offset_y, 25, 50))
             
             if not override_color:
-                hl = (min(255, self.tc[0]+40), min(255, self.tc[1]+40), min(255, self.tc[2]+40))
-                pygame.draw.ellipse(surface, hl, (hx-42, hy+32+offset_y, 10, 40))
-                pygame.draw.ellipse(surface, hl, (hx+22, hy+32+offset_y, 10, 40))
+                pygame.draw.ellipse(surface, (150, 55, 210), (hx-42, hy+32+offset_y, 10, 40))
+                pygame.draw.ellipse(surface, (150, 55, 210), (hx+22, hy+32+offset_y, 10, 40))
         
         elif self.state == "LUNGING":
             ly = hy + lunge_dist
@@ -1142,7 +1072,9 @@ class AnimatedCurler:
             if override_color:
                 pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-30, ly-30, 60, 90), border_radius=15)
             else:
-                draw_cylinder_rect(surface, self.tc, (hx-32, ly-32, 64, 94), border_radius=15)
+                pygame.draw.rect(surface, PURPLE_SHADOW, (hx-32, ly-32, 64, 94), border_radius=15)
+                pygame.draw.rect(surface, PURPLE_SUIT, (hx-28, ly-30, 56, 86), border_radius=12)
+                pygame.draw.rect(surface, (150, 55, 210), (hx-18, ly-26, 26, 76), border_radius=10)
 
             # Tracksuit accent lines (Center zipper removed for back view)
             pygame.draw.line(surface, c(CYAN_ACCENT), (hx-15, ly-15), (hx-15, ly+50), 4)
@@ -1152,7 +1084,8 @@ class AnimatedCurler:
             if override_color:
                 pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-16, ly-39, 32, 14), border_radius=4)
             else:
-                draw_cylinder_rect(surface, self.tc, (hx-17, ly-40, 34, 16), border_radius=4)
+                pygame.draw.rect(surface, PURPLE_SHADOW, (hx-17, ly-40, 34, 16), border_radius=4)
+                pygame.draw.rect(surface, PURPLE_SUIT, (hx-15, ly-38, 30, 12), border_radius=3)
 
             # Full Head Overlap
             head(hx, ly-45)
@@ -1165,7 +1098,7 @@ class AnimatedCurler:
             if not override_color: pygame.draw.ellipse(surface, HOUSE_RED, (hx-90, ly-17, 28, 16))
             
             # Broom Arm
-            draw_cylinder_line(surface, self.tc, (hx-25, ly-10), (hx-10, ly-60), 16)
+            draw_cylinder_line(surface, PURPLE_SUIT, (hx-25, ly-10), (hx-10, ly-60), 16)
 
     def draw(self, surface, team_color):
         if self.state == "IDLE" and self.delivery_progress == 0.0: return
@@ -1233,7 +1166,7 @@ class WinCurl3:
             "hard": {"error_multiplier": 0.2, "takeout_chance": 0.8, "guard_chance": 0.7}
         }
         
-        t_text = 'WinCurl 3'
+        t_text = '"WinCurl" 3'
         
         # Use standard Pygame font for the original heavy bold look.
         # Render at exactly 2x scale (210) to bypass SDL_ttf hinting clipping bugs on the top edge of letters like "C".
@@ -1318,21 +1251,16 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build {VERSION}{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl 3.0 - Build 20{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
-        
-        global BASE_HEIGHT
-        if IS_ANDROID and info.current_w > 0 and info.current_h > 0:
-            aspect = info.current_h / info.current_w
-            BASE_HEIGHT = int(BASE_WIDTH * aspect)
         
         if IS_ANDROID:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             desk_h = info.current_h
-            if desk_h > 0 and 1800 > desk_h * 0.85:
-                target_h = int(desk_h * 0.85)
+            if desk_h > 0 and 1800 > desk_h * 0.95:
+                target_h = int(desk_h * 0.95)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                 self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
             else:
@@ -1369,7 +1297,7 @@ class WinCurl3:
         except:
             pass
         
-        self.is_4k = (info.current_w >= 1920 or info.current_h >= 1080)
+        self.is_4k = (info.current_w >= 3840 or info.current_h >= 2160)
         self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
         
@@ -1387,16 +1315,12 @@ class WinCurl3:
         try:
             base_dir = pygame.system.get_pref_path("jason", "wincurl3")
         except:
-            if IS_ANDROID:
-                app_dir = os.path.dirname(os.path.abspath(__file__))
-                base_dir = os.environ.get('ANDROID_PRIVATE', os.path.abspath(os.path.join(app_dir, '..')))
-            else:
-                base_dir = os.path.expanduser("~")
+            base_dir = os.path.dirname(os.path.abspath(__file__)) if IS_ANDROID else os.path.expanduser("~")
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
         self.load_progress()
         
-        self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 - 650)
-        self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 + 650)
+        self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, 350)
+        self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, BASE_HEIGHT - 150)
         self.curler_anim = AnimatedCurler(self.hack_pos)
         self.starfield = Starfield(count=50 if IS_ANDROID else 150)
         if self.is_4k:
@@ -1416,10 +1340,9 @@ class WinCurl3:
         self.prompt_rect = pygame.Rect(BASE_WIDTH//2 - 350, BASE_HEIGHT//2 - 50, 700, 120)
         
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT-260, 200, 90), pygame.Rect(BASE_WIDTH-320, BASE_HEIGHT-260, 200, 90)
-        
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
-        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 280, 140, 240, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
-        self.btn_chat = pygame.Rect(BASE_WIDTH - 500, 140, 180, 60)
+        self.btn_pause, self.btn_resume = pygame.Rect(BASE_WIDTH - 220, 140, 180, 60), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
+        self.btn_chat = pygame.Rect(BASE_WIDTH - 420, 140, 180, 60)
         self.btn_quit_main, self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+40, 500, 100), pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
@@ -1430,21 +1353,11 @@ class WinCurl3:
             {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
             {"id": "bot", "y": 600, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "chal", "y": 720, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
-            {"id": "options", "y": 840, "text": "Options", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "host", "y": 960, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "join", "y": 1080, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "exit", "y": 1200, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
-        ]
-        
-        self.options_buttons = [
-            {"id": "master_vol", "y": 480, "text": "Master Volume", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "name", "y": 600, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "color", "y": 720, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "bilinear", "y": 840, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "fxaa", "y": 960, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "light_filter", "y": 1080, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1200, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1320, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "color", "y": 840, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "name", "y": 960, "text": f"Name: {self.username}", "color": (130, 140, 155), "scale": 1.0},
+            {"id": "host", "y": 1080, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "join", "y": 1200, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "exit", "y": 1320, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
 
@@ -1486,7 +1399,6 @@ class WinCurl3:
         pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
         pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
         pygame.draw.line(self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10)
-        pygame.draw.line(self.static_ice_surface, (10, 10, 10), (0, self.house_pos.y - 220), (BASE_WIDTH, self.house_pos.y - 220), 4)
         
         house_layer = pygame.Surface((440, 440))
         house_layer.fill((255, 0, 255))
@@ -1495,18 +1407,6 @@ class WinCurl3:
         for r, c, w in [(210, HOUSE_BLUE, 0), (140, WHITE, 0), (70, HOUSE_RED, 0), (20, WHITE, 0), (20, BLACK, 2), (6, BLACK, 0), (2, WHITE, 0)]:
             pygame.draw.circle(house_layer, c, (220, 220), r, w)
         self.static_ice_surface.blit(house_layer, (int(self.house_pos.x - 220), int(self.house_pos.y - 220)))
-        
-        # Cache the Hack
-        cx = self.hack_pos.x
-        hack_y = self.hack_pos.y + 35
-        pygame.draw.rect(self.static_ice_surface, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
-        pygame.draw.rect(self.static_ice_surface, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
-        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 18), (cx - 45, hack_y + 21)]
-        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), left_pad)
-        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), left_pad, 2)
-        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 18), (cx + 45, hack_y + 21)]
-        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), right_pad)
-        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), right_pad, 2)
         
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
         overlay.fill((235, 245, 255, 15))
@@ -1522,12 +1422,12 @@ class WinCurl3:
     def set_typing_target(self, target):
         if getattr(self, 'typing_target', None) == target: return
         was_typing = getattr(self, 'typing_target', None) is not None
-        if was_typing: self.save_progress()
         self.typing_target = target
-        if IS_ANDROID:
-            try:
-                if target is not None: pygame.key.start_text_input()
-                else: pygame.key.stop_text_input()
+        if target is not None and not was_typing:
+            try: pygame.key.start_text_input()
+            except: pass
+        elif target is None and was_typing:
+            try: pygame.key.stop_text_input()
             except: pass
 
     def toggle_fullscreen(self):
@@ -1540,14 +1440,12 @@ class WinCurl3:
             else:
                 info = pygame.display.Info()
                 desk_h = info.current_h
-                if desk_h > 0 and 1800 > desk_h * 0.85:
-                    target_h = int(desk_h * 0.85)
+                if desk_h > 0 and 1800 > desk_h * 0.95:
+                    target_h = int(desk_h * 0.95)
                     target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                     self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
                 else:
                     self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF)
-            ww, wh = self.screen.get_size()
-            self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
         
     def load_progress(self):
         try:
@@ -1560,14 +1458,8 @@ class WinCurl3:
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
                 self.is_music_muted = data.get("is_music_muted", False)
-                if getattr(self, 'audio', None):
-                    self.audio.set_master_volume(data.get("master_vol", 1.0))
-                self.fxaa_on = data.get("fxaa_on", False)
-                self.bilinear_on = data.get("bilinear_on", False)
-                self.lighter_filter = data.get("lighter_filter", False)
         except:
             self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
-            self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -1577,7 +1469,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -1612,7 +1504,7 @@ class WinCurl3:
             self.app_state = "PLAY"; self.challenge_attempts = 0; self.load_challenge(self.challenge_level)
             self.challenge_announced = False
         else:
-            self.app_state = "COIN_TOSS"; self.coin_timer = 30; self.coin_flip_result = random.choice([0, 1])
+            self.app_state = "COIN_TOSS"; self.coin_timer = 60; self.coin_flip_result = random.choice([0, 1])
             self.audio.play_cheer()
 
     def load_challenge(self, level):
@@ -1647,14 +1539,15 @@ class WinCurl3:
             self.c_type = "TAKEOUT"
             self.challenge_text_1, self.challenge_text_2 = f"[{level}/25] ANGLE RAISE", "Raise the red guard into the yellow rock."
             self.stones.append(Stone(cx, cy + 150, 0)) 
-            s = Stone(cx - 10, cy + 10, 1); self.stones.append(s); self.challenge_takeout_target = s
-            if level == 25: self.stones.append(Stone(cx + 60, cy + 120, 1)) 
+            s = Stone(cx - 20, cy, 1); self.stones.append(s); self.challenge_takeout_target = s
+            if level == 25: self.stones.append(Stone(cx + 40, cy + 100, 1)) 
 
         self.reset_turn_vars()
 
     def reset_end(self):
         self.stones = []; self.stones_thrown = {0: 0, 1: 0}
         self.current_team = 1 if getattr(self, 'hammer_team', 0) == 0 else 0
+        random.seed(self.total_stones_played + self.current_end + sum(self.score[0]) + sum(self.score[1]))
         self.reset_turn_vars()
 
     def spawn_next_stone(self): self.active_stone = Stone(self.hack_pos.x, self.hack_pos.y, self.current_team); self.stones.append(self.active_stone)
@@ -1676,7 +1569,8 @@ class WinCurl3:
                             self.audio.play_clack(impulse * 12); self.shake_amount = min(25.0, impulse * 4.0)
                             if IS_ANDROID:
                                 try:
-                                    vibrate_android(50)
+                                    from plyer import vibrator
+                                    vibrator.vibrate(time=0.05)
                                 except: pass
                             mid_x, mid_y = (s1.pos.x + s2.pos.x) / 2, (s1.pos.y + s2.pos.y) / 2
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
@@ -1705,7 +1599,7 @@ class WinCurl3:
         
         self.curler_anim.update("LUNGING"); self.audio.play_throw()
         self.active_stone.vel = (target - self.hack_pos).normalize() * req_spd; self.active_stone.curl = random.choice([-0.55, 0.55]); self.active_stone.is_moving = True
-        self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
+        self.stones_thrown[1] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
 
     def fire_stone(self):
         if getattr(self, 'pull_history', []):
@@ -1722,13 +1616,12 @@ class WinCurl3:
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
-            if self.game_mode in ["HOST", "JOIN"]: self.net.send_action({'cmd': 'shoot', 'vx': self.active_stone.vel.x, 'vy': self.active_stone.vel.y, 'c': self.selected_curl, 'sid': getattr(self.active_stone, 'id', -1)})
+            if self.game_mode in ["HOST", "JOIN"]: self.net.send_action({'cmd': 'shoot', 'vx': self.active_stone.vel.x, 'vy': self.active_stone.vel.y, 'c': self.selected_curl})
         else: self.curler_anim.update("IDLE")
         self.is_dragging = False; self.virtual_pull = pygame.math.Vector2(0, 0)
         self.drag_start_pos = None
         self.drag_finger_id = None
         self.pull_history = []
-        pygame.event.set_grab(False)
 
     def advance_end_logic(self):
         if self.game_mode == "CHALLENGE":
@@ -1765,10 +1658,6 @@ class WinCurl3:
             self.audio.play_cheer()
             
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
-            if getattr(self, 'game_mode', None) in ["HOST", "JOIN"]:
-                my_score = r_tot if getattr(self, 'preferred_color', 0) == 0 else y_tot
-                self.post_score(getattr(self, 'username', 'Player'), my_score)
-                
             if not getattr(self, 'match_winner_announced', False):
                 self.match_winner_announced = True
                 if r_tot > y_tot and getattr(self.audio, 'snd_red_wins', None): self.audio.ch_voice.play(self.audio.snd_red_wins)
@@ -1779,8 +1668,7 @@ class WinCurl3:
     def handle_menu_events(self, event):
         mouse_pos = getattr(event, 'pos', self.get_pointer_pos())
         mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
-        menu_my = my - getattr(self, 'menu_dy', 0)
-        curr_hov = next((b["id"] for b in self.menu_buttons if 300<mx<900 and b["y"]<menu_my<b["y"]+110*b["scale"]), None)
+        curr_hov = next((b["id"] for b in self.menu_buttons if 300<mx<900 and b["y"]<my<b["y"]+110*b["scale"]), None)
         if curr_hov != self.last_hovered:
             if curr_hov: self.audio.play_hover()
             self.last_hovered = curr_hov
@@ -1796,37 +1684,41 @@ class WinCurl3:
             self.last_click_time = now
 
             if self.typing_target:
-                if not (300 < mx < 900 and 950 < menu_my < 1070):
+                if not (300 < mx < 900 and 1000 < my < 1200):
                     self.set_typing_target(None)
 
             if 300 < mx < 900:
                 for b in self.menu_buttons:
-                    if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
+                    if b["y"] < my < b["y"] + 110 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
-                        elif b["id"] == "options": self.app_state = "OPTIONS_MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
+                        elif b["id"] == "name": new_target = "name"
+                        elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
                         elif b["id"] == "exit": self.net.close(); pygame.quit(); sys.exit()
                         self.set_typing_target(new_target)
                         break
             
-
+            if self.btn_mute.collidepoint(mx, my):
+                self.is_music_muted = not getattr(self, 'is_music_muted', False)
+                self.audio.play_click()
+                self.save_progress()
             
-            if 330 < mx < 870 and 1450 < menu_my < 1650: 
+            if 330 < mx < 870 and 1450 < my < 1650: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.audio.play_hover()
                 self.save_progress()
         elif event.type == MOUSEMOTION and self.get_pointer_pressed():
-            if 330 < mx < 870 and 1450 < menu_my < 1650: 
+            if 330 < mx < 870 and 1450 < my < 1650: 
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
-            elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
+            elif event.key == K_BACKSPACE: self.username = self.username[:-1]
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -1872,48 +1764,24 @@ class WinCurl3:
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            if getattr(self, 'btn_leaderboard', None) and self.btn_leaderboard.collidepoint(mx, my):
-                self.audio.play_click()
-                self.app_state = "LEADERBOARD"
-                self.fetch_leaderboard()
-            elif self.btn_return_menu.collidepoint(mx, my):
-                self.audio.play_click()
-                self.return_to_menu()
-                
-    def handle_leaderboard_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
-            m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
-                self.app_state = "MATCH_OVER"
+                self.return_to_menu()
 
     def handle_play_events(self, event):
         mouse_pos = getattr(event, 'pos', self.get_pointer_pos())
         if isinstance(mouse_pos, tuple): mouse_pos = pygame.math.Vector2(mouse_pos)
         f_id = getattr(event, 'finger_id', 'mouse')
         
-        if event.type == getattr(pygame, 'FINGERDOWN', 1792):
-            self.last_finger_id = event.finger_id
-            if self.turn_state == "AIMING":
-                finger_x = event.x * self.screen.get_width()
-                finger_y = event.y * self.screen.get_height()
-                fpos = self.scale_mouse((finger_x, finger_y))
-                if getattr(self, 'btn_curl_l', None) and self.btn_curl_l.collidepoint(fpos.x, fpos.y):
-                    self.selected_curl = max(-1.0, self.selected_curl - 0.2); self.audio.play_hover()
-                elif getattr(self, 'btn_curl_r', None) and self.btn_curl_r.collidepoint(fpos.x, fpos.y):
-                    self.selected_curl = min(1.0, self.selected_curl + 0.2); self.audio.play_hover()
-            
         if event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1 and self.is_dragging:
-            # On Android, if we started drag with a finger, the MOUSEBUTTONUP might have 'mouse' as f_id,
-            # so we should also accept it if IS_ANDROID
-            if getattr(self, 'drag_finger_id', None) == f_id or (IS_ANDROID and f_id == 'mouse'):
+            if getattr(self, 'drag_finger_id', None) == f_id:
                 self.fire_stone()
             return
 
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             if self.game_mode in ["HOST", "JOIN"] and self.btn_chat.collidepoint(mouse_pos.x, mouse_pos.y):
                 self.audio.play_click()
-                self.typing_chat = not getattr(self, 'typing_chat', False)
+                self.typing_chat = not self.typing_chat
                 if self.typing_chat:
                     try: pygame.key.start_text_input()
                     except: pass
@@ -1943,20 +1811,16 @@ class WinCurl3:
                 elif (mouse_pos - self.active_stone.pos).length() < 90 and not self.is_dragging: 
                     self.is_dragging = True
                     self.drag_start_pos = mouse_pos
-                    self.drag_finger_id = getattr(self, 'last_finger_id', f_id) if IS_ANDROID else f_id
+                    self.drag_finger_id = f_id
                     self.pull_history = []
                     self.virtual_pull = pygame.math.Vector2(0, 0)
-                    pygame.event.set_grab(True)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, 'drag_start_pos', None):
-                if f_id == getattr(self, 'drag_finger_id', None) or (IS_ANDROID and f_id == 'mouse'):
+                if f_id == getattr(self, 'drag_finger_id', None):
                     self.virtual_pull = self.drag_start_pos - mouse_pos
                     if not IS_ANDROID: self.virtual_pull.x *= 0.25; self.virtual_pull.y *= 0.5
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5: self.pull_history.pop(0)
             elif event.type == MOUSEWHEEL: self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.y * 0.2))
-            elif event.type == getattr(pygame, 'FINGERMOTION', 1792):
-                if self.is_dragging and getattr(event, 'finger_id', None) != getattr(self, 'drag_finger_id', None):
-                    self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.dx * 3.0))
 
     def update_physics(self):
         for p in self.particles[:]:
@@ -1988,26 +1852,8 @@ class WinCurl3:
             if self.is_sweeping_now:
                 self.sweep_power = min(12.0, self.sweep_power + delta * 0.18)
                 self.audio.play_curler_call(self.sweep_power)
-                if self.is_sweeping:
-                    if self.sweep_power < 1.0: self.sweep_power += 0.1
-                else:
-                    if self.sweep_power > 0.0: self.sweep_power -= 0.02
-                self.sweep_power = max(0.0, min(1.0, self.sweep_power))
-                
-                if self.is_sweeping and self.sweep_power > 0:
-                    self.audio.update_sweep(self.sweep_power)
-                    if not getattr(self, 'last_sweep_sound', False):
-                        self.audio.play_sweep_start(); self.last_sweep_sound = True
-                else:
-                    self.audio.update_sweep(0.0)
-                    if getattr(self, 'last_sweep_sound', False):
-                        self.audio.play_sweep_stop(); self.last_sweep_sound = False
-                        
-                mouse_pos = self.get_pointer_pos()
-                
-                if self.is_sweeping and (not IS_ANDROID or random.random() < 0.33):
-                    for _ in range(1 if IS_ANDROID else 3): self.particles.append({'pos': mouse_pos + pygame.math.Vector2(random.uniform(-30, 30), random.uniform(-30, 30)), 'vel': pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-3, 0)), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'sweep'})
-                    
+                for _ in range(2 if IS_ANDROID else 3): self.particles.append({'pos': mouse_pos + pygame.math.Vector2(random.uniform(-30, 30), random.uniform(-30, 30)), 'vel': pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-3, 0)), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'sweep'})
+
             for s in self.stones:
                 can_player_sweep = is_sweeping and (mouse_pos - s.pos).length() < 350
                 is_remote_sweeping = getattr(self, 'remote_sweep_timer', 0) > 0
@@ -2015,7 +1861,7 @@ class WinCurl3:
                 s.update(actual_sweep, FRICTION_BASE)
                 if s.is_moving and s.vel.length() > 0.5: self.particles.append({'pos': s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)), 'vel': s.vel * -0.1, 'life': 1.0, 'decay': random.uniform(0.01, 0.03), 'type': 'trail'})
             
-            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 60 == 0:
+            if self.game_mode in ["HOST", "JOIN"] and self.frames_elapsed % 15 == 0:
                 if self.sweep_power > 0.1 or getattr(self, 'last_sent_sweep', 0.0) > 0.1:
                     self.net.send_action({'cmd': 'sweep', 'p': round(self.sweep_power, 2)})
                     self.last_sent_sweep = self.sweep_power
@@ -2056,7 +1902,7 @@ class WinCurl3:
                 
                 # Absolute End of Slide Sync Broadcast for Netcode
                 if self.game_mode == "HOST" and hasattr(self, 'was_moving_last_frame') and self.was_moving_last_frame:
-                    self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state((BASE_HEIGHT//2)+100) for s in self.stones]})
+                    self.net.send_action({'cmd': 'sync_state', 'stones': [s.get_state() for s in self.stones]})
                 
                 if self.game_mode == "CHALLENGE":
                     if self.stones_thrown[0] == 1: 
@@ -2092,7 +1938,7 @@ class WinCurl3:
     def update_network(self):
         if self.game_mode not in ["HOST", "JOIN"]: return
         if self.app_state == "MENU" and self.net.matched:
-            self.app_state = "COIN_TOSS"; self.coin_timer = 30; self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
+            self.app_state = "COIN_TOSS"; self.coin_timer = 60; self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
             self.audio.stop_music(); self.audio.play_cheer()
             
         if not hasattr(self, 'deferred_actions'): self.deferred_actions = []
@@ -2117,39 +1963,37 @@ class WinCurl3:
                 if getattr(self, 'turn_state', 'NONE') == "SLIDING":
                     self.current_team = 1 if getattr(self, 'current_team', 0) == 0 else 0
                     self.spawn_next_stone()
-                if 'sid' in data: self.active_stone.id = data['sid']
                 self.active_stone.vel = pygame.math.Vector2(data['vx'], data['vy']); self.active_stone.curl = data['c']; self.active_stone.is_moving = True
                 self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"; self.audio.play_throw()
                 self.curler_anim.update("LUNGING")
             elif data.get('cmd') == 'sweep':
                 self.sweep_power = data['p']
                 self.remote_sweep_timer = 20
-            elif data.get('cmd') in ('sync_state', 'sync') and self.game_mode == "JOIN":
-                if data.get('cmd') == 'sync':
-                    self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
-                stones_data = data.get('stones') if 'stones' in data else data.get('s', [])
-                offset_y = ((BASE_HEIGHT//2)+100) if data.get('cmd') == 'sync_state' else 0
-                new_stones = []
-                for i, s_data in enumerate(stones_data):
-                    sid = s_data[8] if len(s_data) > 8 else None
-                    if sid is not None and sid != -1:
-                        existing = next((s for s in self.stones if getattr(s, 'id', -1) == sid), None)
-                    else:
-                        existing = self.stones[i] if i < len(self.stones) else None
-                    
-                    if existing:
-                        existing.set_state(s_data, offset_y)
-                        new_stones.append(existing)
-                    else:
-                        ns = Stone(0, 0, 0)
-                        ns.set_state(s_data, offset_y)
-                        new_stones.append(ns)
-                
-                if hasattr(self, 'active_stone') and self.active_stone in self.stones and self.active_stone not in new_stones:
-                    if getattr(self, 'turn_state', 'NONE') == "AIMING":
-                        new_stones.append(self.active_stone)
-
-                self.stones = new_stones
+            elif data.get('cmd') == 'sync_state' and self.game_mode == "JOIN":
+                while len(self.stones) < len(data['stones']): self.stones.append(Stone(0, 0, 0))
+                if len(data['stones']) < len(self.stones):
+                    new_stones = []
+                    for i in range(len(self.stones)):
+                        if i < len(data['stones']): new_stones.append(self.stones[i])
+                        elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
+                    self.stones = new_stones
+                for i, s_data in enumerate(data['stones']):
+                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
+                        if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
+                    self.stones[i].set_state(s_data)
+            elif data.get('cmd') == 'sync' and self.game_mode == "JOIN":
+                self.turn_state = data['st']; self.current_team = data['t']; self.score = {int(k): v for k, v in data['sc'].items()}
+                while len(self.stones) < len(data['s']): self.stones.append(Stone(0, 0, 0))
+                if len(data['s']) < len(self.stones):
+                    new_stones = []
+                    for i in range(len(self.stones)):
+                        if i < len(data['s']): new_stones.append(self.stones[i])
+                        elif hasattr(self, 'active_stone') and self.stones[i] == self.active_stone: new_stones.append(self.stones[i])
+                    self.stones = new_stones
+                for i, s_data in enumerate(data['s']):
+                    if hasattr(self, 'active_stone') and i < len(self.stones) and self.stones[i] == self.active_stone:
+                        if self.active_stone.is_moving and not s_data[7] and abs(s_data[2]) < 0.1 and abs(s_data[3]) < 0.1: continue
+                    self.stones[i].set_state(s_data)
             elif data.get('cmd') == 'set_color':
                 self.preferred_color = 1 - data['color']
             elif data.get('cmd') == 'opponent_left':
@@ -2157,7 +2001,7 @@ class WinCurl3:
                 self.winner_text = "Opponent Disconnected"
                 self.audio.play_cheer()
                 
-        if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 25: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
+        if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 50: self.net.send_action({'cmd': 'coin', 'result': self.coin_flip_result})
 
     def draw_menu(self):
         self.frames_since_start = getattr(self, 'frames_since_start', 0) + 1
@@ -2168,18 +2012,16 @@ class WinCurl3:
                 self.played_intro = True
             
         self.canvas.fill((10, 12, 16))
-        self.last_starfield_speed = 2.0
         self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
             
-        if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU"] and self.frames_since_start >= 210:
+        if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"] and self.frames_since_start >= 210:
             self.audio.play_music()
-        elif getattr(self, 'is_music_muted', False) or self.app_state not in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU"]:
+        elif getattr(self, 'is_music_muted', False) or self.app_state not in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU"]:
             self.audio.stop_music()
             
-        self.menu_dy = (BASE_HEIGHT - 1920) // 2
-        self.menu_stone.draw(self.canvas, cx, 300 + self.menu_dy, self.get_pointer_pos())
+        self.menu_stone.draw(self.canvas, cx, 300, self.get_pointer_pos())
         
-        bx, by = cx - self.title_base.get_width()//2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15) 
+        bx, by = cx - self.title_base.get_width()//2, 80 + int(math.sin(t_ms * 4.0) * 15) 
         
         # Draw pre-rendered soft outline (requires just 1 blit instead of 36)
         pad = 9 # outline_size (7) + 2
@@ -2194,17 +2036,21 @@ class WinCurl3:
         
         status_string = f"STATUS: ERROR - {self.net.connection_error}" if getattr(self.net, 'connection_error', "") else "STATUS: Connecting to Network..." if self.net.connecting else "STATUS: Match Found!" if self.net.matched else f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, 'is_host', False) and self.net.running else "STATUS: Offline Ready"
         color = HOUSE_RED if getattr(self.net, 'connection_error', "") else (TEAM_YELLOW if self.net.connecting or self.net.matched or self.net.running else (150, 160, 180))
-        status_lbl = self.small_font.render(status_string, True, color); self.canvas.blit(status_lbl, (cx - status_lbl.get_width()//2, 210 + self.menu_dy))
+        status_lbl = self.small_font.render(status_string, True, color); self.canvas.blit(status_lbl, (cx - status_lbl.get_width()//2, 210))
 
         for btn in self.menu_buttons:
-            text = btn["text"]
+            if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
+            elif btn["id"] == "color": 
+                btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
+                text = "My Team:"
+            else: text = btn["text"]
             
             is_hovered = (self.last_hovered == btn["id"])
             target_scale = 1.07 if is_hovered else 1.0
             if abs(btn["scale"] - target_scale) < 0.005: btn["scale"] = target_scale
             else: btn["scale"] += (target_scale - btn["scale"]) * 0.25 
             b_w, b_h = int(600 * btn["scale"]), int(100 * btn["scale"])
-            rect = pygame.Rect(cx - b_w//2, btn["y"] + self.menu_dy + (100 - b_h)//2, b_w, b_h)
+            rect = pygame.Rect(cx - b_w//2, btn["y"] + (100 - b_h)//2, b_w, b_h)
             
             draw_glass_rect(self.canvas, rect, btn["color"], rect.h // 2, is_hovered)
             
@@ -2234,103 +2080,15 @@ class WinCurl3:
                     img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
                 self.canvas.blit(img, img.get_rect(center=rect.center))
 
-        pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1550 + self.menu_dy, 500, 16), border_radius=8)
+        pygame.draw.rect(self.canvas, (80, 95, 115), (cx - 250, 1550, 500, 16), border_radius=8)
         handle_x = cx - 250 + int((self.ai_difficulty - 1) / 9.0 * 500)
-        pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558 + self.menu_dy), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558 + self.menu_dy), 26, 4)
-        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490 + self.menu_dy))
+        pygame.draw.circle(self.canvas, TEAM_YELLOW, (int(handle_x), 1558), 26); pygame.draw.circle(self.canvas, WHITE, (int(handle_x), 1558), 26, 4)
+        diff_lbl = self.font.render(f"BOT DIFFICULTY: {self.ai_difficulty}", True, WHITE); self.canvas.blit(diff_lbl, (cx - diff_lbl.get_width()//2, 1490))
         
-        # Draw Mute Button moved to global UI
+        # Draw Mute Button
+        draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(self.get_pointer_pos()))
+        draw_speaker_icon(self.canvas, self.btn_mute.x + self.btn_mute.w//2 - 20, self.btn_mute.y + self.btn_mute.h//2 - 13, getattr(self, 'is_music_muted', False))
         self.draw_global_ui()
-
-    def perform_update(self):
-        try:
-            import urllib.request
-            import sys, os, re
-            
-            url_main = "https://raw.githubusercontent.com/jjivany/wincurl/main/main.py"
-            req = urllib.request.Request(url_main, headers={'User-Agent': 'Mozilla/5.0'})
-            try:
-                with urllib.request.urlopen(req) as response:
-                    new_code = response.read().decode('utf-8')
-                m = re.search(r'VERSION\s*=\s*"([^"]+)"', new_code)
-                remote_version = m.group(1) if m else "0"
-                
-                def parse_ver(v):
-                    return tuple(map(int, v.split('.')))
-                
-                if parse_ver(remote_version) <= parse_ver(VERSION):
-                    self.update_status = "no update available"
-                    self.is_updating = False
-                    return
-            except Exception as e:
-                print("Update check error:", e)
-                self.update_status = "update failed"
-                self.is_updating = False
-                return
-
-            if not IS_ANDROID:
-                try:
-                    import subprocess
-                    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "wincurl"])
-                    self.update_status = "Update installed! Restarting..."
-                    pygame.time.wait(1000)
-                    os.execl(sys.executable, sys.executable, *sys.argv)
-                except Exception as e:
-                    print("PC Update error:", e)
-                    self.update_status = "update failed"
-            else:
-                try:
-                    import webbrowser
-                    apk_url = "https://github.com/jjivany/wincurl/releases/latest/download/wincurl_latest.apk"
-                    webbrowser.open(apk_url)
-                    self.update_status = "Browser opened. Download and install APK!"
-                except Exception as e:
-                    print("Android Update error:", e)
-                    self.update_status = "update failed"
-            self.is_updating = False
-        except Exception as e:
-            print("Update thread error:", e)
-            self.update_status = "update failed"
-            self.is_updating = False
-
-    def post_score(self, username, score):
-        def _post():
-            import urllib.request, json
-            url = "https://api.restful-api.dev/objects/ff8081819d82fab6019f55cbbafe4b47"
-            try:
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req) as response:
-                    data = json.loads(response.read())
-                    scores = data.get("data", {}).get("scores", [])
-                    
-                scores.append({"name": username, "score": score})
-                scores.sort(key=lambda x: x.get("score", 0), reverse=True)
-                scores = scores[:10]
-                
-                payload = json.dumps({"data": {"scores": scores}}).encode("utf-8")
-                req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}, method="PUT")
-                with urllib.request.urlopen(req) as response:
-                    pass
-            except Exception as e:
-                print("Failed to post score:", e)
-        threading.Thread(target=_post, daemon=True).start()
-
-    def fetch_leaderboard(self):
-        self.leaderboard_data = None
-        def _fetch():
-            import urllib.request, json
-            url = "https://api.restful-api.dev/objects/ff8081819d82fab6019f55cbbafe4b47"
-            try:
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req) as response:
-                    data = json.loads(response.read())
-                    self.leaderboard_data = data.get("data", {}).get("scores", [])
-            except Exception as e:
-                self.leaderboard_data = [
-                    {"name": "Jason Ivany", "score": 100},
-                ]
-                print("Failed to fetch leaderboard:", e)
-        threading.Thread(target=_fetch, daemon=True).start()
 
     def draw_room_prompt(self):
         self.draw_menu()
@@ -2349,156 +2107,8 @@ class WinCurl3:
         self.canvas.blit(sub, (cx - sub.get_width()//2, cy + 120))
         self.draw_global_ui()
 
-
-    def draw_options_menu(self):
-        self.canvas.fill((10, 12, 16))
-        self.last_starfield_speed = 0.5
-        self.starfield.draw(self.canvas, 0.5)
-        
-        cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
-        self.menu_dy = (BASE_HEIGHT - 1920) // 2
-        bx, by = cx - self.title_base.get_width()//2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15) 
-        pad = 9
-        self.canvas.blit(self.title_outline, (bx - pad, by - pad))
-        offset = int((pygame.time.get_ticks() * 0.15) % 150)
-        self.title_rainbow_frame.fill((0, 0, 0, 0))
-        self.title_rainbow_frame.blit(self.title_base, (0, 0))
-        self.title_rainbow_frame.blit(self.rainbow_grad, (-offset, 0), special_flags=pygame.BLEND_RGB_MULT)
-        self.canvas.blit(self.title_rainbow_frame, (bx, by))
-        
-        lbl_v = self.font_72.render("OPTIONS", True, WHITE)
-        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 320 + getattr(self, 'menu_dy', 0)))
-        lbl_build = self.font.render(f"(Build {VERSION})", True, (150, 160, 180))
-        self.canvas.blit(lbl_build, (cx - lbl_build.get_width()//2, 385 + getattr(self, 'menu_dy', 0)))
-
-        for btn in self.options_buttons:
-            if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] == "bilinear"):
-                continue
-                
-            if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
-            elif btn["id"] == "color": 
-                btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
-                text = "My Team:"
-            elif btn["id"] == "master_vol":
-                text = "Master Volume"
-            elif btn["id"] == "fxaa":
-                text = "FXAA: " + ("ON 🪄" if getattr(self, 'fxaa_on', False) else "OFF 🖥️")
-                btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
-            elif btn["id"] == "bilinear":
-                text = "Bilinear Filtering: " + ("ON" if getattr(self, 'bilinear_on', False) else "OFF")
-                btn["color"] = (40, 120, 60) if getattr(self, 'bilinear_on', False) else TEAM_YELLOW
-            elif btn["id"] == "light_filter":
-                text = "Bilinear Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
-                btn["color"] = (40, 120, 60) if getattr(self, 'lighter_filter', False) else TEAM_YELLOW
-            elif btn["id"] == "update":
-                text = getattr(self, "update_status", "Check for update")
-            else: text = btn["text"]
-
-            is_hovered = (self.last_hovered == "opt_" + btn["id"])
-            target_scale = 1.07 if is_hovered else 1.0
-            if abs(btn["scale"] - target_scale) < 0.005: btn["scale"] = target_scale
-            else: btn["scale"] += (target_scale - btn["scale"]) * 0.3
-            
-            rect = pygame.Rect(cx - 300*btn["scale"], btn["y"] + getattr(self, 'menu_dy', 0) - 15*btn["scale"], 600*btn["scale"], 95*btn["scale"])
-            draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
-            
-            if btn["id"] == "color":
-                img = self.font.render(text, True, WHITE)
-                txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
-                self.canvas.blit(img, txt_rect)
-                
-                rock_x = txt_rect.right + 40
-                rock_y = rect.centery
-                stone_c = TEAM_YELLOW if self.preferred_color else HOUSE_RED
-                rock_r = 26
-                pygame.draw.circle(self.canvas, (160, 165, 170), (rock_x, rock_y), rock_r)
-                pygame.draw.circle(self.canvas, (100, 105, 110), (rock_x, rock_y), rock_r, 2)
-                pygame.draw.circle(self.canvas, stone_c, (rock_x, rock_y), 16)
-                pygame.draw.circle(self.canvas, (max(0, stone_c[0]-50), max(0, stone_c[1]-50), max(0, stone_c[2]-50)), (rock_x, rock_y), 16, 2)
-                pygame.draw.line(self.canvas, BLACK, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 10)
-                pygame.draw.circle(self.canvas, BLACK, (rock_x - 12, rock_y), 5)
-                pygame.draw.circle(self.canvas, BLACK, (rock_x + 12, rock_y), 5)
-                pygame.draw.line(self.canvas, stone_c, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 6)
-                pygame.draw.circle(self.canvas, stone_c, (rock_x - 12, rock_y), 3)
-            elif btn["id"] == "master_vol":
-                img = self.font.render(text, True, WHITE)
-                txt_rect = img.get_rect(center=(rect.left + 160, rect.centery))
-                self.canvas.blit(img, txt_rect)
-                
-                bar_x, bar_w = txt_rect.right + 30, 240
-                pygame.draw.line(self.canvas, (80, 90, 100), (bar_x, rect.centery), (bar_x + bar_w, rect.centery), 10)
-                vol = getattr(self.audio, 'master_volume', 1.0)
-                pygame.draw.line(self.canvas, (200, 210, 220), (bar_x, rect.centery), (bar_x + int(bar_w * vol), rect.centery), 10)
-                pygame.draw.circle(self.canvas, WHITE, (bar_x + int(bar_w * vol), rect.centery), 12)
-            else:
-                img = self.font.render(text, True, WHITE) if btn["id"] != "fxaa" else self.chat_font.render(text, True, WHITE)
-                if img.get_width() > rect.w - 40:
-                    scale = (rect.w - 40) / img.get_width()
-                    img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
-                self.canvas.blit(img, img.get_rect(center=rect.center))
-
-        self.draw_global_ui()
-
-    def handle_options_events(self, event):
-        mouse_pos = getattr(event, 'pos', self.get_pointer_pos())
-        mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
-        menu_my = my - getattr(self, 'menu_dy', 0)
-        
-        curr_hov = None
-        for b in self.options_buttons:
-            if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
-            if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
-                curr_hov = "opt_" + b["id"]
-                break
-                
-        if curr_hov != self.last_hovered:
-            if curr_hov: self.audio.play_hover()
-            self.last_hovered = curr_hov
-
-        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
-            now = pygame.time.get_ticks()
-            if hasattr(self, 'last_click_time') and now - getattr(self, 'last_click_time', 0) < 300: return
-            self.last_click_time = now
-
-            if self.typing_target:
-                if not (300 < mx < 900 and 570 < menu_my < 690):
-                    self.set_typing_target(None)
-
-            if 300 < mx < 900:
-                for b in self.options_buttons:
-                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
-                    if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
-                        self.audio.play_click()
-                        new_target = None
-                        if b["id"] == "name": new_target = "name"
-                        elif b["id"] == "master_vol": pass # Handled by drag
-                        elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
-                        elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
-                        elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
-                        elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
-                        elif b["id"] == "update":
-                            if not getattr(self, 'is_updating', False):
-                                self.is_updating = True
-                                self.update_status = "updating..."
-                                threading.Thread(target=self.perform_update, daemon=True).start()
-                        elif b["id"] == "back": self.app_state = "MENU"
-                        self.set_typing_target(new_target)
-                        break
-        elif event.type == KEYDOWN and self.typing_target == "name":
-            if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
-            elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
-            
-        if self.is_pointer_pressed:
-            for b in self.options_buttons:
-                if b["id"] == "master_vol" and 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
-                    vol = max(0.0, min(1.0, (mx - (BASE_WIDTH//2 - 300*b["scale"] + 460)) / 240))
-                    self.audio.set_master_volume(vol)
-                    self.save_progress()
-                    break
-            
-
     def draw_challenge_menu(self):
-        self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 2.0; self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
+        self.canvas.fill((10, 12, 16)); self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("SELECT CHALLENGE", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
         
@@ -2516,10 +2126,10 @@ class WinCurl3:
     def draw_coin_toss_screen(self):
         self.draw_ice()
         self.canvas.blit(self.dark_overlay_150, (0, 0))
-        cx, cy, t = BASE_WIDTH//2, BASE_HEIGHT//2, 30 - self.coin_timer; scale_x = abs(math.cos(t * 0.6))
+        cx, cy, t = BASE_WIDTH//2, BASE_HEIGHT//2, 60 - self.coin_timer; scale_x = abs(math.cos(t * 0.3))
         
-        if self.coin_timer > 5:
-            is_red = (t // 3) % 2 == 0; text = "FLIPPING FOR HAMMER..."
+        if self.coin_timer > 15:
+            is_red = (t // 5) % 2 == 0; text = "FLIPPING FOR HAMMER..."
         else:
             is_red = self.coin_flip_result == 0; text = "RED GETS HAMMER" if is_red else "YELLOW GETS HAMMER"
             
@@ -2541,6 +2151,24 @@ class WinCurl3:
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
+        
+        cx = self.hack_pos.x
+        hack_y = self.hack_pos.y + 35
+        
+        # Black bar behind the foot pads
+        pygame.draw.rect(self.canvas, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
+        # Center support
+        pygame.draw.rect(self.canvas, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
+        
+        # Left foot pad (25% taller)
+        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 18), (cx - 45, hack_y + 21)]
+        pygame.draw.polygon(self.canvas, (20, 20, 22), left_pad)
+        pygame.draw.polygon(self.canvas, (60, 60, 65), left_pad, 2)
+        
+        # Right foot pad (25% taller)
+        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 18), (cx + 45, hack_y + 21)]
+        pygame.draw.polygon(self.canvas, (20, 20, 22), right_pad)
+        pygame.draw.polygon(self.canvas, (60, 60, 65), right_pad, 2)
 
     def draw_ui(self):
         if not hasattr(self, 'score_bg'):
@@ -2583,17 +2211,7 @@ class WinCurl3:
         btn_text = "DISCONNECT" if self.game_mode in ("HOST", "JOIN") else "PAUSE"
         lbl_p = self.small_font.render(btn_text, True, BLACK)
         if self.game_mode in ("HOST", "JOIN"):
-            total_w = 34 + 8 + lbl_p.get_width()
-            start_x = self.btn_pause.centerx - total_w // 2
-            # Disconnect Icon
-            px, py = start_x + 17, self.btn_pause.centery
-            pygame.draw.circle(self.canvas, BLACK, (px-8, py), 4)
-            pygame.draw.line(self.canvas, BLACK, (px-8, py), (px-2, py), 3)
-            pygame.draw.circle(self.canvas, BLACK, (px+8, py), 4)
-            pygame.draw.line(self.canvas, BLACK, (px+8, py), (px+2, py), 3)
-            pygame.draw.line(self.canvas, (255, 50, 50), (px-4, py-6), (px+4, py+6), 3)
-            self.canvas.blit(lbl_p, (start_x + 42, self.btn_pause.centery - lbl_p.get_height()//2))
-
+            self.canvas.blit(lbl_p, (self.btn_pause.centerx - lbl_p.get_width()//2, self.btn_pause.centery - lbl_p.get_height()//2))
             draw_glass_rect(self.canvas, self.btn_chat, (50, 55, 65) if not self.typing_chat else (80, 150, 80), self.btn_chat.h // 2, self.btn_chat.collidepoint(m_pos.x, m_pos.y))
             lbl_chat = self.small_font.render("CHAT", True, BLACK)
             self.canvas.blit(lbl_chat, (self.btn_chat.centerx - lbl_chat.get_width()//2, self.btn_chat.centery - lbl_chat.get_height()//2))
@@ -2619,7 +2237,7 @@ class WinCurl3:
                 if self.typing_chat: chat_h += 60
                 chat_rect = pygame.Rect(40, BASE_HEIGHT - 250 - chat_h, 800, chat_h)
                 
-                glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40, 200), 16, False)[1].copy()
+                glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40), 16, False)[1].copy()
                 if max_alpha < 255:
                     temp = pygame.Surface(glass_surf.get_size(), pygame.SRCALPHA)
                     temp.fill((255, 255, 255, max_alpha))
@@ -2628,14 +2246,11 @@ class WinCurl3:
                 
                 y_offset = chat_rect.y + 20
                 for c in active_chat:
-                    txt_surf = self.chat_font.render(c['text'], True, (255, 255, 255)).copy()
-                    shd_surf = self.chat_font.render(c['text'], True, (0, 0, 0)).copy()
+                    txt_surf = self.chat_font.render(c['text'], True, (200, 200, 200)).copy()
                     if max_alpha < 255:
                         temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
                         temp.fill((255, 255, 255, max_alpha))
                         txt_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                        shd_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                    self.canvas.blit(shd_surf, (chat_rect.x + 22, y_offset + 2))
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 40
                     
@@ -2646,13 +2261,10 @@ class WinCurl3:
                         self.canvas.blit(line_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 15
                     txt_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, TEAM_YELLOW).copy()
-                    shd_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, (0, 0, 0)).copy()
                     if max_alpha < 255:
                         temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
                         temp.fill((255, 255, 255, max_alpha))
                         txt_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                        shd_surf.blit(temp, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                    self.canvas.blit(shd_surf, (chat_rect.x + 22, y_offset + 2))
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                 
             if self.net.matched and getattr(self.net, 'opponent', None):
@@ -2690,19 +2302,7 @@ class WinCurl3:
                             sx, sy = sx * cos_a - sy * sin_a, sx * sin_a + sy * cos_a
                         px += sx; py += sy
                         if i % 5 == 0: pygame.draw.circle(self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(px), int(py)), 6)
-            shadow_col = (255, 255, 255)
-            if self.selected_curl < 0:
-                c = int(255 * (1.0 + self.selected_curl))
-                shadow_col = (255, c, c)
-            elif self.selected_curl > 0:
-                c = int(255 * (1.0 - self.selected_curl))
-                shadow_col = (c, 255, c)
-            cb_str = f"CURL BIAS: {self.selected_curl:+.1f}"
-            lbl_sh = self.font.render(cb_str, True, shadow_col)
-            lbl_fg = self.font.render(cb_str, True, BLACK)
-            bx, by = self.hack_pos.x - 130, self.hack_pos.y - 80
-            self.canvas.blit(lbl_sh, (bx+3, by+3))
-            self.canvas.blit(lbl_fg, (bx, by))
+            self.canvas.blit(self.small_font.render(f"CURL BIAS: {self.selected_curl:+.1f}", True, BLACK), (self.hack_pos.x - 130, self.hack_pos.y - 80))
             
         elif self.turn_state == "SLIDING":
             if getattr(self, 'is_sweeping_now', False):
@@ -2724,13 +2324,10 @@ class WinCurl3:
             
             btn_txt = "NEXT" if self.game_mode=="CHALLENGE" and (getattr(self, 'challenge_success', False) or self.challenge_attempts >= 3) else "RETRY" if self.game_mode=="CHALLENGE" else "ADVANCE MATCH"
             lbl = self.small_font.render(btn_txt, True, WHITE); self.canvas.blit(lbl, lbl.get_rect(center=self.btn_next_end.center))
-        
-        self.draw_global_ui()
 
     def draw_pause_screen(self):
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
         overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
-        self.last_starfield_speed = 0.5 * self.pause_anim
         self.starfield.draw(self.canvas, 0.5 * self.pause_anim)
         m_pos = self.get_pointer_pos()
         
@@ -2777,46 +2374,10 @@ class WinCurl3:
         m_pos = self.get_pointer_pos()
         draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(m_pos.x, m_pos.y))
         lbl_btn = self.font.render("MAIN MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
-        
-        self.btn_leaderboard = pygame.Rect(cx - 150, 750, 300, 70)
-        draw_glass_rect(self.canvas, self.btn_leaderboard, (50, 60, 80), self.btn_leaderboard.h // 2, self.btn_leaderboard.collidepoint(m_pos.x, m_pos.y))
-        lbl_lb = self.font.render("LEADERBOARD", True, WHITE)
-        self.canvas.blit(lbl_lb, lbl_lb.get_rect(center=self.btn_leaderboard.center))
-
-    def draw_leaderboard_screen(self):
-        self.canvas.fill((16, 22, 34))
-        cx = BASE_WIDTH // 2
-        lbl = self.font_72.render("GLOBAL LEADERBOARD", True, WHITE)
-        self.canvas.blit(lbl, (cx - lbl.get_width()//2, 80))
-        
-        b_rect = pygame.Rect(cx - 400, 200, 800, 650)
-        pygame.draw.rect(self.canvas, (28, 36, 50), b_rect, border_radius=16); pygame.draw.rect(self.canvas, (55, 70, 95), b_rect, 4, border_radius=16)
-        
-        if getattr(self, 'leaderboard_data', None) is None:
-            txt = self.font.render("LOADING...", True, (150, 200, 255))
-            self.canvas.blit(txt, (cx - txt.get_width()//2, 400))
-        elif getattr(self, 'leaderboard_data') == "ERROR":
-            txt = self.font.render("FAILED TO LOAD DATA", True, (255, 100, 100))
-            self.canvas.blit(txt, (cx - txt.get_width()//2, 400))
-        else:
-            for i, entry in enumerate(self.leaderboard_data[:10]):
-                name = entry.get('name', 'Unknown')
-                score = entry.get('score', 0)
-                color = TEAM_YELLOW if i == 0 else WHITE if i < 3 else (180, 180, 180)
-                n_lbl = self.font.render(f"{i+1}. {name}", True, color)
-                s_lbl = self.font.render(str(score), True, color)
-                self.canvas.blit(n_lbl, (cx - 350, 230 + i * 60))
-                self.canvas.blit(s_lbl, (cx + 250, 230 + i * 60))
-                
-        m_pos = self.get_pointer_pos()
-        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(m_pos.x, m_pos.y))
-        lbl_btn = self.font.render("BACK", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
-        m_pos = self.get_pointer_pos()
-        draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(m_pos.x, m_pos.y))
-        draw_speaker_icon(self.canvas, self.btn_mute.x + self.btn_mute.w//2 - 20, self.btn_mute.y + self.btn_mute.h//2 - 13, getattr(self, 'is_music_muted', False))
         if not IS_ANDROID:
+            m_pos = self.get_pointer_pos()
             draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), self.btn_fs.h // 2, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
             lbl = self.small_font.render("FULLSCREEN", True, WHITE)
             self.canvas.blit(lbl, lbl.get_rect(center=self.btn_fs.center))
@@ -2834,35 +2395,19 @@ class WinCurl3:
         
         self.screen.fill((10, 12, 16))
         
-        if not IS_ANDROID and getattr(self, 'border_starfield', None):
-            self.border_starfield.draw(self.screen, getattr(self, 'last_starfield_speed', 0.5) * scale)
+        if getattr(self, 'is_4k', False):
+            self.border_starfield.draw(self.screen, 0.5)
         
         if IS_ANDROID:
-            if getattr(self, 'bilinear_on', False):
-                # Bilinear requires manual scaling if we want to override GPU nearest (if SCALED is nearest)
-                self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)) if sw != BASE_WIDTH else self.canvas, (ox, oy))
-            else:
-                self.screen.blit(self.canvas, (ox, oy))
+            self.screen.blit(self.canvas, (ox, oy))
         else:
-            if getattr(self, 'fxaa_on', False):
-                self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
-            elif getattr(self, 'lighter_filter', False):
-                # Lighter weight filter = standard bilinear without extra passes, but pygame smoothscale is already just bilinear.
-                # Let's use scale for off, and smoothscale for lighter/fxaa.
-                self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
-            else:
-                self.screen.blit(pygame.transform.scale(self.canvas, (sw, sh)), (ox, oy))
+            self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
             
         pygame.display.flip()
 
     def run(self):
-        self.accumulator = 0.0
-        FIXED_DT = 1000.0 / FPS
         while True:
-            ms_passed = self.clock.tick(FPS)
-            self.accumulator += ms_passed
-            if self.accumulator > 200: self.accumulator = 200 # Prevent spiral of death
-            
+            self.frames_elapsed += 1
             for event in pygame.event.get():
                 if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
                 
@@ -2875,20 +2420,9 @@ class WinCurl3:
                         event = pygame.event.Event(event.type, buttons=getattr(event, 'buttons', (1,0,0)), pos=self.current_mapped_pos, finger_id='mouse')
                     else:
                         event = pygame.event.Event(event.type, button=getattr(event, 'button', 1), pos=self.current_mapped_pos, finger_id='mouse')
-                        if event.type == MOUSEBUTTONDOWN:
-                            mx, my = self.current_mapped_pos
-                            if self.btn_mute.collidepoint(mx, my):
-                                self.is_music_muted = not getattr(self, 'is_music_muted', False)
-                                self.audio.play_click()
-                                self.save_progress()
-                                continue
-                            if not IS_ANDROID and self.btn_fs.collidepoint(mx, my):
-                                self.toggle_fullscreen()
-                                continue
 
                 if event.type == VIDEORESIZE and not self.is_fullscreen and not IS_ANDROID:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
-                    self.border_starfield = Starfield(count=400, max_w=event.w, max_h=event.h)
                 
                 if event.type == getattr(pygame, 'TEXTINPUT', 771):
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"] and self.typing_chat:
@@ -2897,11 +2431,9 @@ class WinCurl3:
                     elif self.app_state == "MENU" and self.typing_target == "name":
                         if len(self.username) + len(event.text) <= 15:
                             self.username += event.text
-                            self.save_progress()
                     elif self.app_state == "ROOM_PROMPT" and self.typing_target == "room":
                         if len(self.room_text) + len(event.text) <= 15:
                             self.room_text += event.text
-                            self.save_progress()
 
                 if event.type == KEYDOWN:
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"]:
@@ -2948,13 +2480,11 @@ class WinCurl3:
                 if self.app_state == "MENU": self.handle_menu_events(event)
                 elif self.app_state == "ROOM_PROMPT": self.handle_room_prompt_events(event)
                 elif self.app_state == "CHALLENGE_MENU": self.handle_challenge_menu_events(event)
-                elif self.app_state == "OPTIONS_MENU": self.handle_options_events(event)
                 elif self.app_state == "PLAY": self.handle_play_events(event)
                 elif self.app_state == "PAUSED": self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
-                elif self.app_state == "LEADERBOARD": self.handle_leaderboard_events(event)
 
-            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU", "MATCH_OVER"]:
+            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "MATCH_OVER"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_since_start', 0) >= 210: 
                     self.audio.play_music()
                 else: 
@@ -2964,21 +2494,11 @@ class WinCurl3:
                 
             self.update_network()
             
-            # Physics loop (Fixed timestep)
-            while self.accumulator >= FIXED_DT:
-                self.frames_elapsed += 1
-                if self.app_state == "PLAY":
-                    self.update_physics()
-                elif self.app_state == "PAUSED" and self.game_mode in ["HOST", "JOIN"]:
-                    self.update_physics()
-                self.accumulator -= FIXED_DT
-                
             if self.app_state == "MENU": 
                 self.audio.process_pending_sounds()
                 self.draw_menu()
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU": self.draw_challenge_menu()
-            elif self.app_state == "OPTIONS_MENU": self.draw_options_menu()
             elif self.app_state == "COIN_TOSS":
                 if self.game_mode == "JOIN" and getattr(self, 'coin_flip_result', -1) == -1:
                     pass
@@ -2993,14 +2513,14 @@ class WinCurl3:
                         self.app_state = "PLAY"; self.reset_end()
                 self.draw_coin_toss_screen()
             elif self.app_state == "PLAY":
-                self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
+                self.update_physics(); self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui()
             elif self.app_state == "PAUSED": 
+                if self.game_mode in ["HOST", "JOIN"]: self.update_physics()
                 self.draw_ice(); [s.draw(self.canvas) for s in self.stones]; self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui(); self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER": self.draw_match_over_screen()
-            elif self.app_state == "LEADERBOARD": self.draw_leaderboard_screen()
                 
-            self.render()
+            self.render(); self.clock.tick(FPS)
 
 # --- DAL.NET IRC Socket Manager ---
 class IRCNetworkManager:
