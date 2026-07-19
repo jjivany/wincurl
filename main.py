@@ -1445,9 +1445,8 @@ class WinCurl3:
             {"id": "bilinear", "y": 840, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "fxaa", "y": 960, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "light_filter", "y": 1080, "text": "Lighter ICE:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "fullscreen", "y": 1200, "text": "Toggle Fullscreen", "color": (100, 200, 150), "scale": 1.0},
-            {"id": "update", "y": 1320, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1440, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "update", "y": 1200, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1320, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
 
@@ -2381,8 +2380,7 @@ class WinCurl3:
                 text = "My Team:"
             elif btn["id"] == "master_vol":
                 text = "Volume"
-            elif btn["id"] == "fullscreen":
-                text = "Toggle Fullscreen"
+
             elif btn["id"] == "fxaa":
                 text = "FXAA: " + ("ON 🪄" if getattr(self, 'fxaa_on', False) else "OFF 🖥️")
                 btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
@@ -2468,7 +2466,7 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.options_buttons:
-                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter", "fullscreen"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
+                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
                     if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
@@ -2478,7 +2476,7 @@ class WinCurl3:
                         elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
                         elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
                         elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
-                        elif b["id"] == "fullscreen": self.toggle_fullscreen()
+
                         elif b["id"] == "update":
                             if not getattr(self, 'is_updating', False):
                                 self.is_updating = True
@@ -2663,8 +2661,27 @@ class WinCurl3:
                     self.canvas.blit(txt_surf, (chat_rect.x + 20, y_offset))
                 
             if self.net.matched and getattr(self.net, 'opponent', None):
-                opp_surf = self.small_font.render(f"VS: {self.net.opponent.split('!')[0]}", True, BLACK)
-                self.canvas.blit(opp_surf, (40, 150))
+                raw_name = self.net.opponent.split('!')[0]
+                if raw_name.startswith("WC_"): raw_name = raw_name[3:]
+                opp_surf = self.small_font.render(f"VS: {raw_name}", True, BLACK)
+                
+                opp_c = TEAM_YELLOW if self.preferred_color == 0 else HOUSE_RED
+                rock_x = 56
+                rock_y = 150 + opp_surf.get_height()//2
+                
+                rock_r = 16
+                pygame.draw.circle(self.canvas, (160, 165, 170), (rock_x, rock_y), rock_r)
+                pygame.draw.circle(self.canvas, (100, 105, 110), (rock_x, rock_y), rock_r, 2)
+                pygame.draw.circle(self.canvas, opp_c, (rock_x, rock_y), 10)
+                pygame.draw.circle(self.canvas, (max(0, opp_c[0]-50), max(0, opp_c[1]-50), max(0, opp_c[2]-50)), (rock_x, rock_y), 10, 2)
+                pygame.draw.line(self.canvas, BLACK, (rock_x - 7, rock_y), (rock_x + 7, rock_y), 6)
+                pygame.draw.circle(self.canvas, BLACK, (rock_x - 7, rock_y), 3)
+                pygame.draw.circle(self.canvas, BLACK, (rock_x + 7, rock_y), 3)
+                pygame.draw.line(self.canvas, opp_c, (rock_x - 7, rock_y), (rock_x + 7, rock_y), 4)
+                pygame.draw.circle(self.canvas, opp_c, (rock_x - 7, rock_y), 2)
+                pygame.draw.circle(self.canvas, opp_c, (rock_x + 7, rock_y), 2)
+                
+                self.canvas.blit(opp_surf, (rock_x + 20, 150))
 
         if self.turn_state == "AIMING":
             if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
