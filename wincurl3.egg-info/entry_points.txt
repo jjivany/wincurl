@@ -1,2 +1,0 @@
-[console_scripts]
-wincurl3 = wincurl3.main:main
