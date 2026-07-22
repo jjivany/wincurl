@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "31.9"
+VERSION = "31.10"
 
 
 class CachedFont:
@@ -798,7 +798,7 @@ class WinCurlAudioEngine:
                     pygame.mixer.music.load(self.snd_music); loaded = True
                 except: pass
             if loaded:
-                pygame.mixer.music.set_volume(0.25)
+                pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.10)
                 pygame.mixer.music.play(-1)
     def stop_music(self):
         pygame.mixer.music.stop()
@@ -966,9 +966,16 @@ def get_pixel_portrait(name, size=(120, 120)):
     
     b64 = portraits_data.PORTRAITS_B64.get(name, portraits_data.PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
-    surf = pygame.image.load(io.BytesIO(data))
+    surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
     
-    scaled = pygame.transform.scale(surf, size)
+    bg_color = surf.get_at((0, 0))
+    scaled = pygame.transform.smoothscale(surf, size)
+    for x in range(size[0]):
+        for y in range(size[1]):
+            c = scaled.get_at((x, y))
+            if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
+                scaled.set_at((x, y), (0, 0, 0, 0))
+                
     PIXEL_PORTRAIT_CACHE[key] = scaled
     return scaled
 
@@ -1765,8 +1772,6 @@ class WinCurl3:
 
     def update_menu_buttons(self):
         self.menu_buttons = []
-        if getattr(self, 'saved_match_state', None):
-            self.menu_buttons.append({"id": "resume", "y": 360, "text": "Resume Match", "color": (150, 150, 255), "scale": 1.0})
         self.menu_buttons.extend([
             {"id": "story", "y": 480, "text": "Story Mode", "color": (100, 200, 100), "scale": 1.0},
             {"id": "local", "y": 600, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
@@ -2088,15 +2093,11 @@ class WinCurl3:
                     if b["id"] == curr_hov:
                         self.audio.play_click()
                         new_target = None
-                        if b["id"] == "resume": self.restore_match()
-                        elif b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
+                        if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] == "story":
-                            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
-                                self.restore_match()
-                            else:
-                                self.app_state = "STORY_MAP"
+                            self.app_state = "STORY_MAP"
                         elif b["id"] == "options": self.app_state = "OPTIONS_MENU"; self.prev_state = "MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
@@ -2182,12 +2183,26 @@ class WinCurl3:
                             self.audio.play_error()
                         return
                         
-            start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 800, 400, 100)
-            if start_btn.collidepoint(mx, my):
-                self.audio.play_click()
-                if self.story.current_rink < len(STORY_RINKS):
-                    self.app_state = "STORY_DIALOG"
-                    self.dialog_index = 0
+            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
+                start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 750, 400, 80)
+                new_btn = pygame.Rect(BASE_WIDTH//2 - 200, 850, 400, 80)
+                if start_btn.collidepoint(mx, my):
+                    self.audio.play_click()
+                    self.restore_match()
+                elif new_btn.collidepoint(mx, my):
+                    self.audio.play_click()
+                    if self.story.current_rink < len(STORY_RINKS):
+                        self.saved_match_state = None
+                        self.save_progress()
+                        self.app_state = "STORY_DIALOG"
+                        self.dialog_index = 0
+            else:
+                start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 800, 400, 100)
+                if start_btn.collidepoint(mx, my):
+                    self.audio.play_click()
+                    if self.story.current_rink < len(STORY_RINKS):
+                        self.app_state = "STORY_DIALOG"
+                        self.dialog_index = 0
 
     def handle_pause_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -2888,9 +2903,18 @@ class WinCurl3:
             rink_txt = self.font.render(f"Next: {rink['name']} ({rink['boss']})", True, rink['color'])
             self.canvas.blit(rink_txt, (cx - rink_txt.get_width()//2, 640))
             
-            start_btn = pygame.Rect(cx - 200, 800, 400, 100)
-            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
-            lbl_btn2 = self.font.render("BATTLE NEXT RINK", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
+                start_btn = pygame.Rect(cx - 200, 750, 400, 80)
+                draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+                lbl_btn2 = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+                
+                new_btn = pygame.Rect(cx - 200, 850, 400, 80)
+                draw_glass_rect(self.canvas, new_btn, (100, 100, 100), new_btn.h // 2, new_btn.collidepoint(self.get_pointer_pos()))
+                lbl_new = self.font.render("NEW MATCH", True, WHITE); self.canvas.blit(lbl_new, lbl_new.get_rect(center=new_btn.center))
+            else:
+                start_btn = pygame.Rect(cx - 200, 800, 400, 100)
+                draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+                lbl_btn2 = self.font.render("BATTLE NEXT RINK", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
         else:
             txt_win = self.font.render("YOU BEAT THE GAME!", True, (100, 255, 100))
             self.canvas.blit(txt_win, (cx - txt_win.get_width()//2, 320))
@@ -3213,7 +3237,7 @@ class WinCurl3:
         m_pos = self.get_pointer_pos()
         
         lbl_p = self.font_85.render("PAUSED", True, WHITE)
-        self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 250 + int((1.0 - self.pause_anim) * -200)))
+        self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 350 + int((1.0 - self.pause_anim) * -200)))
         
         res_rect = self.btn_resume.move(-int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
