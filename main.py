@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "30.2"
+VERSION = "31.0"
 
 
 class CachedFont:
@@ -967,7 +967,7 @@ class AnimatedCurler:
         elif self.state == "BACKSWING" and drag_vector: self.delivery_progress = min(1.0, drag_vector.length() / 250.0)
         else: self.delivery_progress = 0.0
 
-    def _draw_char_geometry(self, surface, hx, hy, offset_y, lunge_dist, override_color=None):
+    def _draw_char_geometry(self, surface, hx, hy, offset_y, lunge_dist, override_color=None, is_evil=False):
         def c(col): return override_color or col
 
         def draw_cylinder_line(surf, color, start, end, width):
@@ -997,8 +997,8 @@ class AnimatedCurler:
                 pygame.draw.rect(surf, hl_col, (x+10, y+4, w//2 - 6, h-8), border_radius=max(0, border_radius-4))
                 pygame.draw.rect(surf, color, (x+14, y+6, w//2 - 12, h-12), border_radius=max(0, border_radius-6))
 
-        def head(ix, iy):
-            cache_key = (self.tc, override_color)
+        def head(ix, iy, is_evil=False):
+            cache_key = (self.tc, override_color, is_evil)
             if cache_key not in AnimatedCurler._head_cache:
                 surf = pygame.Surface((60, 80), pygame.SRCALPHA)
                 cx, cy = 30, 40
@@ -1006,6 +1006,11 @@ class AnimatedCurler:
                 head_rw, head_rh = 15, 12
                 # Base skin tone
                 pygame.draw.ellipse(surf, c((240, 200, 180)), (cx-head_rw, cy-head_rh, head_rw*2, head_rh*2))
+                
+                if is_evil and not override_color:
+                    # Jagged Wario mustache sticking out the sides
+                    pygame.draw.polygon(surf, (20,20,20), [(cx-head_rw+2, cy), (cx-head_rw-8, cy-8), (cx-head_rw-2, cy+6), (cx-head_rw-12, cy)])
+                    pygame.draw.polygon(surf, (20,20,20), [(cx+head_rw-2, cy), (cx+head_rw+8, cy-8), (cx+head_rw+2, cy+6), (cx+head_rw+12, cy)])
 
                 if not override_color:
                     import math
@@ -1050,14 +1055,22 @@ class AnimatedCurler:
                 # Pom-pom (Slightly shifted up for back perspective)
                 if not override_color:
                     for r in range(9, 0, -1):
-                        s = 140 + r*11
-                        pygame.draw.circle(surf, (s,s,s), (cx, cy-head_rh-9), r)
+                        if is_evil:
+                            s = (80 + r*10, 20 + r*5, 120 + r*12)
+                            pygame.draw.circle(surf, s, (cx, cy-head_rh-9), r)
+                        else:
+                            s = 140 + r*11
+                            pygame.draw.circle(surf, (s,s,s), (cx, cy-head_rh-9), r)
                 else:
                     pygame.draw.circle(surf, c((180,180,180)), (cx, cy-head_rh-9), 9)
                     
                 AnimatedCurler._head_cache[cache_key] = surf
             
             surface.blit(AnimatedCurler._head_cache[cache_key], (ix - 30, iy - 40))
+
+        PURPLE_SUIT = (106, 13, 173)
+        CYAN_ACCENT = (50, 200, 255)
+        accent_color = PURPLE_SUIT if is_evil else CYAN_ACCENT
 
         if self.state == "BACKSWING":
             # 3D Legs
@@ -1085,17 +1098,17 @@ class AnimatedCurler:
                 draw_cylinder_rect(surface, self.tc, (hx-36, hy+18+offset_y, 72, 84), border_radius=16)
 
             # Tracksuit accent lines (Center zipper removed for back view)
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-20, hy+30+offset_y), (hx-20, hy+92+offset_y), 4)
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx+20, hy+30+offset_y), (hx+20, hy+92+offset_y), 4)
+            pygame.draw.line(surface, c(accent_color), (hx-20, hy+30+offset_y), (hx-20, hy+92+offset_y), 4)
+            pygame.draw.line(surface, c(accent_color), (hx+20, hy+30+offset_y), (hx+20, hy+92+offset_y), 4)
 
             # Tracksuit Collar (Wraps fully around the back of the neck)
             if override_color:
-                pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-16, hy+10+offset_y, 32, 14), border_radius=4)
+                pygame.draw.rect(surface, c(PURPLE_SUIT) if is_evil else c(accent_color), (hx-16, hy+10+offset_y, 32, 14), border_radius=4)
             else:
                 draw_cylinder_rect(surface, self.tc, (hx-17, hy+9+offset_y, 34, 16), border_radius=4)
 
             # Full Head Overlap
-            head(hx, hy - 8 + offset_y)
+            head(hx, hy - 8 + offset_y, is_evil)
             
             # 3D Forward Arm
             draw_cylinder_line(surface, (210,180,50), (hx-55, hy+10+offset_y), (hx-15, hy+45+offset_y), 10)
@@ -1145,17 +1158,17 @@ class AnimatedCurler:
                 draw_cylinder_rect(surface, self.tc, (hx-32, ly-32, 64, 94), border_radius=15)
 
             # Tracksuit accent lines (Center zipper removed for back view)
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx-15, ly-15), (hx-15, ly+50), 4)
-            pygame.draw.line(surface, c(CYAN_ACCENT), (hx+15, ly-15), (hx+15, ly+50), 4)
+            pygame.draw.line(surface, c(accent_color), (hx-15, ly-15), (hx-15, ly+50), 4)
+            pygame.draw.line(surface, c(accent_color), (hx+15, ly-15), (hx+15, ly+50), 4)
 
             # Tracksuit Collar
             if override_color:
-                pygame.draw.rect(surface, c(PURPLE_SUIT), (hx-16, ly-39, 32, 14), border_radius=4)
+                pygame.draw.rect(surface, c(PURPLE_SUIT) if is_evil else c(accent_color), (hx-16, ly-39, 32, 14), border_radius=4)
             else:
                 draw_cylinder_rect(surface, self.tc, (hx-17, ly-40, 34, 16), border_radius=4)
 
             # Full Head Overlap
-            head(hx, ly-45)
+            head(hx, ly-45, is_evil)
             
             # 3D Lunging Arm
             draw_cylinder_line(surface, (210,180,50), (hx-75, ly-10), (hx-20, ly+20), 10)
@@ -1167,17 +1180,143 @@ class AnimatedCurler:
             # Broom Arm
             draw_cylinder_line(surface, self.tc, (hx-25, ly-10), (hx-10, ly-60), 16)
 
-    def draw(self, surface, team_color):
+    def draw(self, surface, team_color, is_evil=False):
         if self.state == "IDLE" and self.delivery_progress == 0.0: return
         self.tc = team_color; oy = self.delivery_progress*70 if self.state == "BACKSWING" else 0; ld = (1.0 - self.delivery_progress)*-190 if self.state == "LUNGING" else 0
-        
+            
         if not hasattr(self, 'shadow_surf'):
             self.shadow_surf = pygame.Surface((250, 350), pygame.SRCALPHA).convert_alpha()
         self.shadow_surf.fill((0,0,0,0))
-        self._draw_char_geometry(self.shadow_surf, 125+18, 150+18, oy, ld, (0,0,0,100))
+        self._draw_char_geometry(self.shadow_surf, 125+18, 150+18, oy, ld, (0,0,0,100), is_evil)
         surface.blit(self.shadow_surf, (self.hack_pos.x - 125, self.hack_pos.y - 150))
         
-        self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld)
+        self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
+STORY_RINKS = [
+    {
+        "name": "Smog City Rink",
+        "boss": "CEO Smogsworth",
+        "color": (120, 120, 130),
+        "intro_dialog": [
+            "Well, well. The 'environmentalist' curler arrives.", 
+            "You really think you can stop me from paving over the wildlife reserve?", 
+            "I need that land to manufacture my single-use plastic curling brooms!", 
+            "Let's see if your sweeping can clear my smog!"
+        ],
+        "win_dialog": ["No! My profit margins! My beautiful pollution!"],
+        "difficulty": 3
+    },
+    {
+        "name": "Deforestation Dome",
+        "boss": "Timber Baroness",
+        "color": (100, 150, 80),
+        "intro_dialog": [
+            "Clear-cutting the ancient redwood forest is just good business.",
+            "Where else am I supposed to get the wood for my cheap stone handles?",
+            "Your 'sustainable' curling equipment makes me sick.",
+            "I'm going to sweep you away like so much sawdust!"
+        ],
+        "win_dialog": ["Timber! My empire is falling!"],
+        "difficulty": 4
+    },
+    {
+        "name": "Oil Spill Arena",
+        "boss": "Baron Von Crude",
+        "color": (50, 50, 50),
+        "intro_dialog": [
+            "So what if my offshore drilling operation is leaking a little?",
+            "It makes the ice-making water extra slick! It's a feature, not a bug!",
+            "You can't stop the flow of progress... or oil.",
+            "Prepare for a slippery defeat!"
+        ],
+        "win_dialog": ["My stock price is tanking... just like my stones..."],
+        "difficulty": 5
+    },
+    {
+        "name": "Coal Fire Stadium",
+        "boss": "Ashburn",
+        "color": (200, 80, 50),
+        "intro_dialog": [
+            "Clean energy? Bah! Nothing melts the competition like burning pure coal!",
+            "I'm increasing global temperatures just to ruin the ice at rival rinks.",
+            "Corporate greed? No, it's corporate WARMTH.",
+            "Let's turn up the heat!"
+        ],
+        "win_dialog": ["Burned out... I've been extinguished..."],
+        "difficulty": 6
+    },
+    {
+        "name": "Toxic Waste Club",
+        "boss": "Dr. Sludge",
+        "color": (150, 50, 180),
+        "intro_dialog": [
+            "Dumping chemical runoff into the local water supply saves us millions!",
+            "Besides, it gives the curling rings that lovely glowing green hue.",
+            "Your protests mean nothing against my chemical empire!",
+            "Prepare for a toxic beatdown!"
+        ],
+        "win_dialog": ["My formulas... neutralized... by a curler?!"],
+        "difficulty": 7
+    },
+    {
+        "name": "Fracking Fields",
+        "boss": "Tremor",
+        "color": (130, 90, 60),
+        "intro_dialog": [
+            "Yes, my fracking operations are literally causing earthquakes.",
+            "But the natural gas yields are simply too profitable to ignore!",
+            "If a few houses fall down, that's just the cost of doing business.",
+            "Let's see you draw to the button while the earth shakes!"
+        ],
+        "win_dialog": ["A seismic collapse... my operations are ruined..."],
+        "difficulty": 8
+    },
+    {
+        "name": "Plastics Ocean Rink",
+        "boss": "Poly Mer",
+        "color": (50, 100, 200),
+        "intro_dialog": [
+            "Filling the oceans with microplastics is unavoidable.",
+            "How else can we package our cheap, disposable curling sliders?",
+            "Your environmentalism is drowning in a sea of polymers!",
+            "I'll crush you under a mountain of non-biodegradable waste!"
+        ],
+        "win_dialog": ["Recycled... I've been completely recycled..."],
+        "difficulty": 9
+    },
+    {
+        "name": "Pebble Overpass",
+        "boss": "The FourElite",
+        "color": (200, 200, 200),
+        "intro_dialog": [
+            "You've meddled in our subsidiaries' affairs for the last time.",
+            "We are the Board of Directors. The FourElite.",
+            "We intend to privatize all curling ice in the world.",
+            "No more public rinks. Only premium subscription-based ice.",
+            "Your grassroots environmental campaign ends today!"
+        ],
+        "win_dialog": ["The board... is dissolved. You've saved public curling!"],
+        "difficulty": 10
+    }
+]
+
+class StoryManager:
+    def __init__(self):
+        self.level = 1
+        self.xp = 0
+        self.stats = {'power': 1.0, 'curl_control': 1.0, 'sweep_endurance': 1.0}
+        self.current_rink = 0
+        self.trophies = []
+        
+    def to_dict(self):
+        return {'level': self.level, 'xp': self.xp, 'stats': self.stats, 'current_rink': self.current_rink, 'trophies': self.trophies}
+        
+    def from_dict(self, d):
+        self.level = d.get('level', 1)
+        self.xp = d.get('xp', 0)
+        self.stats = d.get('stats', {'power': 1.0, 'curl_control': 1.0, 'sweep_endurance': 1.0})
+        self.current_rink = d.get('current_rink', 0)
+        self.trophies = d.get('trophies', [])
+
 # --- Main Engine ---
 class WinCurl3:
     def __init__(self):
@@ -1185,6 +1324,8 @@ class WinCurl3:
         self.canvas = None
         self.current_mapped_pos = pygame.math.Vector2(BASE_WIDTH//2, BASE_HEIGHT//2)
         self.is_pointer_pressed = False
+        
+        self.story = StoryManager()
         
         # BUILD 14 PREVIEW 2: Advanced Chat State
         self.chat_messages = []
@@ -1222,6 +1363,38 @@ class WinCurl3:
         self.font_62 = CachedFont(pygame.font.Font(None, 60))
         self.font_72 = CachedFont(pygame.font.Font(None, 70))
         self.font_85 = CachedFont(pygame.font.Font(None, 82))
+        
+        self.sprites = {}
+        sprite_files = {
+            "CURLER": "curler_portrait_red.jpg",
+            "Prof. Stones": "prof_stones.jpg",
+            "CEO Smogsworth": "smogsworth.jpg",
+            "Timber Baroness": "timber_baroness.jpg",
+            "Baron Von Crude": "baron_von_crude.jpg",
+            "Ashburn": "ashburn.jpg",
+            "Dr. Sludge": "dr_sludge.jpg",
+            "Tremor": "tremor.jpg",
+            "Poly Mer": "poly_mer.jpg",
+            "The FourElite": "fourelite.jpg"
+        }
+        def load_sprite(fname, size):
+            img = pygame.transform.smoothscale(pygame.image.load(fname).convert_alpha(), size)
+            w, h = size
+            for x in range(w):
+                for y in range(h):
+                    r, g, b, a = img.get_at((x, y))
+                    if r > 230 and g > 230 and b > 230: img.set_at((x, y), (r, g, b, 0))
+            return img
+
+        for name, filename in sprite_files.items():
+            if os.path.exists(filename):
+                try: self.sprites[name] = load_sprite(filename, (150, 150))
+                except: pass
+        
+        # Player sprite replacement geometry
+        if "CURLER" in self.sprites:
+            # We scale it slightly larger if used to replace drawing geometry
+            self.sprites["CURLER_LARGE"] = load_sprite(sprite_files["CURLER"], (100, 100))
         
         # Pre-allocate dark overlays used in UI
         self.dark_overlay_150 = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); self.dark_overlay_150.fill((0, 0, 0, 150))
@@ -1429,13 +1602,14 @@ class WinCurl3:
         
         self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 240, 60)
         self.menu_buttons = [
-            {"id": "local", "y": 480, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "bot", "y": 600, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "chal", "y": 720, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
-            {"id": "options", "y": 840, "text": "Options", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "host", "y": 960, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "join", "y": 1080, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "exit", "y": 1200, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "story", "y": 480, "text": "Story Mode", "color": (100, 200, 100), "scale": 1.0},
+            {"id": "local", "y": 600, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "bot", "y": 720, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "chal", "y": 840, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
+            {"id": "options", "y": 960, "text": "Options", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "host", "y": 1080, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "join", "y": 1200, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "exit", "y": 1320, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
         ]
         
         self.options_buttons = [
@@ -1567,6 +1741,10 @@ class WinCurl3:
                 self.fxaa_on = data.get("fxaa_on", False)
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
+                
+                # Load story progress
+                if "story" in data:
+                    self.story.from_dict(data["story"])
         except:
             self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
             self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
@@ -1579,7 +1757,7 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0, "story": self.story.to_dict()}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -1614,6 +1792,10 @@ class WinCurl3:
             self.app_state = "PLAY"; self.challenge_attempts = 0; self.load_challenge(self.challenge_level)
             self.challenge_announced = False
         else:
+            if getattr(self, 'game_mode', None) == "STORY":
+                rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                self.ai_difficulty = STORY_RINKS[rink_idx]['difficulty']
+                
             self.app_state = "COIN_TOSS"; self.coin_timer = 30; self.coin_flip_result = random.choice([0, 1])
             self.audio.play_cheer()
 
@@ -1720,7 +1902,12 @@ class WinCurl3:
             pull.x = 0
             
         if pull.length() > 20:
-            self.active_stone.vel = pull.normalize() * min(16.0, pull.length() / 14.0) 
+            vel = pull.normalize() * min(16.0, pull.length() / 14.0) 
+            if getattr(self, 'game_mode', None) == "STORY":
+                jitter_amt = max(0.0, 0.5 - (self.story.level * 0.05))
+                vel.x += random.uniform(-jitter_amt, jitter_amt)
+                vel.y += random.uniform(-jitter_amt, jitter_amt)
+            self.active_stone.vel = vel
             self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
@@ -1770,6 +1957,17 @@ class WinCurl3:
             if getattr(self, 'game_mode', None) in ["HOST", "JOIN"]:
                 my_score = r_tot if getattr(self, 'preferred_color', 0) == 0 else y_tot
                 self.post_score(getattr(self, 'username', 'Player'), my_score)
+            
+            if getattr(self, 'game_mode', None) == "STORY":
+                if r_tot > y_tot:
+                    rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                    xp_gained = 100 * STORY_RINKS[rink_idx]['difficulty']
+                    self.story.xp += xp_gained
+                    while self.story.xp >= self.story.level * 100:
+                        self.story.xp -= self.story.level * 100
+                        self.story.level += 1
+                    self.story.current_rink += 1
+                    self.save_progress()
                 
             if not getattr(self, 'match_winner_announced', False):
                 self.match_winner_announced = True
@@ -1803,12 +2001,13 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.menu_buttons:
-                    if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
+                    if b["id"] == curr_hov:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
+                        elif b["id"] == "story": self.app_state = "STORY_MAP"
                         elif b["id"] == "options": self.app_state = "OPTIONS_MENU"; self.prev_state = "MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
@@ -1865,6 +2064,29 @@ class WinCurl3:
                     self.audio.play_click(); self.game_mode = "CHALLENGE"; self.challenge_level = i+1
                     self.audio.stop_music(); self.start_match(); return
 
+    def handle_story_map_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
+            m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            
+            if self.app_state == "STORY_DIALOG":
+                self.audio.play_click()
+                rink = STORY_RINKS[min(self.story.current_rink, len(STORY_RINKS)-1)]
+                self.dialog_index += 1
+                if self.dialog_index >= len(rink["intro_dialog"]):
+                    self.game_mode = "STORY"
+                    self.audio.stop_music()
+                    self.start_match()
+                return
+
+            if self.btn_return_menu.collidepoint(mx, my): self.audio.play_click(); self.app_state = "MENU"; return
+            
+            start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 800, 400, 100)
+            if start_btn.collidepoint(mx, my):
+                self.audio.play_click()
+                if self.story.current_rink < len(STORY_RINKS):
+                    self.app_state = "STORY_DIALOG"
+                    self.dialog_index = 0
+
     def handle_pause_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
@@ -1881,7 +2103,10 @@ class WinCurl3:
                 self.fetch_leaderboard()
             elif self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
-                self.return_to_menu()
+                if getattr(self, 'game_mode', None) == "STORY":
+                    self.app_state = "STORY_MAP"
+                else:
+                    self.return_to_menu()
                 
     def handle_leaderboard_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -1976,7 +2201,7 @@ class WinCurl3:
         if self.turn_state == "SLIDING":
             mouse_pos = self.get_pointer_pos()
             is_mouse_pressed = self.get_pointer_pressed()
-            my_team = self.preferred_color if self.game_mode in ["BOT", "HOST", "JOIN"] else self.current_team
+            my_team = self.preferred_color if self.game_mode in ["BOT", "HOST", "JOIN", "STORY"] else self.current_team
             
             can_sweep_legally = False
             for s in self.stones:
@@ -2011,6 +2236,8 @@ class WinCurl3:
                 can_player_sweep = is_sweeping and (mouse_pos - s.pos).length() < 350
                 is_remote_sweeping = getattr(self, 'remote_sweep_timer', 0) > 0
                 actual_sweep = self.sweep_power if (can_player_sweep and (s.team == my_team or s.pos.y < self.house_pos.y)) or (is_remote_sweeping and (s.team != my_team or s.pos.y < self.house_pos.y)) else 0.0
+                if getattr(self, 'game_mode', None) == "STORY" and can_player_sweep and actual_sweep > 0:
+                    actual_sweep *= (1.0 + self.story.level * 0.15)
                 s.update(actual_sweep, FRICTION_BASE)
                 if s.is_moving and s.vel.length() > 0.5: self.particles.append({'pos': s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)), 'vel': s.vel * -0.1, 'life': 1.0, 'decay': random.uniform(0.01, 0.03), 'type': 'trail'})
             
@@ -2085,7 +2312,7 @@ class WinCurl3:
                         self.current_team = 1 if self.current_team == 0 else 0; self.turn_state = "AIMING"; self.selected_curl = 0.0; self.spawn_next_stone()
             
             self.was_moving_last_frame = moving
-        elif self.turn_state == "AIMING" and self.game_mode == "BOT" and self.current_team != self.preferred_color: self.execute_ai()
+        elif self.turn_state == "AIMING" and self.game_mode in ("BOT", "STORY") and self.current_team != self.preferred_color: self.execute_ai()
         self.last_mouse_pos = self.get_pointer_pos()
 
     def update_network(self):
@@ -2518,6 +2745,59 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         self.draw_global_ui()
 
+    def draw_story_map(self):
+        self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
+        lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
+        
+        # Temporary UI
+        txt = self.font.render(f"Level: {self.story.level} | Rink: {self.story.current_rink + 1} / 8", True, TEAM_YELLOW)
+        self.canvas.blit(txt, (cx - txt.get_width()//2, 250))
+        
+        if self.story.current_rink < len(STORY_RINKS):
+            rink = STORY_RINKS[self.story.current_rink]
+            rink_txt = self.font.render(f"Next: {rink['name']} ({rink['boss']})", True, rink['color'])
+            self.canvas.blit(rink_txt, (cx - rink_txt.get_width()//2, 320))
+            
+            start_btn = pygame.Rect(cx - 200, 800, 400, 100)
+            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+            lbl_btn2 = self.font.render("BATTLE NEXT RINK", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+        else:
+            txt_win = self.font.render("YOU BEAT THE GAME!", True, (100, 255, 100))
+            self.canvas.blit(txt_win, (cx - txt_win.get_width()//2, 320))
+        
+        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.get_pointer_pos()))
+        lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+        
+        if self.app_state == "STORY_DIALOG" and getattr(self, 'dialog_index', 0) < len(rink["intro_dialog"]):
+            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+            overlay.fill((0, 0, 0, 200)); self.canvas.blit(overlay, (0, 0))
+            
+            dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 400, 1000, 300)
+            draw_glass_rect(self.canvas, dialog_rect, rink['color'], 16, False)
+            
+            boss_name = rink['boss']
+            text_offset_x = 30
+            if hasattr(self, 'sprites') and boss_name in self.sprites:
+                sprite = self.sprites[boss_name]
+                bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
+                self.canvas.blit(sprite, (dialog_rect.x + 30, dialog_rect.y + 70 + bob_y))
+                text_offset_x = 210
+            
+            boss_lbl = self.font.render(boss_name, True, WHITE)
+            self.canvas.blit(boss_lbl, (dialog_rect.x + text_offset_x, dialog_rect.y + 20))
+            
+            import textwrap
+            lines = textwrap.wrap(rink["intro_dialog"][self.dialog_index], width=40 if text_offset_x > 30 else 50)
+            for j, line in enumerate(lines):
+                line_lbl = self.font.render(line, True, (220, 220, 220))
+                self.canvas.blit(line_lbl, (dialog_rect.x + text_offset_x, dialog_rect.y + 90 + j * 50))
+            
+            tap_lbl = self.small_font.render("Tap anywhere to continue...", True, (150, 150, 150))
+            self.canvas.blit(tap_lbl, (dialog_rect.right - 30 - tap_lbl.get_width(), dialog_rect.bottom - 40))
+            
+        self.draw_global_ui()
+
     def draw_coin_toss_screen(self):
         self.draw_ice()
         self.canvas.blit(self.dark_overlay_150, (0, 0))
@@ -2576,6 +2856,13 @@ class WinCurl3:
             self.canvas.blit(self.score_font.render(str(sum(self.score[0])), True, HOUSE_RED), (tot_x, 44)); self.canvas.blit(self.score_font.render(str(sum(self.score[1])), True, TEAM_YELLOW), (tot_x, 80))
             if getattr(self, 'hammer_team', 0) == 0: draw_hammer_icon(self.canvas, tot_x + 65, 48, HOUSE_RED)
             elif getattr(self, 'hammer_team', 0) == 1: draw_hammer_icon(self.canvas, tot_x + 65, 86, TEAM_YELLOW)
+
+            if self.game_mode == "STORY":
+                sprite = getattr(self, 'sprites', {}).get("CURLER_LARGE")
+                if sprite:
+                    s_scaled = pygame.transform.smoothscale(sprite, (120, 120))
+                    bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 5
+                    self.canvas.blit(s_scaled, (20, 140 + bob_y))
 
         for p in self.particles:
             if p['type'] == 'spark': pygame.draw.circle(self.canvas, lerp_color((255, 200, 50), ICE_COLOR, 1.0-p['life']), (int(p['pos'].x), int(p['pos'].y)), int(p['life']*4))
@@ -2973,13 +3260,14 @@ class WinCurl3:
                 if self.app_state == "MENU": self.handle_menu_events(event)
                 elif self.app_state == "ROOM_PROMPT": self.handle_room_prompt_events(event)
                 elif self.app_state == "CHALLENGE_MENU": self.handle_challenge_menu_events(event)
+                elif self.app_state in ["STORY_MAP", "STORY_DIALOG"]: self.handle_story_map_events(event)
                 elif self.app_state == "OPTIONS_MENU": self.handle_options_events(event)
                 elif self.app_state == "PLAY": self.handle_play_events(event)
                 elif self.app_state == "PAUSED": self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
                 elif self.app_state == "LEADERBOARD": self.handle_leaderboard_events(event)
 
-            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU", "MATCH_OVER"]:
+            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_since_start', 0) >= 210: 
                     self.audio.play_music()
                 else: 
@@ -3003,6 +3291,7 @@ class WinCurl3:
                 self.draw_menu()
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU": self.draw_challenge_menu()
+            elif self.app_state in ["STORY_MAP", "STORY_DIALOG"]: self.draw_story_map()
             elif self.app_state == "OPTIONS_MENU": self.draw_options_menu()
             elif self.app_state == "COIN_TOSS":
                 if self.game_mode == "JOIN" and getattr(self, 'coin_flip_result', -1) == -1:
@@ -3019,9 +3308,12 @@ class WinCurl3:
                 self.draw_coin_toss_screen()
             elif self.app_state == "PLAY":
                 self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
-                self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui()
+                is_evil = (self.game_mode == "STORY" and self.current_team != getattr(self, 'preferred_color', 0))
+                self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil); self.draw_ui()
             elif self.app_state == "PAUSED": 
-                self.draw_ice(); [s.draw(self.canvas) for s in self.stones]; self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW); self.draw_ui(); self.draw_pause_screen()
+                self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
+                is_evil = (self.game_mode == "STORY" and self.current_team != getattr(self, 'preferred_color', 0))
+                self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil); self.draw_ui(); self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER": self.draw_match_over_screen()
             elif self.app_state == "LEADERBOARD": self.draw_leaderboard_screen()
                 
