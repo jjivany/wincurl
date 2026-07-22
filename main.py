@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "31.0"
+VERSION = "31.8"
 
 
 class CachedFont:
@@ -1336,7 +1336,7 @@ class StoryManager:
     def __init__(self):
         self.level = 1
         self.xp = 0
-        self.stats = {'power': 1.0, 'curl_control': 1.0, 'sweep_endurance': 1.0}
+        self.stats = {'power': 0, 'curl_control': 0, 'trajectory_preview': 0}
         self.current_rink = 0
         self.trophies = []
         
@@ -1346,7 +1346,8 @@ class StoryManager:
     def from_dict(self, d):
         self.level = d.get('level', 1)
         self.xp = d.get('xp', 0)
-        self.stats = d.get('stats', {'power': 1.0, 'curl_control': 1.0, 'sweep_endurance': 1.0})
+        self.stats = d.get('stats', {'power': 0, 'curl_control': 0, 'trajectory_preview': 0})
+        for k in self.stats: self.stats[k] = int(self.stats[k]) if getattr(self.stats[k], 'is_integer', lambda: True)() else 0
         self.current_rink = d.get('current_rink', 0)
         self.trophies = d.get('trophies', [])
 
@@ -1809,6 +1810,14 @@ class WinCurl3:
         self.turn_state = state.get("turn_state", "AIMING")
         self.story_rival_score = state.get("story_rival_score", 0)
         self.story_player_score = state.get("story_player_score", 0)
+        self.is_dragging = False
+        self.virtual_pull = pygame.math.Vector2(0, 0)
+        self.pull_history = []
+        self.selected_curl = 0.0; self.sweep_power = 0.0; self.is_sweeping_now = False
+        self.last_mouse_pos = pygame.math.Vector2(0, 0)
+        self.dragging_slider = False
+        self.drag_start_pos = None
+        self.drag_finger_id = None
         
         self.stones = []
         self.active_stone = None
@@ -1971,13 +1980,19 @@ class WinCurl3:
             pull.x = 0
             
         if pull.length() > 20:
-            vel = pull.normalize() * min(16.0, pull.length() / 14.0) 
+            max_vel = 16.0
             if getattr(self, 'game_mode', None) == "STORY":
-                jitter_amt = max(0.0, 0.5 - (self.story.level * 0.05))
-                vel.x += random.uniform(-jitter_amt, jitter_amt)
-                vel.y += random.uniform(-jitter_amt, jitter_amt)
+                max_vel += self.story.stats.get('power', 0) * 1.5
+            
+            vel = pull.normalize() * min(max_vel, pull.length() / 14.0) 
             self.active_stone.vel = vel
-            self.active_stone.curl = self.selected_curl; self.active_stone.is_moving = True
+            
+            curl_factor = self.selected_curl
+            if getattr(self, 'game_mode', None) == "STORY":
+                curl_factor *= (1.0 + self.story.stats.get('curl_control', 0) * 0.25)
+            self.active_stone.curl = curl_factor
+            
+            self.active_stone.is_moving = True
             self.stones_thrown[self.current_team] += 1; self.total_stones_played += 1; self.turn_state = "SLIDING"
             self.curler_anim.update("LUNGING"); self.audio.play_throw()
             if self.game_mode in ["HOST", "JOIN"]: self.net.send_action({'cmd': 'shoot', 'vx': self.active_stone.vel.x, 'vy': self.active_stone.vel.y, 'c': self.selected_curl, 'sid': getattr(self.active_stone, 'id', -1)})
@@ -2154,6 +2169,19 @@ class WinCurl3:
 
             if self.btn_return_menu.collidepoint(mx, my): self.audio.play_click(); self.app_state = "MENU"; return
             
+            if getattr(self, 'btn_upgrades', None):
+                spent_points = sum(self.story.stats.values())
+                avail_points = max(0, (self.story.level - 1) - spent_points)
+                for k, btn in self.btn_upgrades.items():
+                    if btn.collidepoint(mx, my):
+                        if avail_points > 0 and self.story.stats.get(k, 0) < 5:
+                            self.audio.play_click()
+                            self.story.stats[k] = self.story.stats.get(k, 0) + 1
+                            self.save_progress()
+                        else:
+                            self.audio.play_error()
+                        return
+                        
             start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 800, 400, 100)
             if start_btn.collidepoint(mx, my):
                 self.audio.play_click()
@@ -2822,16 +2850,43 @@ class WinCurl3:
     def draw_story_map(self):
         self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
-        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 100))
         
-        # Temporary UI
-        txt = self.font.render(f"Level: {self.story.level} | Rink: {self.story.current_rink + 1} / 8", True, TEAM_YELLOW)
-        self.canvas.blit(txt, (cx - txt.get_width()//2, 250))
+        xp_needed = self.story.level * 100
+        xp_rect = pygame.Rect(cx - 300, 190, 600, 30)
+        draw_glass_rect(self.canvas, xp_rect, (50, 50, 50), 15, False)
+        fill_width = int(600 * (self.story.xp / xp_needed))
+        if fill_width > 0: draw_glass_rect(self.canvas, pygame.Rect(cx - 300, 190, fill_width, 30), TEAM_YELLOW, 15, False)
+        xp_txt = self.small_font.render(f"XP: {self.story.xp} / {xp_needed}", True, WHITE)
+        self.canvas.blit(xp_txt, xp_txt.get_rect(center=xp_rect.center))
+        
+        spent_points = sum(self.story.stats.values())
+        avail_points = max(0, (self.story.level - 1) - spent_points)
+        pts_txt = self.font.render(f"LEVEL {self.story.level} - SKILL POINTS: {avail_points}", True, (100, 255, 100) if avail_points > 0 else WHITE)
+        self.canvas.blit(pts_txt, (cx - pts_txt.get_width()//2, 240))
+        
+        stat_names = [('power', 'LAUNCH POWER'), ('curl_control', 'CURL CONTROL'), ('trajectory_preview', 'TRAJECTORY PREVIEW')]
+        self.btn_upgrades = {}
+        for i, (k, name) in enumerate(stat_names):
+            y = 320 + i * 80
+            val = self.story.stats.get(k, 0)
+            lbl = self.font.render(f"{name}: {val}/5", True, WHITE)
+            self.canvas.blit(lbl, (cx - 250, y))
+            
+            btn = pygame.Rect(cx + 150, y - 10, 80, 50)
+            color = HOUSE_RED if avail_points > 0 and val < 5 else (100, 100, 100)
+            draw_glass_rect(self.canvas, btn, color, 15, btn.collidepoint(self.get_pointer_pos()))
+            btn_txt = self.font.render("+", True, WHITE)
+            self.canvas.blit(btn_txt, btn_txt.get_rect(center=btn.center))
+            self.btn_upgrades[k] = btn
+        
+        txt = self.font.render(f"Rink: {self.story.current_rink + 1} / 8", True, TEAM_YELLOW)
+        self.canvas.blit(txt, (cx - txt.get_width()//2, 580))
         
         if self.story.current_rink < len(STORY_RINKS):
             rink = STORY_RINKS[self.story.current_rink]
             rink_txt = self.font.render(f"Next: {rink['name']} ({rink['boss']})", True, rink['color'])
-            self.canvas.blit(rink_txt, (cx - rink_txt.get_width()//2, 320))
+            self.canvas.blit(rink_txt, (cx - rink_txt.get_width()//2, 640))
             
             start_btn = pygame.Rect(cx - 200, 800, 400, 100)
             draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
@@ -3089,11 +3144,20 @@ class WinCurl3:
                     pull.x = 0
                 
                 if pull.length() > 5:
-                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(16.0, pull.length() / 14.0)
-                    svel_len = svel.length(); curl_factor = self.selected_curl * 0.05
+                    max_vel = 16.0
+                    if getattr(self, 'game_mode', None) == "STORY": max_vel += self.story.stats.get('power', 0) * 1.5
+                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(max_vel, pull.length() / 14.0)
+                    svel_len = svel.length()
+                    
+                    curl_factor = self.selected_curl * 0.05
+                    if getattr(self, 'game_mode', None) == "STORY": curl_factor *= (1.0 + self.story.stats.get('curl_control', 0) * 0.25)
+                    
                     sx, sy, px, py = svel.x, svel.y, spos.x, spos.y
                     rad_conv = math.pi / 180.0
-                    for i in range(140):
+                    num_steps = 140
+                    if getattr(self, 'game_mode', None) == "STORY": num_steps += self.story.stats.get('trajectory_preview', 0) * 40
+                    
+                    for i in range(num_steps):
                         if svel_len <= FRICTION_BASE: break
                         r = (svel_len - FRICTION_BASE) / svel_len
                         sx *= r; sy *= r
