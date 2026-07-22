@@ -4,7 +4,7 @@ package.name = wincurl3
 package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
-version = 31.3
+version = 31.5
 # (str) Icon of the application
 icon.filename = icon.png
 

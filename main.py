@@ -768,17 +768,17 @@ class WinCurlAudioEngine:
             ch.set_volume(min(0.4, force * 0.05) * getattr(self, 'master_volume', 1.0))
 
     def play_hover(self): 
-        if getattr(self, 'snd_hover', None): 
+        if isinstance(getattr(self, 'snd_hover', None), pygame.mixer.Sound): 
             self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0))
             self.ch_ui.play(self.snd_hover)
     def play_click(self): 
-        if getattr(self, 'snd_click', None): 
+        if isinstance(getattr(self, 'snd_click', None), pygame.mixer.Sound): 
             self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0))
             self.ch_ui.play(self.snd_click)
         if IS_ANDROID: vibrate_android(15)
-    def play_music(self):
+    def play_music(self, *args):
         if not getattr(self, 'sfx_on', True) or not getattr(self, 'snd_music', None): return
-        pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0))
+        pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.75)
         if not pygame.mixer.music.get_busy():
             loaded = False
             if isinstance(self.snd_music, list):
@@ -952,6 +952,25 @@ class Stone:
         pygame.draw.circle(surface, WHITE, (int(hl_s), int(hl_e)), 2)
         
         surface.blit(Stone.cached_hl, (self.pos.x - self.radius, self.pos.y - self.radius))
+
+
+import base64
+import io
+import portraits_data
+
+PIXEL_PORTRAIT_CACHE = {}
+def get_pixel_portrait(name, size=(120, 120)):
+    key = (name, size)
+    if key in PIXEL_PORTRAIT_CACHE:
+        return PIXEL_PORTRAIT_CACHE[key]
+    
+    b64 = portraits_data.PORTRAITS_B64.get(name, portraits_data.PORTRAITS_B64["Player"])
+    data = base64.b64decode(b64)
+    surf = pygame.image.load(io.BytesIO(data))
+    
+    scaled = pygame.transform.scale(surf, size)
+    PIXEL_PORTRAIT_CACHE[key] = scaled
+    return scaled
 
 class AnimatedCurler:
     _head_cache = {}
@@ -1185,10 +1204,10 @@ class AnimatedCurler:
         self.tc = team_color; oy = self.delivery_progress*70 if self.state == "BACKSWING" else 0; ld = (1.0 - self.delivery_progress)*-190 if self.state == "LUNGING" else 0
             
         if not hasattr(self, 'shadow_surf'):
-            self.shadow_surf = pygame.Surface((250, 350), pygame.SRCALPHA).convert_alpha()
+            self.shadow_surf = pygame.Surface((250, 450), pygame.SRCALPHA).convert_alpha()
         self.shadow_surf.fill((0,0,0,0))
-        self._draw_char_geometry(self.shadow_surf, 125+18, 150+18, oy, ld, (0,0,0,100), is_evil)
-        surface.blit(self.shadow_surf, (self.hack_pos.x - 125, self.hack_pos.y - 150))
+        self._draw_char_geometry(self.shadow_surf, 125+18, 200+18, oy, ld, (0,0,0,100), is_evil)
+        surface.blit(self.shadow_surf, (self.hack_pos.x - 125, self.hack_pos.y - 200))
         
         self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
 
@@ -1197,11 +1216,11 @@ class AnimatedCurler:
         old_state = self.state
         self.state = "BACKSWING"
         
-        temp_surf = pygame.Surface((180, 200), pygame.SRCALPHA).convert_alpha()
+        temp_surf = pygame.Surface((180, 260), pygame.SRCALPHA).convert_alpha()
         temp_surf.fill((0,0,0,0))
-        self._draw_char_geometry(temp_surf, 90, 40, bob_y, 0, None, is_evil)
+        self._draw_char_geometry(temp_surf, 90, 60, bob_y, 0, None, is_evil)
         
-        scaled = pygame.transform.smoothscale(temp_surf, (size, int(size * (200/180))))
+        scaled = pygame.transform.smoothscale(temp_surf, (size, int(size * (260/180))))
         surface.blit(scaled, (x, y))
         
         self.state = old_state
@@ -1216,7 +1235,7 @@ STORY_RINKS = [
             "I need that land to manufacture my single-use plastic curling brooms!", 
             "Let's see if your sweeping can clear my smog!"
         ],
-        "win_dialog": ["No! My profit margins! My beautiful pollution!"],
+        "win_dialog": ["No! My profit margins! My beautiful pollution!"], "taunts": ["Smells like... profit!", "Cough on that!", "My smog is too thick!", "You're suffocating!"],
         "difficulty": 3
     },
     {
@@ -1229,7 +1248,7 @@ STORY_RINKS = [
             "Your 'sustainable' curling equipment makes me sick.",
             "I'm going to sweep you away like so much sawdust!"
         ],
-        "win_dialog": ["Timber! My empire is falling!"],
+        "win_dialog": ["Timber! My empire is falling!"], "taunts": ["Timberrrrr!", "Watch out for splinters!", "I'll chop you down!", "Another tree falls!"],
         "difficulty": 4
     },
     {
@@ -1242,7 +1261,7 @@ STORY_RINKS = [
             "You can't stop the flow of progress... or oil.",
             "Prepare for a slippery defeat!"
         ],
-        "win_dialog": ["My stock price is tanking... just like my stones..."],
+        "win_dialog": ["My stock price is tanking... just like my stones..."], "taunts": ["Slippery!", "Drowning in crude!", "Another slick shot!", "Crude but effective!"],
         "difficulty": 5
     },
     {
@@ -1255,7 +1274,7 @@ STORY_RINKS = [
             "Corporate greed? No, it's corporate WARMTH.",
             "Let's turn up the heat!"
         ],
-        "win_dialog": ["Burned out... I've been extinguished..."],
+        "win_dialog": ["Burned out... I've been extinguished..."], "taunts": ["Feel the burn!", "Coughing yet?", "Nothing but ash!", "Pure coal power!"],
         "difficulty": 6
     },
     {
@@ -1268,7 +1287,7 @@ STORY_RINKS = [
             "Your protests mean nothing against my chemical empire!",
             "Prepare for a toxic beatdown!"
         ],
-        "win_dialog": ["My formulas... neutralized... by a curler?!"],
+        "win_dialog": ["My formulas... neutralized... by a curler?!"], "taunts": ["Radiating perfection!", "You look sick!", "Feel the glow!", "Toxic precision!"],
         "difficulty": 7
     },
     {
@@ -1281,7 +1300,7 @@ STORY_RINKS = [
             "If a few houses fall down, that's just the cost of doing business.",
             "Let's see you draw to the button while the earth shakes!"
         ],
-        "win_dialog": ["A seismic collapse... my operations are ruined..."],
+        "win_dialog": ["A seismic collapse... my operations are ruined..."], "taunts": ["Did the earth move?", "Shake it up!", "Frack yeah!", "Groundbreaking!"],
         "difficulty": 8
     },
     {
@@ -1294,7 +1313,7 @@ STORY_RINKS = [
             "Your environmentalism is drowning in a sea of polymers!",
             "I'll crush you under a mountain of non-biodegradable waste!"
         ],
-        "win_dialog": ["Recycled... I've been completely recycled..."],
+        "win_dialog": ["Recycled... I've been completely recycled..."], "taunts": ["Disposable!", "Totally synthetic!", "Wrapped in plastic!", "Can't recycle that!"],
         "difficulty": 9
     },
     {
@@ -1308,7 +1327,7 @@ STORY_RINKS = [
             "No more public rinks. Only premium subscription-based ice.",
             "Your grassroots environmental campaign ends today!"
         ],
-        "win_dialog": ["The board... is dissolved. You've saved public curling!"],
+        "win_dialog": ["The board... is dissolved. You've saved public curling!"], "taunts": ["Hostile takeover!", "Liquidating your assets!", "Board approves!", "Business as usual!"],
         "difficulty": 10
     }
 ]
@@ -2058,7 +2077,11 @@ class WinCurl3:
                         elif b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
-                        elif b["id"] == "story": self.app_state = "STORY_MAP"
+                        elif b["id"] == "story":
+                            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
+                                self.restore_match()
+                            else:
+                                self.app_state = "STORY_MAP"
                         elif b["id"] == "options": self.app_state = "OPTIONS_MENU"; self.prev_state = "MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
@@ -2830,8 +2853,8 @@ class WinCurl3:
             boss_name = rink['boss']
             text_offset_x = 30
             bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
-            team_c = TEAM_YELLOW if getattr(self, 'preferred_color', 0) == 0 else HOUSE_RED
-            self.curler_anim.render_portrait(self.canvas, dialog_rect.x + 30, dialog_rect.y + 70 + bob_y, 120, team_c, True, 0)
+            portrait_surf = get_pixel_portrait(boss_name, (140, 140))
+            self.canvas.blit(portrait_surf, (dialog_rect.x + 30, dialog_rect.y + 70 + bob_y))
             text_offset_x = 210
             
             boss_lbl = self.font.render(boss_name, True, WHITE)
@@ -2911,7 +2934,15 @@ class WinCurl3:
                 bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 5
                 is_evil = (self.current_team != getattr(self, 'preferred_color', 0))
                 team_c = HOUSE_RED if self.current_team == 0 else TEAM_YELLOW
-                self.curler_anim.render_portrait(self.canvas, 20, 140, 120, team_c, is_evil, bob_y)
+                
+                if is_evil:
+                    rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                    boss_name = STORY_RINKS[rink_idx]['boss']
+                else:
+                    boss_name = "Player"
+                    
+                portrait_surf = get_pixel_portrait(boss_name, (120, 120))
+                self.canvas.blit(portrait_surf, (20, 140 + bob_y))
                 
                 rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
                 rink = STORY_RINKS[rink_idx]
@@ -3047,7 +3078,16 @@ class WinCurl3:
             self.canvas.blit(img_p, (bx2, self.btn_curl_r.centery - img_p.get_height()//2)); self.canvas.blit(img_cr, (bx2 + img_p.get_width(), self.btn_curl_r.centery - img_cr.get_height()//2))
 
             if self.is_dragging:
-                pull = pygame.math.Vector2(-self.virtual_pull.x / 4.0, -self.virtual_pull.y)
+                vp = self.virtual_pull
+                if getattr(self, 'pull_history', []):
+                    avg_x = sum(p.x for p in self.pull_history) / len(self.pull_history)
+                    avg_y = sum(p.y for p in self.pull_history) / len(self.pull_history)
+                    vp = pygame.math.Vector2(avg_x, avg_y)
+
+                pull = pygame.math.Vector2(-vp.x / 4.0, -vp.y)
+                if abs(pull.x) < 2.0: 
+                    pull.x = 0
+                
                 if pull.length() > 5:
                     spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(16.0, pull.length() / 14.0)
                     svel_len = svel.length(); curl_factor = self.selected_curl * 0.05
