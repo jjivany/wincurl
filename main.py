@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "31.8"
+VERSION = "31.9"
 
 
 class CachedFont:
@@ -1722,6 +1722,8 @@ class WinCurl3:
             self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
         
     def load_progress(self):
+        self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
+        self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
         try:
             with open(self.save_file, "r") as f:
                 data = json.load(f)
@@ -1747,8 +1749,6 @@ class WinCurl3:
             self.saved_match_state = None
         
         self.update_menu_buttons()
-        self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
-        self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
