@@ -1191,6 +1191,20 @@ class AnimatedCurler:
         surface.blit(self.shadow_surf, (self.hack_pos.x - 125, self.hack_pos.y - 150))
         
         self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
+
+    def render_portrait(self, surface, x, y, size, team_color, is_evil=False, bob_y=0):
+        self.tc = team_color
+        old_state = self.state
+        self.state = "BACKSWING"
+        
+        temp_surf = pygame.Surface((180, 200), pygame.SRCALPHA).convert_alpha()
+        temp_surf.fill((0,0,0,0))
+        self._draw_char_geometry(temp_surf, 90, 40, bob_y, 0, None, is_evil)
+        
+        scaled = pygame.transform.smoothscale(temp_surf, (size, int(size * (200/180))))
+        surface.blit(scaled, (x, y))
+        
+        self.state = old_state
 STORY_RINKS = [
     {
         "name": "Smog City Rink",
@@ -1365,18 +1379,7 @@ class WinCurl3:
         self.font_85 = CachedFont(pygame.font.Font(None, 82))
         
         self.sprites = {}
-        sprite_files = {
-            "CURLER": "curler_portrait_red.jpg",
-            "Prof. Stones": "prof_stones.jpg",
-            "CEO Smogsworth": "smogsworth.jpg",
-            "Timber Baroness": "timber_baroness.jpg",
-            "Baron Von Crude": "baron_von_crude.jpg",
-            "Ashburn": "ashburn.jpg",
-            "Dr. Sludge": "dr_sludge.jpg",
-            "Tremor": "tremor.jpg",
-            "Poly Mer": "poly_mer.jpg",
-            "The FourElite": "fourelite.jpg"
-        }
+
         def load_sprite(fname, size):
             img = pygame.transform.smoothscale(pygame.image.load(fname).convert_alpha(), size)
             w, h = size
@@ -2845,11 +2848,10 @@ class WinCurl3:
             
             boss_name = rink['boss']
             text_offset_x = 30
-            if hasattr(self, 'sprites') and boss_name in self.sprites:
-                sprite = self.sprites[boss_name]
-                bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
-                self.canvas.blit(sprite, (dialog_rect.x + 30, dialog_rect.y + 70 + bob_y))
-                text_offset_x = 210
+            bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
+            team_c = TEAM_YELLOW if getattr(self, 'preferred_color', 0) == 0 else HOUSE_RED
+            self.curler_anim.render_portrait(self.canvas, dialog_rect.x + 30, dialog_rect.y + 70 + bob_y, 120, team_c, True, 0)
+            text_offset_x = 210
             
             boss_lbl = self.font.render(boss_name, True, WHITE)
             self.canvas.blit(boss_lbl, (dialog_rect.x + text_offset_x, dialog_rect.y + 20))
@@ -2925,11 +2927,24 @@ class WinCurl3:
             elif getattr(self, 'hammer_team', 0) == 1: draw_hammer_icon(self.canvas, tot_x + 65, 86, TEAM_YELLOW)
 
             if self.game_mode == "STORY":
-                sprite = getattr(self, 'sprites', {}).get("CURLER_LARGE")
-                if sprite:
-                    s_scaled = pygame.transform.smoothscale(sprite, (120, 120))
-                    bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 5
-                    self.canvas.blit(s_scaled, (20, 140 + bob_y))
+                bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 5
+                is_evil = (self.current_team != getattr(self, 'preferred_color', 0))
+                team_c = HOUSE_RED if self.current_team == 0 else TEAM_YELLOW
+                self.curler_anim.render_portrait(self.canvas, 20, 140, 120, team_c, is_evil, bob_y)
+                
+                rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                rink = STORY_RINKS[rink_idx]
+                player_taunts = ["Let's clean this up!", "For the environment!", "Recycle that!", "Eco sweep!"]
+                taunts = rink.get('taunts', []) if is_evil else player_taunts
+                
+                total_thrown = self.stones_thrown[0] + self.stones_thrown[1]
+                if taunts:
+                    taunt_text = taunts[total_thrown % len(taunts)]
+                    txt = self.small_font.render(taunt_text, True, BLACK)
+                    bubble_rect = pygame.Rect(140, 150 + bob_y, txt.get_width() + 20, 40)
+                    pygame.draw.rect(self.canvas, WHITE, bubble_rect, border_radius=8)
+                    pygame.draw.polygon(self.canvas, WHITE, [(140, 170 + bob_y), (130, 175 + bob_y), (140, 180 + bob_y)])
+                    self.canvas.blit(txt, (150, 155 + bob_y))
 
         for p in self.particles:
             if p['type'] == 'spark': pygame.draw.circle(self.canvas, lerp_color((255, 200, 50), ICE_COLOR, 1.0-p['life']), (int(p['pos'].x), int(p['pos'].y)), int(p['life']*4))
