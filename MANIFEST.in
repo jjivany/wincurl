@@ -1,0 +1,3 @@
+include *.wav
+include *.png
+include *.jpg
