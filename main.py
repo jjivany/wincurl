@@ -1379,25 +1379,6 @@ class WinCurl3:
         self.font_85 = CachedFont(pygame.font.Font(None, 82))
         
         self.sprites = {}
-
-        def load_sprite(fname, size):
-            img = pygame.transform.smoothscale(pygame.image.load(fname).convert_alpha(), size)
-            w, h = size
-            for x in range(w):
-                for y in range(h):
-                    r, g, b, a = img.get_at((x, y))
-                    if r > 230 and g > 230 and b > 230: img.set_at((x, y), (r, g, b, 0))
-            return img
-
-        for name, filename in sprite_files.items():
-            if os.path.exists(filename):
-                try: self.sprites[name] = load_sprite(filename, (150, 150))
-                except: pass
-        
-        # Player sprite replacement geometry
-        if "CURLER" in self.sprites:
-            # We scale it slightly larger if used to replace drawing geometry
-            self.sprites["CURLER_LARGE"] = load_sprite(sprite_files["CURLER"], (100, 100))
         
         # Pre-allocate dark overlays used in UI
         self.dark_overlay_150 = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); self.dark_overlay_150.fill((0, 0, 0, 150))
