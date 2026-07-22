@@ -1592,25 +1592,17 @@ class WinCurl3:
         
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
         self.btn_pause = pygame.Rect(BASE_WIDTH - 280, 140, 240, 60)
-        self.btn_resume = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-160, 500, 100)
-        self.btn_options_pause = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-40, 500, 100)
-        self.btn_chat = pygame.Rect(BASE_WIDTH - 500, 140, 180, 60)
-        self.btn_quit_main = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+80, 500, 100)
+        self.btn_resume = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-220, 500, 100)
+        self.btn_options_pause = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
+        self.btn_save_quit = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+20, 500, 100)
+        self.btn_quit_main = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+140, 500, 100)
         self.btn_return_menu = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT-250, 500, 100)
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
         
         self.btn_fs = pygame.Rect(BASE_WIDTH - 280, 30, 240, 60)
-        self.menu_buttons = [
-            {"id": "story", "y": 480, "text": "Story Mode", "color": (100, 200, 100), "scale": 1.0},
-            {"id": "local", "y": 600, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "bot", "y": 720, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "chal", "y": 840, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
-            {"id": "options", "y": 960, "text": "Options", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "host", "y": 1080, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "join", "y": 1200, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
-            {"id": "exit", "y": 1320, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
-        ]
+        self.menu_buttons = []
+        self.update_menu_buttons()
         
         self.options_buttons = [
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
@@ -1745,9 +1737,14 @@ class WinCurl3:
                 # Load story progress
                 if "story" in data:
                     self.story.from_dict(data["story"])
+                self.saved_match_state = data.get("saved_match_state", None)
         except:
-            self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
-            self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
+            print("No previous save file found, starting fresh.")
+            self.saved_match_state = None
+        
+        self.update_menu_buttons()
+        self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
+        self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
 
         if not self.username:
             firsts = ["John", "Sarah", "Mike", "Emily", "Dave", "Lisa", "Chris", "Anna", "Tom", "Jessica"]
@@ -1757,10 +1754,79 @@ class WinCurl3:
 
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0, "story": self.story.to_dict()}
+            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0, "story": self.story.to_dict(), "saved_match_state": getattr(self, 'saved_match_state', None)}
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
+
+    def update_menu_buttons(self):
+        self.menu_buttons = []
+        if getattr(self, 'saved_match_state', None):
+            self.menu_buttons.append({"id": "resume", "y": 360, "text": "Resume Match", "color": (150, 150, 255), "scale": 1.0})
+        self.menu_buttons.extend([
+            {"id": "story", "y": 480, "text": "Story Mode", "color": (100, 200, 100), "scale": 1.0},
+            {"id": "local", "y": 600, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "bot", "y": 720, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "chal", "y": 840, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
+            {"id": "options", "y": 960, "text": "Options", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "host", "y": 1080, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "join", "y": 1200, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "exit", "y": 1320, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0}
+        ])
+
+    def save_match(self):
+        state = {
+            "stones": [s.get_state() for s in self.stones],
+            "scores": self.scores,
+            "current_end": self.current_end,
+            "hammer_team": self.hammer_team,
+            "current_team": self.current_team,
+            "stones_thrown": getattr(self, 'stones_thrown_this_end', 0),
+            "game_mode": self.game_mode,
+            "challenge_level": self.challenge_level,
+            "turn_state": getattr(self, 'turn_state', "AIMING"),
+            "active_stone_id": getattr(self.active_stone, 'id', None) if getattr(self, 'active_stone', None) else None,
+            "story_rival_score": getattr(self, 'story_rival_score', 0),
+            "story_player_score": getattr(self, 'story_player_score', 0)
+        }
+        self.saved_match_state = state
+        self.save_progress()
+        self.update_menu_buttons()
+
+    def restore_match(self):
+        if not getattr(self, 'saved_match_state', None): return
+        state = self.saved_match_state
+        self.scores = state.get("scores", [0, 0])
+        self.current_end = state.get("current_end", 1)
+        self.hammer_team = state.get("hammer_team", 0)
+        self.current_team = state.get("current_team", 0)
+        self.stones_thrown_this_end = state.get("stones_thrown", 0)
+        self.game_mode = state.get("game_mode", "LOCAL")
+        self.challenge_level = state.get("challenge_level", 1)
+        self.turn_state = state.get("turn_state", "AIMING")
+        self.story_rival_score = state.get("story_rival_score", 0)
+        self.story_player_score = state.get("story_player_score", 0)
+        
+        self.stones = []
+        self.active_stone = None
+        for s in state.get("stones", []):
+            st = Stone(s[0], s[1], s[4], sid=s[8] if len(s)>8 else None)
+            st.set_state(s)
+            self.stones.append(st)
+            if len(s)>8 and st.id == state.get("active_stone_id"):
+                self.active_stone = st
+        
+        self.saved_match_state = None
+        self.save_progress()
+        self.update_menu_buttons()
+        self.app_state = "PLAY"
+        
+        if self.game_mode == "STORY":
+            self.audio.play_music(f"battle{min(self.story.current_rink + 1, 3)}")
+        elif self.game_mode == "CHALLENGE":
+            self.audio.play_music("challenge")
+        else:
+            self.audio.play_music()
 
     def reset_turn_vars(self):
         pygame.event.set_grab(False); pygame.mouse.set_visible(True)
@@ -2004,7 +2070,8 @@ class WinCurl3:
                     if b["id"] == curr_hov:
                         self.audio.play_click()
                         new_target = None
-                        if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
+                        if b["id"] == "resume": self.restore_match()
+                        elif b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] == "story": self.app_state = "STORY_MAP"
@@ -2092,8 +2159,8 @@ class WinCurl3:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_resume.collidepoint(mx, my): self.audio.play_click(); self.app_state = "PLAY"
             elif self.btn_options_pause.collidepoint(mx, my): self.audio.play_click(); self.app_state = "OPTIONS_MENU"; self.prev_state = "PAUSED"
-            elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.return_to_menu()
-                
+            elif self.btn_save_quit.collidepoint(mx, my): self.audio.play_click(); self.save_match(); self.return_to_menu()
+            elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.saved_match_state = None; self.return_to_menu()
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
@@ -3056,7 +3123,11 @@ class WinCurl3:
         draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_opt = self.font.render("OPTIONS", True, WHITE); self.canvas.blit(lbl_opt, lbl_opt.get_rect(center=opt_rect.center))
 
-        quit_rect = self.btn_quit_main.move(-int((1.0 - self.pause_anim) * 400), 0)
+        sq_rect = self.btn_save_quit.move(-int((1.0 - self.pause_anim) * 400), 0)
+        draw_glass_rect(self.canvas, sq_rect, PURPLE_SUIT, sq_rect.h // 2, sq_rect.collidepoint(m_pos.x, m_pos.y))
+        lbl_sq = self.font.render("SAVE & QUIT", True, WHITE); self.canvas.blit(lbl_sq, lbl_sq.get_rect(center=sq_rect.center))
+
+        quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_q = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
 
