@@ -1780,7 +1780,7 @@ class WinCurl3:
     def save_match(self):
         state = {
             "stones": [s.get_state() for s in self.stones],
-            "scores": self.scores,
+            "score": self.score,
             "current_end": self.current_end,
             "hammer_team": self.hammer_team,
             "current_team": self.current_team,
@@ -1799,7 +1799,7 @@ class WinCurl3:
     def restore_match(self):
         if not getattr(self, 'saved_match_state', None): return
         state = self.saved_match_state
-        self.scores = state.get("scores", [0, 0])
+        self.score = {int(k): v for k, v in state.get("score", {"0": [0]*8, "1": [0]*8}).items()}
         self.current_end = state.get("current_end", 1)
         self.hammer_team = state.get("hammer_team", 0)
         self.current_team = state.get("current_team", 0)
