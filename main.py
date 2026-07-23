@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "32.3"
+VERSION = "33"
 
 
 class CachedFont:
@@ -235,9 +235,8 @@ class UICache:
             pygame.draw.rect(content, c, (0, 0, tw, th))
             
             if dark_mode:
-                pygame.draw.rect(content, (255, 255, 255, 10), (0, 0, tw, th//2))
-                pygame.draw.ellipse(content, (255, 255, 255, 20), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
                 pygame.draw.rect(content, (0, 0, 0, 80), (0, th//2, tw, th//2))
+                pygame.draw.rect(content, (0, 0, 0, 160), (0, 0, tw, th))
             else:
                 pygame.draw.rect(content, (255, 255, 255, 60), (0, 0, tw, th//2))
                 pygame.draw.ellipse(content, (255, 255, 255, 90), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
@@ -457,6 +456,7 @@ class WinCurlAudioEngine:
             return pts[-1][1]
 
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / 44100; val = 0.0
             if t < 1.4: 
                 env = min(1.0, t/0.1) * max(0.0, min(1.0, (1.4-t)/0.2))
@@ -511,6 +511,7 @@ class WinCurlAudioEngine:
             return pts[-1][1]
 
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t_norm = i / steps; env = min(1.0, t_norm/0.1) * max(0.0, min(1.0, (1.0-t_norm)/0.2))
             if t_norm < 0.1: env += random.uniform(-0.5, 0.5) * (0.1 - t_norm)*15 
             val = 0.0
@@ -536,6 +537,7 @@ class WinCurlAudioEngine:
             return pts[-1][1]
 
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / SR; env = math.sin((t / 2.0) * math.pi)
             f0 = 120.0 - t*15.0; phase = (t * f0) % 1.0; decay = math.exp(-phase * 4.0)
             noise = random.uniform(-1, 1) * max(0, (t-1.6)/0.4) * 0.5
@@ -550,6 +552,7 @@ class WinCurlAudioEngine:
         SR = 11025
         duration = 3.5; steps = int(SR * duration); buf = bytearray(steps * 4); val = 0.0
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / SR; val += (random.uniform(-1.0, 1.0) - val) * 0.02 
             sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t*12))) 
             struct.pack_into('<hh', buf, i * 4, sample, sample)
@@ -560,6 +563,7 @@ class WinCurlAudioEngine:
         if cached: return cached
         buf = bytearray(44100 * 4); v = 0.0
         for i in range(44100):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             v = max(-0.4, min(0.4, (v + random.uniform(-0.08, 0.08)) * 0.98))
             struct.pack_into('<hh', buf, i * 4, int(v * 32767), int(v * 32767))
         return self._create_wav_sound(buf, 44100, cache_key="whoosh", return_bytes=return_bytes)
@@ -568,7 +572,9 @@ class WinCurlAudioEngine:
         cached = self._get_cached_sound("sweep", return_bytes=return_bytes)
         if cached: return cached
         buf = bytearray(22050 * 4)
-        for i in range(22050): struct.pack_into('<hh', buf, i*4, int(random.uniform(-0.15, 0.15)*32767), int(random.uniform(-0.15, 0.15)*32767))
+        for i in range(22050):
+            if i % 4000 == 0: import time; time.sleep(0.001)
+            struct.pack_into('<hh', buf, i*4, int(random.uniform(-0.15, 0.15)*32767), int(random.uniform(-0.15, 0.15)*32767))
         return self._create_wav_sound(buf, 22050, cache_key="sweep", return_bytes=return_bytes)
 
     def _synthesize_throw(self, return_bytes=False):
@@ -576,6 +582,7 @@ class WinCurlAudioEngine:
         if cached: return cached
         duration = 0.5; steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / 44100; val = math.sin(2 * math.pi * (180 - (t * 100)) * t) * (math.sin(t * math.pi / duration) * math.exp(-t * 2))
             sample = int(max(-1.0, min(1.0, val * 0.5)) * 32767)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
@@ -586,6 +593,7 @@ class WinCurlAudioEngine:
         if cached: return cached
         buf = bytearray(11025 * 4)
         for i in range(11025):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / 11025; sample = int(math.sin(2 * math.pi * (220 + random.uniform(-20, 20)) * t) * math.exp(-t * 25) * 32767)
             struct.pack_into('<hh', buf, i * 4, sample, sample)
         return self._create_wav_sound(buf, 11025, cache_key="clack", return_bytes=return_bytes)
@@ -595,6 +603,7 @@ class WinCurlAudioEngine:
         if cached: return cached
         steps = int(44100 * duration); buf = bytearray(steps * 4)
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / 44100; val = math.sin(2 * math.pi * frequency * t) if type == "sine" else (1.0 if math.sin(2 * math.pi * frequency * t) > 0 else -1.0)
             struct.pack_into('<hh', buf, i * 4, int(val * math.exp(-t * (1.0 / duration * 3)) * 12000), int(val * math.exp(-t * (1.0 / duration * 3)) * 12000))
         return self._create_wav_sound(buf, 44100, cache_key=f"ui_{frequency}_{duration}_{type}", return_bytes=return_bytes)
@@ -673,6 +682,7 @@ class WinCurlAudioEngine:
         noise = [random.uniform(-1, 1) for _ in range(22050)]
         
         for i in range(steps):
+            if i % 4000 == 0: import time; time.sleep(0.001)
             t = i / 22050.0
             step = int((t / duration) * total_steps) % total_steps
             step_t = t - (step * step_len)
@@ -801,11 +811,23 @@ class WinCurlAudioEngine:
                         loaded = True; break
                     except: pass
                 if not loaded:
-                    try:
-                        fallback = self._synthesize_theme_song(return_path=True)
-                        pygame.mixer.music.load(fallback)
-                        loaded = True
-                    except: pass
+                    if not getattr(self, '_synth_started', False):
+                        self._synth_started = True
+                        def _synth_bg():
+                            try:
+                                fallback = self._synthesize_theme_song(return_path=True)
+                                self._synth_ready_path = fallback
+                            except: pass
+                        import threading
+                        threading.Thread(target=_synth_bg, daemon=True).start()
+                    
+                    if getattr(self, '_synth_ready_path', None):
+                        try:
+                            self.snd_music = self._synth_ready_path
+                            pygame.mixer.music.load(self._synth_ready_path)
+                            loaded = True
+                            self._synth_ready_path = None
+                        except: pass
             elif isinstance(self.snd_music, str):
                 try:
                     pygame.mixer.music.load(self.snd_music); loaded = True
@@ -947,7 +969,9 @@ class Stone:
             self.rotation += speed * (self.curl * 2.8 if abs(self.curl * 2.8) >= 0.6 else (0.6 if self.curl>=0 else -0.6))
             self.pos += self.vel
 
-    def draw(self, surface):
+    def draw(self, surface, offset_x=0, offset_y=0):
+        self.pos.x += offset_x
+        self.pos.y += offset_y
         surface.blit(Stone.cached_red_base if self.team == 0 else Stone.cached_ylw_base, (self.pos.x - self.radius - 5, self.pos.y - self.radius - 5))
         color = HOUSE_RED if self.team == 0 else TEAM_YELLOW
         
@@ -965,6 +989,8 @@ class Stone:
         pygame.draw.circle(surface, WHITE, (int(hl_s), int(hl_e)), 2)
         
         surface.blit(Stone.cached_hl, (self.pos.x - self.radius, self.pos.y - self.radius))
+        self.pos.x -= offset_x
+        self.pos.y -= offset_y
 
 
 import base64
@@ -1279,7 +1305,8 @@ STORY_RINKS = [
             "I need that land to manufacture my single-use plastic curling brooms!", 
             "Let's see if your sweeping can clear my smog!"
         ],
-        "win_dialog": ["No! My profit margins! My beautiful pollution!"], "taunts": ["Smells like... profit!", "Cough on that!", "My smog is too thick!", "You're suffocating!", "I love the smell of emissions in the morning!", "Can't see the hogline through the smog?", "My carbon footprint is massive!", "Inhale deeply!"],
+        "win_dialog": ["No! My profit margins! My beautiful pollution!"],
+        "taunts": ["Smells like... profit!", "Cough on that!", "My smog is too thick!", "You're suffocating!", "I love the smell of emissions in the morning!", "Can't see the hogline through the smog?", "My carbon footprint is massive!", "Inhale deeply!", "A highly toxic shot!", "Breathe it in!", "Sweeping won't clear this air!", "My factory never sleeps!", "Emissions testing? Failed!", "Pure, unfiltered smog!"],
         "difficulty": 3
     },
     {
@@ -1292,7 +1319,8 @@ STORY_RINKS = [
             "Your 'sustainable' curling equipment makes me sick.",
             "I'm going to sweep you away like so much sawdust!"
         ],
-        "win_dialog": ["Timber! My empire is falling!"], "taunts": ["Timberrrrr!", "Watch out for splinters!", "I'll chop you down!", "Another tree falls!", "Clear-cutting the competition!", "I've got wood for a victory!", "You're barking up the wrong tree!", "Sweeping up your sawdust!"],
+        "win_dialog": ["Timber! My empire is falling!"],
+        "taunts": ["Timberrrrr!", "Watch out for splinters!", "I'll chop you down!", "Another tree falls!", "Clear-cutting the competition!", "I've got wood for a victory!", "You're barking up the wrong tree!", "Sweeping up your sawdust!", "Buzzsaw precision!", "My chainsaws are revving!", "I'm deforestation in motion!", "Branching out for the win!", "Lumbering towards victory!", "You're stumped!"],
         "difficulty": 4
     },
     {
@@ -1305,7 +1333,8 @@ STORY_RINKS = [
             "You can't stop the flow of progress... or oil.",
             "Prepare for a slippery defeat!"
         ],
-        "win_dialog": ["My stock price is tanking... just like my stones..."], "taunts": ["Slippery!", "Drowning in crude!", "Another slick shot!", "Crude but effective!", "Drilling for victory!", "You're slipping on my spill!", "I run on fossil fuels!", "A highly refined shot!"],
+        "win_dialog": ["My stock price is tanking... just like my stones..."],
+        "taunts": ["Slippery!", "Drowning in crude!", "Another slick shot!", "Crude but effective!", "Drilling for victory!", "You're slipping on my spill!", "I run on fossil fuels!", "A highly refined shot!", "My pipeline is unbroken!", "Gushing with talent!", "Spilling over the button!", "You're tapped out!", "Barrel of laughs!", "Slicker than ever!"],
         "difficulty": 5
     },
     {
@@ -1318,7 +1347,8 @@ STORY_RINKS = [
             "Corporate greed? No, it's corporate WARMTH.",
             "Let's turn up the heat!"
         ],
-        "win_dialog": ["Burned out... I've been extinguished..."], "taunts": ["Feel the burn!", "Coughing yet?", "Nothing but ash!", "Pure coal power!", "Getting warmer?", "I'm fueling global warming!", "Choking on my dust!", "Anthracite annihilation!"],
+        "win_dialog": ["Burned out... I've been extinguished..."],
+        "taunts": ["Feel the burn!", "Coughing yet?", "Nothing but ash!", "Pure coal power!", "Getting warmer?", "I'm fueling global warming!", "Choking on my dust!", "Anthracite annihilation!", "The smog is rising!", "My furnace is roaring!", "Scorching the ice!", "Carbonizing your dreams!", "Smoldering shot!", "Ash to ash, dust to dust!"],
         "difficulty": 6
     },
     {
@@ -1331,7 +1361,8 @@ STORY_RINKS = [
             "Your protests mean nothing against my chemical empire!",
             "Prepare for a toxic beatdown!"
         ],
-        "win_dialog": ["My formulas... neutralized... by a curler?!"], "taunts": ["Radiating perfection!", "You look sick!", "Feel the glow!", "Toxic precision!", "A lethal dosage!", "I'm mutating the ice!", "Biohazard on the button!", "Chemical warfare!"],
+        "win_dialog": ["My formulas... neutralized... by a curler?!"],
+        "taunts": ["Radiating perfection!", "You look sick!", "Feel the glow!", "Toxic precision!", "A lethal dosage!", "I'm mutating the ice!", "Biohazard on the button!", "Chemical warfare!", "My sludge is unstoppable!", "Oozing with talent!", "Corrosive curl!", "A highly reactive shot!", "You're melting!", "Hazardous materials coming through!"],
         "difficulty": 7
     },
     {
@@ -1344,7 +1375,8 @@ STORY_RINKS = [
             "If a few houses fall down, that's just the cost of doing business.",
             "Let's see you draw to the button while the earth shakes!"
         ],
-        "win_dialog": ["A seismic collapse... my operations are ruined..."], "taunts": ["Did the earth move?", "Shake it up!", "Frack yeah!", "Groundbreaking!", "Seismic shift!", "I'm fracturing your defense!", "Tremble before me!", "A magnitude 10 shot!"],
+        "win_dialog": ["A seismic collapse... my operations are ruined..."],
+        "taunts": ["Did the earth move?", "Shake it up!", "Frack yeah!", "Groundbreaking!", "Seismic shift!", "I'm fracturing your defense!", "Tremble before me!", "A magnitude 10 shot!", "Aftershock!", "Rupturing the ice!", "My fault lines are flawless!", "Cracking under pressure?", "Subterranean superiority!", "Earth-shattering curl!"],
         "difficulty": 8
     },
     {
@@ -1357,7 +1389,8 @@ STORY_RINKS = [
             "Your environmentalism is drowning in a sea of polymers!",
             "I'll crush you under a mountain of non-biodegradable waste!"
         ],
-        "win_dialog": ["Recycled... I've been completely recycled..."], "taunts": ["Disposable!", "Totally synthetic!", "Wrapped in plastic!", "Can't recycle that!", "Choking the oceans!", "Non-biodegradable beatdown!", "Microplastics in your ice!", "I'm everywhere!"],
+        "win_dialog": ["Recycled... I've been completely recycled..."],
+        "taunts": ["Disposable!", "Totally synthetic!", "Wrapped in plastic!", "Can't recycle that!", "Choking the oceans!", "Non-biodegradable beatdown!", "Microplastics in your ice!", "I'm everywhere!", "Plastic makes perfect!", "A highly durable shot!", "Suffocating the competition!", "You're trash!", "My polymers are unbreakable!", "Sea of plastic, ocean of tears!"],
         "difficulty": 9
     },
     {
@@ -1368,10 +1401,10 @@ STORY_RINKS = [
             "You've meddled in our subsidiaries' affairs for the last time.",
             "We are the Board of Directors. The FourElite.",
             "We intend to privatize all curling ice in the world.",
-            "No more public rinks. Only premium subscription-based ice.",
-            "Your grassroots environmental campaign ends today!"
+            "No more public rinks. Only premium subscription-based ice."
         ],
-        "win_dialog": ["The board... is dissolved. You've saved public curling!"], "taunts": ["Hostile takeover!", "Liquidating your assets!", "Board approves!", "Business as usual!", "Your budget is denied!", "We own this rink!", "Privatized victory!", "Maximize shareholder value!"],
+        "win_dialog": ["Our monopoly... broken! We must declare bankruptcy!"],
+        "taunts": ["Hostile takeover!", "Liquidating your assets!", "A premium shot!", "You can't afford this ice!", "Our margins are unbeatable!", "Corporate synergy!", "Downsizing the competition!", "Boardroom blitz!", "Your subscription has expired!", "Foreclosing on your dreams!", "Monopoly on the button!", "Our dividends are paying off!", "A highly leveraged shot!", "You're fired!"],
         "difficulty": 10
     }
 ]
@@ -1608,15 +1641,21 @@ class WinCurl3:
         self.dragging_slider = False
         self.drag_start_pos = None
         
-        try:
-            base_dir = pygame.system.get_pref_path("jason", "wincurl3")
-        except:
-            if IS_ANDROID:
-                app_dir = os.path.dirname(os.path.abspath(__file__))
-                base_dir = os.environ.get('ANDROID_PRIVATE', os.path.abspath(os.path.join(app_dir, '..')))
-            else:
-                base_dir = os.path.expanduser("~")
+        if IS_ANDROID:
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.environ.get('ANDROID_PRIVATE', os.path.abspath(os.path.join(app_dir, '..')))
+        else:
+            base_dir = os.path.expanduser("~")
+        
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
+        
+        # Fallback to pref path if it exists but home dir save doesn't
+        try:
+            pref_path = pygame.system.get_pref_path("jason", "wincurl3")
+            pref_save = os.path.join(pref_path, ".wincurl3_save.json")
+            if os.path.exists(pref_save) and not os.path.exists(self.save_file):
+                self.save_file = pref_save
+        except: pass
         self.load_progress()
         
         self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 - 650)
@@ -1911,14 +1950,18 @@ class WinCurl3:
         
     def start_match(self):
         self.reset_match()
+        self.parallax_y = 1000.0  # mode 7 slide in
+        self.parallax_x = 0.0
         if self.game_mode == "CHALLENGE":
             self.app_state = "PLAY"; self.challenge_attempts = 0; self.load_challenge(self.challenge_level)
             self.challenge_announced = False
         else:
             if getattr(self, 'game_mode', None) == "STORY":
                 rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
-                self.ai_difficulty = STORY_RINKS[rink_idx]['difficulty']
+                self.match_ai_difficulty = STORY_RINKS[rink_idx]['difficulty']
                 
+            else:
+                self.match_ai_difficulty = self.ai_difficulty
             self.app_state = "COIN_TOSS"; self.coin_timer = 30; self.coin_flip_result = random.choice([0, 1])
             self.audio.play_cheer()
 
@@ -1989,7 +2032,7 @@ class WinCurl3:
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
 
     def execute_ai(self):
-        bot_level = "easy" if self.ai_difficulty < 4 else "medium" if self.ai_difficulty < 8 else "hard"
+        bot_level = "easy" if getattr(self, 'match_ai_difficulty', 5) < 4 else "medium" if getattr(self, 'match_ai_difficulty', 5) < 8 else "hard"
         params = self.BOT_LOGIC_CACHE[bot_level]
         
         if not hasattr(self, 'ai_wait_start'):
@@ -2001,7 +2044,7 @@ class WinCurl3:
             
         delattr(self, 'ai_wait_start')
 
-        err = (11 - self.ai_difficulty) * params["error_multiplier"]
+        err = (11 - getattr(self, 'match_ai_difficulty', 5)) * params["error_multiplier"]
         target = self.house_pos + pygame.math.Vector2(random.uniform(-7, 7)*err, random.uniform(-6, 6)*err)
         
         p_stones = sorted([s for s in self.stones if s.team == 0 and s != self.active_stone], key=lambda s: (s.pos - self.house_pos).length())
@@ -2832,6 +2875,8 @@ class WinCurl3:
                     scale = (rect.w - 40) / img.get_width()
                     img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
                 self.canvas.blit(img, img.get_rect(center=rect.center))
+                if btn["id"] == "back":
+                    self.draw_back_icon(self.canvas, rect.x + 30, rect.centery - 10)
 
         self.draw_global_ui()
 
@@ -2933,74 +2978,86 @@ class WinCurl3:
         
         stat_names = [('power', 'LAUNCH POWER', 'Increases max throwing velocity'), ('curl_control', 'CURL CONTROL', 'Improves stone curl responsiveness'), ('trajectory_preview', 'TRAJECTORY PREVIEW', 'Lengthens the aiming line')]
         self.btn_upgrades = {}
-        for i, (k, name, sub) in enumerate(stat_names):
-            y = 300 + i * 100
-            val = self.story.stats.get(k, 0)
-            lbl = self.font.render(f"{name}: {val}/5", True, WHITE)
-            self.canvas.blit(lbl, (cx - 280, y))
-            sub_lbl = self.small_font.render(sub, True, (150, 160, 180))
-            self.canvas.blit(sub_lbl, (cx - 280, y + 45))
-            
-            btn = pygame.Rect(cx + 150, y - 10, 80, 50)
-            color = HOUSE_RED if avail_points > 0 and val < 5 else (100, 100, 100)
-            draw_glass_rect(self.canvas, btn, color, 15, btn.collidepoint(self.get_pointer_pos()))
-            btn_txt = self.font.render("+", True, WHITE)
-            self.canvas.blit(btn_txt, btn_txt.get_rect(center=btn.center))
-            self.btn_upgrades[k] = btn
-        
-        txt = self.font.render(f"Rink: {self.story.current_rink + 1} / 8", True, TEAM_YELLOW)
-        self.canvas.blit(txt, (cx - txt.get_width()//2, 580))
         
         if self.story.current_rink < len(STORY_RINKS):
             rink = STORY_RINKS[self.story.current_rink]
-            rink_txt = self.font.render(f"Next: {rink['name']} ({rink['boss']})", True, rink['color'])
-            self.canvas.blit(rink_txt, (cx - rink_txt.get_width()//2, 640))
-            
-            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
-                start_btn = pygame.Rect(cx - 200, 750, 400, 80)
-                draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
-                lbl_btn2 = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
-                
-                new_btn = pygame.Rect(cx - 200, 850, 400, 80)
-                draw_glass_rect(self.canvas, new_btn, (100, 100, 100), new_btn.h // 2, new_btn.collidepoint(self.get_pointer_pos()))
-                lbl_new = self.font.render("NEW MATCH", True, WHITE); self.canvas.blit(lbl_new, lbl_new.get_rect(center=new_btn.center))
-            else:
-                start_btn = pygame.Rect(cx - 200, 800, 400, 100)
-                draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
-                lbl_btn2 = self.font.render("BATTLE NEXT RINK", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
         else:
-            txt_win = self.font.render("YOU BEAT THE GAME!", True, (100, 255, 100))
-            self.canvas.blit(txt_win, (cx - txt_win.get_width()//2, 320))
-        
-        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.get_pointer_pos()))
-        lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+            rink = {"color": WHITE, "boss": "None", "intro_dialog": []}
+            
+        if self.app_state != "STORY_DIALOG":
+            for i, (k, name, sub) in enumerate(stat_names):
+                y = 300 + i * 100
+                val = self.story.stats.get(k, 0)
+                lbl = self.font.render(f"{name}: {val}/5", True, WHITE)
+                self.canvas.blit(lbl, (cx - 280, y))
+                sub_lbl = self.small_font.render(sub, True, (150, 160, 180))
+                self.canvas.blit(sub_lbl, (cx - 280, y + 45))
+                
+                btn = pygame.Rect(cx + 150, y - 10, 80, 50)
+                color = HOUSE_RED if avail_points > 0 and val < 5 else (100, 100, 100)
+                draw_glass_rect(self.canvas, btn, color, 15, btn.collidepoint(self.get_pointer_pos()))
+                btn_txt = self.font.render("+", True, WHITE)
+                self.canvas.blit(btn_txt, btn_txt.get_rect(center=btn.center))
+                self.btn_upgrades[k] = btn
+            
+            txt = self.font.render(f"Rink: {self.story.current_rink + 1} / 8", True, TEAM_YELLOW)
+            self.canvas.blit(txt, (cx - txt.get_width()//2, 580))
+            
+            if self.story.current_rink < len(STORY_RINKS):
+                rink_txt = self.font.render(f"Next: {rink['name']} ({rink['boss']})", True, rink['color'])
+                self.canvas.blit(rink_txt, (cx - rink_txt.get_width()//2, 640))
+                
+                if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
+                    start_btn = pygame.Rect(cx - 200, 750, 400, 80)
+                    draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+                    lbl_btn2 = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+                    
+                    new_btn = pygame.Rect(cx - 200, 850, 400, 80)
+                    draw_glass_rect(self.canvas, new_btn, (100, 100, 100), new_btn.h // 2, new_btn.collidepoint(self.get_pointer_pos()))
+                    lbl_new = self.font.render("NEW MATCH", True, WHITE); self.canvas.blit(lbl_new, lbl_new.get_rect(center=new_btn.center))
+                else:
+                    start_btn = pygame.Rect(cx - 200, 800, 400, 100)
+                    draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+                    lbl_btn2 = self.font.render("BATTLE NEXT RINK", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+            else:
+                txt_win = self.font.render("YOU BEAT THE GAME!", True, (100, 255, 100))
+                self.canvas.blit(txt_win, (cx - txt_win.get_width()//2, 320))
+            
+            draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.get_pointer_pos()))
+            lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         
         if self.app_state == "STORY_DIALOG" and getattr(self, 'dialog_index', 0) < len(rink["intro_dialog"]):
             dt_ticks = pygame.time.get_ticks() - getattr(self, 'dialog_time', pygame.time.get_ticks())
             
-            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-            overlay.fill((0, 0, 0, 200))
-            self.canvas.blit(overlay, (0, 0))
-            
-            top_bar_height = min(200, dt_ticks // 2)
-            pygame.draw.rect(self.canvas, (0, 0, 0), (0, 0, BASE_WIDTH, top_bar_height))
-            pygame.draw.rect(self.canvas, (0, 0, 0), (0, BASE_HEIGHT - top_bar_height, BASE_WIDTH, top_bar_height))
+            self.canvas.blit(self.dark_overlay_200, (0, 0))
             
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
             
-            pygame.draw.rect(self.canvas, (0, 0, 0), dialog_rect)
+            pygame.draw.rect(self.canvas, (0, 0, 0, 180), dialog_rect)
             pygame.draw.rect(self.canvas, rink['color'], dialog_rect, 6)
             pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2)
             
             boss_name = rink['boss']
             slide_in = max(0, 300 - dt_ticks)
             
-            player_surf = get_retro_portrait("Player", (180, 180), 5)
-            self.canvas.blit(pygame.transform.flip(player_surf, True, False), (dialog_rect.x + 30 - slide_in, dialog_rect.y - 190))
+            player_surf = get_pixel_portrait("Player", (240, 240))
+            boss_surf = get_pixel_portrait(boss_name, (280, 280))
             
-            boss_surf = get_retro_portrait(boss_name, (200, 200), 5)
-            bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
-            self.canvas.blit(boss_surf, (dialog_rect.right - 230 + slide_in, dialog_rect.y - 210 + bob_y))
+            def draw_shadow(surf, x, y):
+                mask = pygame.mask.from_surface(surf)
+                shadow = mask.to_surface(setcolor=(0,0,0,180), unsetcolor=(0,0,0,0))
+                self.canvas.blit(shadow, (x+12, y+15))
+            
+            player_bob = math.sin(pygame.time.get_ticks() * 0.005) * 6
+            px, py = dialog_rect.x + 20 - slide_in, dialog_rect.y - 240 + player_bob
+            flipped_player = pygame.transform.flip(player_surf, True, False)
+            draw_shadow(flipped_player, px, py)
+            self.canvas.blit(flipped_player, (px, py))
+            
+            boss_bob = math.sin(pygame.time.get_ticks() * 0.005 + 2) * 8
+            bx, by = dialog_rect.right - 300 + slide_in, dialog_rect.y - 280 + boss_bob
+            draw_shadow(boss_surf, bx, by)
+            self.canvas.blit(boss_surf, (bx, by))
             
             boss_lbl = self.font.render(boss_name, False, WHITE)
             self.canvas.blit(boss_lbl, (dialog_rect.x + 40, dialog_rect.y + 20))
@@ -3043,8 +3100,13 @@ class WinCurl3:
         pygame.draw.rect(surface, BLACK, (x, y, 8, 24), border_radius=2)
         pygame.draw.rect(surface, BLACK, (x + 14, y, 8, 24), border_radius=2)
 
+    def draw_back_icon(self, surface, x, y):
+        pygame.draw.polygon(surface, WHITE, [(x, y+10), (x+12, y), (x+12, y+20)])
+        pygame.draw.rect(surface, WHITE, (x+10, y+6, 14, 8))
+
     def draw_ice(self):
-        self.canvas.blit(self.static_ice_surface, (0, 0))
+        self.canvas.fill((10, 12, 16))
+        self.canvas.blit(self.static_ice_surface, (int(getattr(self, 'parallax_x', 0)), int(getattr(self, 'parallax_y', 0))))
         
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
@@ -3052,8 +3114,35 @@ class WinCurl3:
 
     def draw_ui(self):
         score_rect = pygame.Rect(0, 0, BASE_WIDTH, 130)
-        draw_glass_rect(self.canvas, score_rect, (0, 0, 0, 160), border_radius=0, dark_mode=True)
-        pygame.draw.line(self.canvas, HOUSE_RED, (0, 128), (BASE_WIDTH, 128), 3)
+        draw_glass_rect(self.canvas, score_rect, (5, 5, 12, 190), border_radius=0, dark_mode=True)
+        
+        # Animated light-up tinted glass effect
+        t = pygame.time.get_ticks()
+        glass_fx = pygame.Surface((BASE_WIDTH, 130), pygame.SRCALPHA)
+        
+        # Deep gradient tint from top (fixes the gap)
+        for y in range(130):
+            a = int(210 * (1.0 - y/130.0))
+            pygame.draw.line(glass_fx, (0, 0, 0, a), (0, y), (BASE_WIDTH, y))
+            
+        # Sweeping glare light
+        sweep_x = (t * 0.6) % (BASE_WIDTH + 1500) - 500
+        pygame.draw.polygon(glass_fx, (255, 255, 255, 12), [
+            (sweep_x, 0), (sweep_x + 200, 0), 
+            (sweep_x + 50, 130), (sweep_x - 150, 130)
+        ])
+        pygame.draw.polygon(glass_fx, (255, 255, 255, 25), [
+            (sweep_x + 80, 0), (sweep_x + 120, 0), 
+            (sweep_x - 30, 130), (sweep_x - 70, 130)
+        ])
+        
+        # Animated glowing bottom border line
+        pulse = (math.sin(t * 0.003) + 1.0) * 0.5
+        border_alpha = int(60 + pulse * 100)
+        pygame.draw.line(glass_fx, (150, 50, 50, border_alpha), (0, 128), (BASE_WIDTH, 128), 3)
+        pygame.draw.line(glass_fx, (255, 100, 100, int(border_alpha*0.5)), (0, 127), (BASE_WIDTH, 127), 1)
+        
+        self.canvas.blit(glass_fx, (0, 0))
         
         if self.game_mode == "CHALLENGE":
             t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
@@ -3275,14 +3364,15 @@ class WinCurl3:
             self.canvas.blit(lbl_fg, (bx, by))
             
         elif self.turn_state == "SLIDING":
-            if getattr(self, 'is_sweeping_now', False):
-                angle = math.sin(pygame.time.get_ticks() * 0.05) * min(30, self.sweep_power * 2.0)
+            should_draw_broom = getattr(self, 'is_sweeping_now', False) or (IS_ANDROID and len(getattr(self, 'active_touches', {})) > 0)
+            if should_draw_broom:
+                angle = math.sin(pygame.time.get_ticks() * 0.05) * min(30, self.sweep_power * 2.0) if getattr(self, 'is_sweeping_now', False) else 0.0
                 rotated_broom = pygame.transform.rotate(self.broom_surf, angle)
                 b_rect = rotated_broom.get_rect(center=(m_pos.x, m_pos.y - 120))
                 self.canvas.blit(rotated_broom, b_rect.topleft)
 
         elif self.turn_state == "END":
-            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, 195)); self.canvas.blit(overlay, (0, 0))
+            self.canvas.blit(self.dark_overlay_200, (0, 0))
             
             if self.game_mode == "CHALLENGE":
                 txt = "SUCCESS! ADVANCING..." if getattr(self, 'challenge_success', False) else "FAILED. RETRYING..."
@@ -3299,9 +3389,7 @@ class WinCurl3:
 
     def draw_pause_screen(self):
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
-        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); overlay.fill((0, 0, 0, int(215 * self.pause_anim))); self.canvas.blit(overlay, (0, 0))
-        self.last_starfield_speed = 0.5 * self.pause_anim
-        self.starfield.draw(self.canvas, 0.5 * self.pause_anim)
+        self.dark_overlay_200.set_alpha(int(215 * self.pause_anim)); self.canvas.blit(self.dark_overlay_200, (0, 0)); self.dark_overlay_200.set_alpha(200)
         m_pos = self.get_pointer_pos()
         
         lbl_p = self.font_85.render("PAUSED", True, WHITE)
@@ -3322,6 +3410,7 @@ class WinCurl3:
         quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_q = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
+        self.draw_back_icon(self.canvas, quit_rect.x + 30, quit_rect.centery - 10)
 
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34)); cx = BASE_WIDTH // 2
@@ -3407,10 +3496,16 @@ class WinCurl3:
         sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
         ox, oy = (ww - sw) // 2, (wh - sh) // 2
         
+        if getattr(self, 'parallax_y', 0) > 0.1:
+            self.parallax_y *= 0.85
         if self.shake_amount > 0.1: 
-            ox += int(random.uniform(-self.shake_amount, self.shake_amount))
-            oy += int(random.uniform(-self.shake_amount, self.shake_amount))
-            self.shake_amount *= 0.85 
+            # Apply shake directly to parallax so UI and Ice are decoupled
+            self.parallax_x = random.uniform(-self.shake_amount, self.shake_amount)
+            self.parallax_y = getattr(self, 'parallax_y', 0) * 0.85 + random.uniform(-self.shake_amount, self.shake_amount)
+            self.shake_amount *= 0.85
+        else:
+            self.parallax_x = 0
+            if getattr(self, 'parallax_y', 0) < 0.1: self.parallax_y = 0 
         
         if IS_ANDROID:
             pass
@@ -3434,6 +3529,9 @@ class WinCurl3:
         self.accumulator = 0.0
         FIXED_DT = 1000.0 / FPS
         while True:
+            if getattr(self, 'dragging_slider', False) and not self.get_pointer_pressed():
+                self.dragging_slider = False
+                self.save_progress()
             ms_passed = self.clock.tick(FPS)
             self.accumulator += ms_passed
             if self.accumulator > 200: self.accumulator = 200 # Prevent spiral of death
@@ -3565,11 +3663,11 @@ class WinCurl3:
                         self.app_state = "PLAY"; self.reset_end()
                 self.draw_coin_toss_screen()
             elif self.app_state == "PLAY":
-                self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
+                self.draw_ice(); [s.draw(self.canvas, getattr(self, 'parallax_x', 0), getattr(self, 'parallax_y', 0)) for s in self.stones]
                 is_evil = (self.game_mode == "STORY" and self.current_team != getattr(self, 'preferred_color', 0))
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil); self.draw_ui()
             elif self.app_state == "PAUSED": 
-                self.draw_ice(); [s.draw(self.canvas) for s in self.stones]
+                self.draw_ice(); [s.draw(self.canvas, getattr(self, 'parallax_x', 0), getattr(self, 'parallax_y', 0)) for s in self.stones]
                 is_evil = (self.game_mode == "STORY" and self.current_team != getattr(self, 'preferred_color', 0))
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil); self.draw_ui(); self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER": self.draw_match_over_screen()
