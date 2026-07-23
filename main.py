@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "31.10"
+VERSION = "32.0"
 
 
 class CachedFont:
@@ -28,7 +28,7 @@ class CachedFont:
 class ChatFont:
     def __init__(self, size):
         self.target_size = size
-        self.text_font = pygame.font.Font(None, size)
+        self.text_font = CachedFont(pygame.font.Font(None, size))
         self.emoji_font = None
         self.cache = {}
         
@@ -41,7 +41,7 @@ class ChatFont:
             import os
             android_emoji = "/system/fonts/NotoColorEmoji.ttf"
             if os.path.exists(android_emoji):
-                try: self.emoji_font = pygame.font.Font(android_emoji, size)
+                try: self.emoji_font = CachedFont(pygame.font.Font(android_emoji, size))
                 except: pass
 
     def render(self, text, antialias, color, background=None):
@@ -776,9 +776,13 @@ class WinCurlAudioEngine:
             self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0))
             self.ch_ui.play(self.snd_click)
         if IS_ANDROID: vibrate_android(15)
+    def play_error(self):
+        if isinstance(getattr(self, 'snd_click', None), pygame.mixer.Sound): 
+            self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0) * 0.5)
+            self.ch_ui.play(self.snd_click)
     def play_music(self, *args):
         if not getattr(self, 'sfx_on', True) or not getattr(self, 'snd_music', None): return
-        pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.75)
+        pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.375)
         if not pygame.mixer.music.get_busy():
             loaded = False
             if isinstance(self.snd_music, list):
@@ -978,6 +982,30 @@ def get_pixel_portrait(name, size=(120, 120)):
                 
     PIXEL_PORTRAIT_CACHE[key] = scaled
     return scaled
+
+RETRO_PORTRAIT_CACHE = {}
+def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
+    key = (name, size, pixelation_factor)
+    if key in RETRO_PORTRAIT_CACHE:
+        return RETRO_PORTRAIT_CACHE[key]
+        
+    b64 = portraits_data.PORTRAITS_B64.get(name, portraits_data.PORTRAITS_B64["Player"])
+    data = base64.b64decode(b64)
+    surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
+    
+    bg_color = surf.get_at((0, 0))
+    for x in range(surf.get_width()):
+        for y in range(surf.get_height()):
+            c = surf.get_at((x, y))
+            if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
+                surf.set_at((x, y), (0, 0, 0, 0))
+                
+    small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
+    small_surf = pygame.transform.smoothscale(surf, small_size)
+    pixelated = pygame.transform.scale(small_surf, size)
+    
+    RETRO_PORTRAIT_CACHE[key] = pixelated
+    return pixelated
 
 class AnimatedCurler:
     _head_cache = {}
@@ -1242,7 +1270,7 @@ STORY_RINKS = [
             "I need that land to manufacture my single-use plastic curling brooms!", 
             "Let's see if your sweeping can clear my smog!"
         ],
-        "win_dialog": ["No! My profit margins! My beautiful pollution!"], "taunts": ["Smells like... profit!", "Cough on that!", "My smog is too thick!", "You're suffocating!"],
+        "win_dialog": ["No! My profit margins! My beautiful pollution!"], "taunts": ["Smells like... profit!", "Cough on that!", "My smog is too thick!", "You're suffocating!", "I love the smell of emissions in the morning!", "Can't see the hogline through the smog?", "My carbon footprint is massive!", "Inhale deeply!"],
         "difficulty": 3
     },
     {
@@ -1255,7 +1283,7 @@ STORY_RINKS = [
             "Your 'sustainable' curling equipment makes me sick.",
             "I'm going to sweep you away like so much sawdust!"
         ],
-        "win_dialog": ["Timber! My empire is falling!"], "taunts": ["Timberrrrr!", "Watch out for splinters!", "I'll chop you down!", "Another tree falls!"],
+        "win_dialog": ["Timber! My empire is falling!"], "taunts": ["Timberrrrr!", "Watch out for splinters!", "I'll chop you down!", "Another tree falls!", "Clear-cutting the competition!", "I've got wood for a victory!", "You're barking up the wrong tree!", "Sweeping up your sawdust!"],
         "difficulty": 4
     },
     {
@@ -1268,7 +1296,7 @@ STORY_RINKS = [
             "You can't stop the flow of progress... or oil.",
             "Prepare for a slippery defeat!"
         ],
-        "win_dialog": ["My stock price is tanking... just like my stones..."], "taunts": ["Slippery!", "Drowning in crude!", "Another slick shot!", "Crude but effective!"],
+        "win_dialog": ["My stock price is tanking... just like my stones..."], "taunts": ["Slippery!", "Drowning in crude!", "Another slick shot!", "Crude but effective!", "Drilling for victory!", "You're slipping on my spill!", "I run on fossil fuels!", "A highly refined shot!"],
         "difficulty": 5
     },
     {
@@ -1281,7 +1309,7 @@ STORY_RINKS = [
             "Corporate greed? No, it's corporate WARMTH.",
             "Let's turn up the heat!"
         ],
-        "win_dialog": ["Burned out... I've been extinguished..."], "taunts": ["Feel the burn!", "Coughing yet?", "Nothing but ash!", "Pure coal power!"],
+        "win_dialog": ["Burned out... I've been extinguished..."], "taunts": ["Feel the burn!", "Coughing yet?", "Nothing but ash!", "Pure coal power!", "Getting warmer?", "I'm fueling global warming!", "Choking on my dust!", "Anthracite annihilation!"],
         "difficulty": 6
     },
     {
@@ -1294,7 +1322,7 @@ STORY_RINKS = [
             "Your protests mean nothing against my chemical empire!",
             "Prepare for a toxic beatdown!"
         ],
-        "win_dialog": ["My formulas... neutralized... by a curler?!"], "taunts": ["Radiating perfection!", "You look sick!", "Feel the glow!", "Toxic precision!"],
+        "win_dialog": ["My formulas... neutralized... by a curler?!"], "taunts": ["Radiating perfection!", "You look sick!", "Feel the glow!", "Toxic precision!", "A lethal dosage!", "I'm mutating the ice!", "Biohazard on the button!", "Chemical warfare!"],
         "difficulty": 7
     },
     {
@@ -1307,7 +1335,7 @@ STORY_RINKS = [
             "If a few houses fall down, that's just the cost of doing business.",
             "Let's see you draw to the button while the earth shakes!"
         ],
-        "win_dialog": ["A seismic collapse... my operations are ruined..."], "taunts": ["Did the earth move?", "Shake it up!", "Frack yeah!", "Groundbreaking!"],
+        "win_dialog": ["A seismic collapse... my operations are ruined..."], "taunts": ["Did the earth move?", "Shake it up!", "Frack yeah!", "Groundbreaking!", "Seismic shift!", "I'm fracturing your defense!", "Tremble before me!", "A magnitude 10 shot!"],
         "difficulty": 8
     },
     {
@@ -1320,7 +1348,7 @@ STORY_RINKS = [
             "Your environmentalism is drowning in a sea of polymers!",
             "I'll crush you under a mountain of non-biodegradable waste!"
         ],
-        "win_dialog": ["Recycled... I've been completely recycled..."], "taunts": ["Disposable!", "Totally synthetic!", "Wrapped in plastic!", "Can't recycle that!"],
+        "win_dialog": ["Recycled... I've been completely recycled..."], "taunts": ["Disposable!", "Totally synthetic!", "Wrapped in plastic!", "Can't recycle that!", "Choking the oceans!", "Non-biodegradable beatdown!", "Microplastics in your ice!", "I'm everywhere!"],
         "difficulty": 9
     },
     {
@@ -1334,7 +1362,7 @@ STORY_RINKS = [
             "No more public rinks. Only premium subscription-based ice.",
             "Your grassroots environmental campaign ends today!"
         ],
-        "win_dialog": ["The board... is dissolved. You've saved public curling!"], "taunts": ["Hostile takeover!", "Liquidating your assets!", "Board approves!", "Business as usual!"],
+        "win_dialog": ["The board... is dissolved. You've saved public curling!"], "taunts": ["Hostile takeover!", "Liquidating your assets!", "Board approves!", "Business as usual!", "Your budget is denied!", "We own this rink!", "Privatized victory!", "Maximize shareholder value!"],
         "difficulty": 10
     }
 ]
@@ -1395,15 +1423,15 @@ class WinCurl3:
         return pygame.math.Vector2(mx, my)
 
     def preload_assets(self):
-        self.font = CachedFont(pygame.font.Font(None, 45))
-        self.score_font = CachedFont(pygame.font.Font(None, 36))
-        self.small_font = CachedFont(pygame.font.Font(None, 31))
+        self.font = CachedFont(CachedFont(pygame.font.Font(None, 45)))
+        self.score_font = CachedFont(CachedFont(pygame.font.Font(None, 36)))
+        self.small_font = CachedFont(CachedFont(pygame.font.Font(None, 31)))
         self.chat_font = ChatFont(31)
-        self.title_font = pygame.font.Font(None, 120)
-        self.large_sym_font = CachedFont(pygame.font.Font(None, 95))
-        self.font_62 = CachedFont(pygame.font.Font(None, 60))
-        self.font_72 = CachedFont(pygame.font.Font(None, 70))
-        self.font_85 = CachedFont(pygame.font.Font(None, 82))
+        self.title_font = CachedFont(pygame.font.Font(None, 120))
+        self.large_sym_font = CachedFont(CachedFont(pygame.font.Font(None, 95)))
+        self.font_62 = CachedFont(CachedFont(pygame.font.Font(None, 60)))
+        self.font_72 = CachedFont(CachedFont(pygame.font.Font(None, 70)))
+        self.font_85 = CachedFont(CachedFont(pygame.font.Font(None, 82)))
         
         self.sprites = {}
         
@@ -1421,7 +1449,7 @@ class WinCurl3:
         
         # Use standard Pygame font for the original heavy bold look.
         # Render at exactly 2x scale (210) to bypass SDL_ttf hinting clipping bugs on the top edge of letters like "C".
-        ss_font = pygame.font.Font(None, 240)
+        ss_font = CachedFont(pygame.font.Font(None, 240))
         ss_white = ss_font.render(t_text, True, WHITE)
         ss_purple = ss_font.render(t_text, True, (80, 20, 140))
         
@@ -1554,7 +1582,10 @@ class WinCurl3:
             pass
         
         self.is_4k = (info.current_w >= 1920 or info.current_h >= 1080)
-        self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
+        if IS_ANDROID:
+            self.canvas = self.screen
+        else:
+            self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
         self.clock = pygame.time.Clock()
         
         pygame.font.init()
@@ -2040,6 +2071,8 @@ class WinCurl3:
         self.current_end += 1
         if self.current_end > 8: 
             self.app_state = "MATCH_OVER"
+            self.saved_match_state = None
+            self.save_progress()
             self.audio.play_cheer()
             
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
@@ -2118,6 +2151,10 @@ class WinCurl3:
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
+            else:
+                if hasattr(event, 'unicode') and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
+                    self.username += event.unicode
+                    self.save_progress()
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -2142,7 +2179,12 @@ class WinCurl3:
                 self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, 'preferred_color', 0))
             elif event.key == K_ESCAPE:
                 self.app_state = "MENU"; self.set_typing_target(None)
-            elif event.key == K_BACKSPACE: self.room_text = self.room_text[:-1]
+            elif event.key == K_BACKSPACE:
+                self.room_text = self.room_text[:-1]
+                self.save_progress()
+            elif hasattr(event, 'unicode') and event.unicode.isprintable() and len(self.room_text) + len(event.unicode) <= 15:
+                self.room_text += event.unicode
+                self.save_progress()
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -2162,6 +2204,7 @@ class WinCurl3:
                 self.audio.play_click()
                 rink = STORY_RINKS[min(self.story.current_rink, len(STORY_RINKS)-1)]
                 self.dialog_index += 1
+                self.dialog_time = pygame.time.get_ticks()
                 if self.dialog_index >= len(rink["intro_dialog"]):
                     self.game_mode = "STORY"
                     self.audio.stop_music()
@@ -2183,12 +2226,13 @@ class WinCurl3:
                             self.audio.play_error()
                         return
                         
-            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'STORY':
-                start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 750, 400, 80)
+            if getattr(self, 'saved_match_state', None):
+                cont_btn = pygame.Rect(BASE_WIDTH//2 - 200, 750, 400, 80)
                 new_btn = pygame.Rect(BASE_WIDTH//2 - 200, 850, 400, 80)
-                if start_btn.collidepoint(mx, my):
+                if cont_btn.collidepoint(mx, my):
                     self.audio.play_click()
                     self.restore_match()
+                    return
                 elif new_btn.collidepoint(mx, my):
                     self.audio.play_click()
                     if self.story.current_rink < len(STORY_RINKS):
@@ -2196,6 +2240,7 @@ class WinCurl3:
                         self.save_progress()
                         self.app_state = "STORY_DIALOG"
                         self.dialog_index = 0
+                        self.dialog_time = pygame.time.get_ticks()
             else:
                 start_btn = pygame.Rect(BASE_WIDTH//2 - 200, 800, 400, 100)
                 if start_btn.collidepoint(mx, my):
@@ -2203,6 +2248,7 @@ class WinCurl3:
                     if self.story.current_rink < len(STORY_RINKS):
                         self.app_state = "STORY_DIALOG"
                         self.dialog_index = 0
+                        self.dialog_time = pygame.time.get_ticks()
 
     def handle_pause_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -2210,7 +2256,7 @@ class WinCurl3:
             if self.btn_resume.collidepoint(mx, my): self.audio.play_click(); self.app_state = "PLAY"
             elif self.btn_options_pause.collidepoint(mx, my): self.audio.play_click(); self.app_state = "OPTIONS_MENU"; self.prev_state = "PAUSED"
             elif self.btn_save_quit.collidepoint(mx, my): self.audio.play_click(); self.save_match(); self.return_to_menu()
-            elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.saved_match_state = None; self.return_to_menu()
+            elif self.btn_quit_main.collidepoint(mx, my): self.audio.play_click(); self.return_to_menu()
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
@@ -2832,6 +2878,10 @@ class WinCurl3:
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
+            else:
+                if hasattr(event, 'unicode') and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
+                    self.username += event.unicode
+                    self.save_progress()
             
         if self.is_pointer_pressed:
             for b in self.options_buttons:
@@ -2880,13 +2930,15 @@ class WinCurl3:
         pts_txt = self.font.render(f"LEVEL {self.story.level} - SKILL POINTS: {avail_points}", True, (100, 255, 100) if avail_points > 0 else WHITE)
         self.canvas.blit(pts_txt, (cx - pts_txt.get_width()//2, 240))
         
-        stat_names = [('power', 'LAUNCH POWER'), ('curl_control', 'CURL CONTROL'), ('trajectory_preview', 'TRAJECTORY PREVIEW')]
+        stat_names = [('power', 'LAUNCH POWER', 'Increases max throwing velocity'), ('curl_control', 'CURL CONTROL', 'Improves stone curl responsiveness'), ('trajectory_preview', 'TRAJECTORY PREVIEW', 'Lengthens the aiming line')]
         self.btn_upgrades = {}
-        for i, (k, name) in enumerate(stat_names):
-            y = 320 + i * 80
+        for i, (k, name, sub) in enumerate(stat_names):
+            y = 300 + i * 100
             val = self.story.stats.get(k, 0)
             lbl = self.font.render(f"{name}: {val}/5", True, WHITE)
-            self.canvas.blit(lbl, (cx - 250, y))
+            self.canvas.blit(lbl, (cx - 280, y))
+            sub_lbl = self.small_font.render(sub, True, (150, 160, 180))
+            self.canvas.blit(sub_lbl, (cx - 280, y + 45))
             
             btn = pygame.Rect(cx + 150, y - 10, 80, 50)
             color = HOUSE_RED if avail_points > 0 and val < 5 else (100, 100, 100)
@@ -2923,30 +2975,48 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         
         if self.app_state == "STORY_DIALOG" and getattr(self, 'dialog_index', 0) < len(rink["intro_dialog"]):
-            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-            overlay.fill((0, 0, 0, 200)); self.canvas.blit(overlay, (0, 0))
+            dt_ticks = pygame.time.get_ticks() - getattr(self, 'dialog_time', pygame.time.get_ticks())
             
-            dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 400, 1000, 300)
-            draw_glass_rect(self.canvas, dialog_rect, rink['color'], 16, False)
+            overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+            overlay.fill((0, 0, 0, 200))
+            self.canvas.blit(overlay, (0, 0))
+            
+            top_bar_height = min(200, dt_ticks // 2)
+            pygame.draw.rect(self.canvas, (0, 0, 0), (0, 0, BASE_WIDTH, top_bar_height))
+            pygame.draw.rect(self.canvas, (0, 0, 0), (0, BASE_HEIGHT - top_bar_height, BASE_WIDTH, top_bar_height))
+            
+            dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
+            
+            pygame.draw.rect(self.canvas, (0, 0, 0), dialog_rect)
+            pygame.draw.rect(self.canvas, rink['color'], dialog_rect, 6)
+            pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2)
             
             boss_name = rink['boss']
-            text_offset_x = 30
-            bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
-            portrait_surf = get_pixel_portrait(boss_name, (140, 140))
-            self.canvas.blit(portrait_surf, (dialog_rect.x + 30, dialog_rect.y + 70 + bob_y))
-            text_offset_x = 210
+            slide_in = max(0, 300 - dt_ticks)
             
-            boss_lbl = self.font.render(boss_name, True, WHITE)
-            self.canvas.blit(boss_lbl, (dialog_rect.x + text_offset_x, dialog_rect.y + 20))
+            player_surf = get_retro_portrait("Player", (180, 180), 5)
+            self.canvas.blit(pygame.transform.flip(player_surf, True, False), (dialog_rect.x + 30 - slide_in, dialog_rect.y - 190))
+            
+            boss_surf = get_retro_portrait(boss_name, (200, 200), 5)
+            bob_y = math.sin(pygame.time.get_ticks() * 0.005) * 8
+            self.canvas.blit(boss_surf, (dialog_rect.right - 230 + slide_in, dialog_rect.y - 210 + bob_y))
+            
+            boss_lbl = self.font.render(boss_name, False, WHITE)
+            self.canvas.blit(boss_lbl, (dialog_rect.x + 40, dialog_rect.y + 20))
             
             import textwrap
-            lines = textwrap.wrap(rink["intro_dialog"][self.dialog_index], width=40 if text_offset_x > 30 else 50)
-            for j, line in enumerate(lines):
-                line_lbl = self.font.render(line, True, (220, 220, 220))
-                self.canvas.blit(line_lbl, (dialog_rect.x + text_offset_x, dialog_rect.y + 90 + j * 50))
+            full_text = rink["intro_dialog"][self.dialog_index]
+            chars_to_show = dt_ticks // 30
+            typed_text = full_text[:chars_to_show]
             
-            tap_lbl = self.small_font.render("Tap anywhere to continue...", True, (150, 150, 150))
-            self.canvas.blit(tap_lbl, (dialog_rect.right - 30 - tap_lbl.get_width(), dialog_rect.bottom - 40))
+            lines = textwrap.wrap(typed_text, width=50)
+            for j, line in enumerate(lines):
+                line_lbl = self.font.render(line, False, (220, 220, 220))
+                self.canvas.blit(line_lbl, (dialog_rect.x + 40, dialog_rect.y + 80 + j * 45))
+            
+            if chars_to_show >= len(full_text) and (pygame.time.get_ticks() % 1000 > 500):
+                tap_lbl = self.small_font.render(f"Tap anywhere...", False, (150, 150, 150))
+                self.canvas.blit(tap_lbl, (dialog_rect.right - 30 - tap_lbl.get_width(), dialog_rect.bottom - 40))
             
         self.draw_global_ui()
 
@@ -2980,10 +3050,8 @@ class WinCurl3:
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
 
     def draw_ui(self):
-        if not hasattr(self, 'score_bg'):
-            self.score_bg = pygame.Surface((BASE_WIDTH, 130), pygame.SRCALPHA)
-            self.score_bg.fill((20, 24, 34, 216))
-        self.canvas.blit(self.score_bg, (0, 0))
+        score_rect = pygame.Rect(0, 0, BASE_WIDTH, 130)
+        draw_glass_rect(self.canvas, score_rect, (20, 24, 34, 216), border_radius=0)
         pygame.draw.line(self.canvas, HOUSE_RED, (0, 128), (BASE_WIDTH, 128), 3)
         
         if self.game_mode == "CHALLENGE":
@@ -3025,7 +3093,7 @@ class WinCurl3:
                 
                 rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
                 rink = STORY_RINKS[rink_idx]
-                player_taunts = ["Let's clean this up!", "For the environment!", "Recycle that!", "Eco sweep!"]
+                player_taunts = ["Let's clean this up!", "For the environment!", "Recycle that!", "Eco sweep!", "Sustainable curling!", "I'm carbon neutral!", "Green energy shot!", "Biodegradable stone!", "Compost this!", "Protect the wildlife!", "Clear the air!", "Leave no trace!", "Save the redwoods!", "Clean water initiative!", "Renewable power!", "Mother Nature sends her regards!", "Reduce, reuse, curl!"]
                 taunts = rink.get('taunts', []) if is_evil else player_taunts
                 
                 total_thrown = self.stones_thrown[0] + self.stones_thrown[1]
@@ -3033,8 +3101,7 @@ class WinCurl3:
                     taunt_text = taunts[total_thrown % len(taunts)]
                     txt = self.small_font.render(taunt_text, True, BLACK)
                     bubble_rect = pygame.Rect(140, 150 + bob_y, txt.get_width() + 20, 40)
-                    pygame.draw.rect(self.canvas, WHITE, bubble_rect, border_radius=8)
-                    pygame.draw.polygon(self.canvas, WHITE, [(140, 170 + bob_y), (130, 175 + bob_y), (140, 180 + bob_y)])
+                    draw_glass_rect(self.canvas, bubble_rect, (255, 255, 255, 216), border_radius=8)
                     self.canvas.blit(txt, (150, 155 + bob_y))
 
         for p in self.particles:
@@ -3344,18 +3411,13 @@ class WinCurl3:
             oy += int(random.uniform(-self.shake_amount, self.shake_amount))
             self.shake_amount *= 0.85 
         
-        self.screen.fill((10, 12, 16))
-        
-        if not IS_ANDROID and getattr(self, 'border_starfield', None):
-            self.border_starfield.draw(self.screen, getattr(self, 'last_starfield_speed', 0.5) * scale)
-        
         if IS_ANDROID:
-            if getattr(self, 'bilinear_on', False):
-                # Bilinear requires manual scaling if we want to override GPU nearest (if SCALED is nearest)
-                self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)) if sw != BASE_WIDTH else self.canvas, (ox, oy))
-            else:
-                self.screen.blit(self.canvas, (ox, oy))
+            pass
         else:
+            self.screen.fill((10, 12, 16))
+            if getattr(self, 'border_starfield', None):
+                self.border_starfield.draw(self.screen, getattr(self, 'last_starfield_speed', 0.5) * scale)
+                
             if getattr(self, 'fxaa_on', False):
                 self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
             elif getattr(self, 'lighter_filter', False):
