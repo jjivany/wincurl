@@ -3795,7 +3795,7 @@ class WinCurl3:
                 elif self.app_state == "ROOM_PROMPT": self.handle_room_prompt_events(event)
                 elif self.app_state == "CHALLENGE_MENU": self.handle_challenge_menu_events(event)
                 elif self.app_state == "SAVE_SLOTS": self.handle_save_slots_events(event)
-                elif self.app_state == "STORY_MAP": self.handle_story_map_events(event)
+                elif self.app_state in ("STORY_MAP", "STORY_DIALOG"): self.handle_story_map_events(event)
                 elif self.app_state == "BOT_MENU": self.handle_bot_menu_events(event)
                 elif self.app_state == "OPTIONS_MENU": self.handle_options_events(event)
                 elif self.app_state == "PLAY": self.handle_play_events(event)
