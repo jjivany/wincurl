@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "38"
+VERSION = "3.0 Build 40"
 
 
 class CachedFont:
@@ -1018,16 +1018,46 @@ def get_pixel_portrait(name, size=(120, 120)):
     b64 = portraits_data.PORTRAITS_B64.get(name, portraits_data.PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
-    
-    bg_color = surf.get_at((0, 0))
     w, h = surf.get_size()
+    
+    # 1. ALWAYS remove the white background and erode the fringe (works for both Player and Bosses)
+    bg_pixels = set()
     for x in range(w):
         for y in range(h):
             c = surf.get_at((x, y))
-            if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
+            dist = (255 - c.r) + (255 - c.g) + (255 - c.b)
+            if dist < 45:
+                bg_pixels.add((x, y))
+                
+    fringe = set()
+    for x in range(w):
+        for y in range(h):
+            if (x, y) not in bg_pixels:
+                for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):
+                    if (nx, ny) in bg_pixels or nx < 0 or nx >= w or ny < 0 or ny >= h:
+                        fringe.add((x, y))
+                        break
+                        
+    for x in range(w):
+        for y in range(h):
+            if (x, y) in bg_pixels or (x, y) in fringe:
                 surf.set_at((x, y), (0, 0, 0, 0))
                 
-    scaled = pygame.transform.scale(surf, size)
+    # 2. For bosses, ALSO apply a circular crop to destroy the AI painted dark frame
+    if name != "Player":
+        cx, cy = w / 2, h / 2
+        max_r = min(w, h) / 2 * 0.85 
+        for x in range(w):
+            for y in range(h):
+                dist_from_center = math.hypot(x - cx, y - cy)
+                if dist_from_center > max_r:
+                    surf.set_at((x, y), (0, 0, 0, 0))
+                elif dist_from_center > max_r - 2:
+                    alpha_factor = (max_r - dist_from_center) / 2.0
+                    c = surf.get_at((x, y))
+                    surf.set_at((x, y), (c.r, c.g, c.b, int(c.a * alpha_factor)))
+
+    scaled = pygame.transform.smoothscale(surf, size)
                 
     PIXEL_PORTRAIT_CACHE[key] = scaled
     return scaled
@@ -2917,7 +2947,7 @@ class WinCurl3:
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width()//2, 385 + getattr(self, 'menu_dy', 0)))
 
         for btn in self.options_buttons:
-            if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] in ["bilinear", "hi_res_mode"]):
+            if (not IS_ANDROID and btn["id"] in ["bilinear", "hi_res_mode", "light_filter"]) or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and btn["id"] in ["fxaa", "light_filter"]):
                 continue
                 
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -2998,7 +3028,7 @@ class WinCurl3:
         
         curr_hov = None
         for b in self.options_buttons:
-            if (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode"]): continue
+            if (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode", "light_filter"]) or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]): continue
             if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                 curr_hov = "opt_" + b["id"]
                 break
@@ -3018,7 +3048,7 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.options_buttons:
-                    if (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode"]): continue
+                    if (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode", "light_filter"]) or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]): continue
                     if b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
@@ -3203,11 +3233,20 @@ class WinCurl3:
             
             self.canvas.blit(self.dark_overlay_200, (0, 0))
             
+            grid_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+            offset = (pygame.time.get_ticks() // 20) % 100
+            grid_color = (min(255, rink['color'][0] + 50), min(255, rink['color'][1] + 50), min(255, rink['color'][2] + 50), 30)
+            for x in range(-200, BASE_WIDTH + 200, 100):
+                pygame.draw.line(grid_surf, grid_color, (x + offset, 0), (x - 200 + offset, BASE_HEIGHT), 4)
+            for y in range(-200, BASE_HEIGHT + 200, 100):
+                pygame.draw.line(grid_surf, grid_color, (0, y + offset), (BASE_WIDTH, y - 200 + offset), 4)
+            self.canvas.blit(grid_surf, (0, 0))
+            
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
             
-            pygame.draw.rect(self.canvas, (0, 0, 0, 180), dialog_rect)
-            pygame.draw.rect(self.canvas, rink['color'], dialog_rect, 6)
-            pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2)
+            draw_glass_rect(self.canvas, dialog_rect, (40, 40, 50), 24, False, True)
+            pygame.draw.rect(self.canvas, rink['color'], dialog_rect, 6, border_radius=24)
+            pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2, border_radius=22)
             
             boss_name = rink['boss']
             slide_in = max(0, 300 - dt_ticks)
@@ -3231,21 +3270,21 @@ class WinCurl3:
             draw_shadow(boss_surf, bx, by)
             self.canvas.blit(boss_surf, (bx, by))
             
-            boss_lbl = self.font.render(boss_name, False, WHITE)
+            boss_lbl = self.font.render(boss_name, True, WHITE)
             self.canvas.blit(boss_lbl, (dialog_rect.x + 40, dialog_rect.y + 20))
             
             import textwrap
             full_text = rink["intro_dialog"][self.dialog_index]
-            chars_to_show = dt_ticks // 30
+            chars_to_show = dt_ticks // 5
             typed_text = full_text[:chars_to_show]
             
             lines = textwrap.wrap(typed_text, width=50)
             for j, line in enumerate(lines):
-                line_lbl = self.font.render(line, False, (220, 220, 220))
+                line_lbl = self.font.render(line, True, (220, 220, 220))
                 self.canvas.blit(line_lbl, (dialog_rect.x + 40, dialog_rect.y + 80 + j * 45))
             
             if chars_to_show >= len(full_text) and (pygame.time.get_ticks() % 1000 > 500):
-                tap_lbl = self.small_font.render(f"Tap anywhere...", False, (150, 150, 150))
+                tap_lbl = self.small_font.render(f"Tap anywhere...", True, (150, 150, 150))
                 self.canvas.blit(tap_lbl, (dialog_rect.right - 30 - tap_lbl.get_width(), dialog_rect.bottom - 40))
             
         self.draw_global_ui()
