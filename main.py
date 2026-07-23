@@ -1020,12 +1020,14 @@ def get_pixel_portrait(name, size=(120, 120)):
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
     
     bg_color = surf.get_at((0, 0))
-    scaled = pygame.transform.smoothscale(surf, size)
-    for x in range(size[0]):
-        for y in range(size[1]):
-            c = scaled.get_at((x, y))
+    w, h = surf.get_size()
+    for x in range(w):
+        for y in range(h):
+            c = surf.get_at((x, y))
             if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
-                scaled.set_at((x, y), (0, 0, 0, 0))
+                surf.set_at((x, y), (0, 0, 0, 0))
+                
+    scaled = pygame.transform.scale(surf, size)
                 
     PIXEL_PORTRAIT_CACHE[key] = scaled
     return scaled
