@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "32.1"
+VERSION = "32.3"
 
 
 class CachedFont:
@@ -209,8 +209,8 @@ class UICache:
     glass_surfs = {}
     
     @classmethod
-    def get_glass(cls, w, h, base_color, radius, hovered):
-        key = (w, h, tuple(base_color), radius, hovered)
+    def get_glass(cls, w, h, base_color, radius, hovered, dark_mode=False):
+        key = (w, h, tuple(base_color), radius, hovered, dark_mode)
         if key not in cls.glass_surfs:
             # 1. Shadow (No need for 2x, just draw and scale? Actually, 1x is fine for shadow)
             shadow = pygame.Surface((w+10, h+10), pygame.SRCALPHA).convert_alpha()
@@ -233,9 +233,15 @@ class UICache:
             a = base_color[3] if len(base_color) > 3 else 150
             c = pygame.Color(*base_color[:3], a)
             pygame.draw.rect(content, c, (0, 0, tw, th))
-            pygame.draw.rect(content, (255, 255, 255, 60), (0, 0, tw, th//2))
-            pygame.draw.ellipse(content, (255, 255, 255, 90), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
-            pygame.draw.rect(content, (0, 0, 0, 40), (0, th//2, tw, th//2))
+            
+            if dark_mode:
+                pygame.draw.rect(content, (255, 255, 255, 10), (0, 0, tw, th//2))
+                pygame.draw.ellipse(content, (255, 255, 255, 20), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
+                pygame.draw.rect(content, (0, 0, 0, 80), (0, th//2, tw, th//2))
+            else:
+                pygame.draw.rect(content, (255, 255, 255, 60), (0, 0, tw, th//2))
+                pygame.draw.ellipse(content, (255, 255, 255, 90), (tw*0.05, -th*0.2, tw*0.9, th*0.7))
+                pygame.draw.rect(content, (0, 0, 0, 40), (0, th//2, tw, th//2))
             
             if hovered:
                 pygame.draw.rect(content, (255, 255, 255, 60), (0, 0, tw, th))
@@ -247,7 +253,8 @@ class UICache:
             if hovered:
                 pygame.draw.rect(content, (255, 255, 255, 240), (0, 0, tw, th), 6, border_radius=tr)
             else:
-                pygame.draw.rect(content, (255, 255, 255, 120), (0, 0, tw, th), 4, border_radius=tr)
+                border_alpha = 40 if dark_mode else 120
+                pygame.draw.rect(content, (255, 255, 255, border_alpha), (0, 0, tw, th), 4, border_radius=tr)
                 
             # Downscale for perfectly smooth edges
             btn_surf = pygame.transform.smoothscale(content, (w, h))
@@ -268,8 +275,8 @@ def draw_speaker_icon(surface, x, y, is_muted):
         pygame.draw.line(surface, color, (x + 28, y + 4), (x + 34, y + 13), 3)
         pygame.draw.line(surface, color, (x + 34, y + 13), (x + 28, y + 22), 3)
 
-def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False):
-    shadow, btn_surf = UICache.get_glass(rect.w, rect.h, base_color, border_radius, is_hovered)
+def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False, dark_mode=False):
+    shadow, btn_surf = UICache.get_glass(rect.w, rect.h, base_color, border_radius, is_hovered, dark_mode)
     if not IS_ANDROID:
         surface.blit(shadow, (rect.x-5, rect.y-5))
     surface.blit(btn_surf, rect.topleft)
@@ -2184,9 +2191,6 @@ class WinCurl3:
             elif event.key == K_BACKSPACE:
                 self.room_text = self.room_text[:-1]
                 self.save_progress()
-            elif hasattr(event, 'unicode') and event.unicode.isprintable() and len(self.room_text) + len(event.unicode) <= 15:
-                self.room_text += event.unicode
-                self.save_progress()
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
@@ -2880,11 +2884,6 @@ class WinCurl3:
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
-            else:
-                if hasattr(event, 'unicode') and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
-                    self.username += event.unicode
-                    self.save_progress()
-            
         if self.is_pointer_pressed:
             for b in self.options_buttons:
                 if b["id"] == "master_vol" and 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
@@ -3053,7 +3052,7 @@ class WinCurl3:
 
     def draw_ui(self):
         score_rect = pygame.Rect(0, 0, BASE_WIDTH, 130)
-        draw_glass_rect(self.canvas, score_rect, (20, 24, 34, 216), border_radius=0)
+        draw_glass_rect(self.canvas, score_rect, (0, 0, 0, 160), border_radius=0, dark_mode=True)
         pygame.draw.line(self.canvas, HOUSE_RED, (0, 128), (BASE_WIDTH, 128), 3)
         
         if self.game_mode == "CHALLENGE":
