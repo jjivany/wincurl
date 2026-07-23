@@ -8,13 +8,15 @@ import struct
 import io
 import collections
 
-VERSION = "32.0"
+VERSION = "32.1"
 
 
 class CachedFont:
     def __init__(self, font):
         self.font = font
         self.cache = {}
+    def __getattr__(self, attr):
+        return getattr(self.font, attr)
     def render(self, text, antialias, color, background=None):
         key = (text, antialias, str(color), str(background))
         if key not in self.cache:
@@ -3470,7 +3472,7 @@ class WinCurl3:
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"] and self.typing_chat:
                         if len(self.chat_input) + len(event.text) <= 30:
                             self.chat_input += event.text
-                    elif self.app_state == "MENU" and self.typing_target == "name":
+                    elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
                         if len(self.username) + len(event.text) <= 15:
                             self.username += event.text
                             self.save_progress()
