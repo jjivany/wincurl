@@ -1309,7 +1309,7 @@ class AnimatedCurler:
 STORY_RINKS = [
     {
         "name": "Cloud Host Club",
-        "boss": "Silicon Sam",
+        "boss": "Ashburn",
         "color": (120, 150, 200),
         "intro_dialog": [
             "Welcome to the Cloud! We're converting this rink into a server farm.", 
@@ -1323,7 +1323,7 @@ STORY_RINKS = [
     },
     {
         "name": "Crypto Mine Rink",
-        "boss": "Data Miner Dan",
+        "boss": "Tremor",
         "color": (200, 180, 50),
         "intro_dialog": [
             "We're melting the ice to liquid-cool our crypto rigs!",
@@ -1337,7 +1337,7 @@ STORY_RINKS = [
     },
     {
         "name": "Social Media Hub",
-        "boss": "Influencer Ian",
+        "boss": "Poly Mer",
         "color": (220, 100, 150),
         "intro_dialog": [
             "We're turning this place into a giant content house!",
@@ -1351,7 +1351,7 @@ STORY_RINKS = [
     },
     {
         "name": "AI Startup Arena",
-        "boss": "Algorithm Alice",
+        "boss": "Dr. Sludge",
         "color": (150, 200, 150),
         "intro_dialog": [
             "My predictive AI models have solved curling.",
@@ -1365,7 +1365,7 @@ STORY_RINKS = [
     },
     {
         "name": "Metaverse Dome",
-        "boss": "VR Victor",
+        "boss": "Timber Baroness",
         "color": (100, 50, 150),
         "intro_dialog": [
             "Why curl in the real world when the Metaverse is so much better?",
@@ -1379,7 +1379,7 @@ STORY_RINKS = [
     },
     {
         "name": "Big Data Complex",
-        "boss": "Server Farm Steve",
+        "boss": "Baron Von Crude",
         "color": (80, 100, 80),
         "intro_dialog": [
             "This curling rink takes up too much prime real estate.",
@@ -1393,7 +1393,7 @@ STORY_RINKS = [
     },
     {
         "name": "Tech Monopoly HQ",
-        "boss": "Silicon CEO",
+        "boss": "The FourElite",
         "color": (180, 180, 200),
         "intro_dialog": [
             "We've bought every curling club in the world. This is the last one.",
@@ -1407,7 +1407,7 @@ STORY_RINKS = [
     },
     {
         "name": "The Mainframe",
-        "boss": "The A.I. Overlord",
+        "boss": "CEO Smogsworth",
         "color": (255, 50, 50),
         "intro_dialog": [
             "I AM THE CULMINATION OF ALL DATA. I HAVE CONVERTED ALL RINKS TO COOLING TANKS.",
