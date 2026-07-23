@@ -1835,6 +1835,7 @@ class WinCurl3:
         self.active_slot = 0
         self.slots_data = [{}, {}, {}]
         self.bot_slots_data = [{}, {}, {}]
+        self.local_slots_data = [{}, {}, {}]
         try:
             with open(self.save_file, "r") as f:
                 data = json.load(f)
@@ -1861,6 +1862,8 @@ class WinCurl3:
                     }
                 if "bot_slots" in data:
                     self.bot_slots_data = data["bot_slots"]
+                if "local_slots" in data:
+                    self.local_slots_data = data["local_slots"]
         except:
             print("No previous save file found, starting fresh.")
             
@@ -1876,7 +1879,9 @@ class WinCurl3:
 
     def load_slot(self, slot_idx):
         self.active_slot = slot_idx
-        slots = self.bot_slots_data if getattr(self, 'game_mode', '') == "BOT" else self.slots_data
+        if getattr(self, 'game_mode', '') == "BOT": slots = self.bot_slots_data
+        elif getattr(self, 'game_mode', '') == "LOCAL": slots = self.local_slots_data
+        else: slots = self.slots_data
         slot = slots[slot_idx] if slot_idx < len(slots) else {}
         self.challenge_progress = slot.get("challenge", [False] * 25)
         self.story = StoryManager()
@@ -1889,8 +1894,12 @@ class WinCurl3:
             while len(self.slots_data) < 3: self.slots_data.append({})
             while getattr(self, 'bot_slots_data', []) and len(self.bot_slots_data) < 3: self.bot_slots_data.append({})
             if not getattr(self, 'bot_slots_data', []): self.bot_slots_data = [{}, {}, {}]
+            while getattr(self, 'local_slots_data', []) and len(self.local_slots_data) < 3: self.local_slots_data.append({})
+            if not getattr(self, 'local_slots_data', []): self.local_slots_data = [{}, {}, {}]
             
-            slots = self.bot_slots_data if getattr(self, 'game_mode', '') == "BOT" else self.slots_data
+            if getattr(self, 'game_mode', '') == "BOT": slots = self.bot_slots_data
+            elif getattr(self, 'game_mode', '') == "LOCAL": slots = self.local_slots_data
+            else: slots = self.slots_data
             slots[self.active_slot] = {
                 "challenge": self.challenge_progress[:25],
                 "story": self.story.to_dict(),
@@ -1899,6 +1908,7 @@ class WinCurl3:
             data = {
                 "slots": self.slots_data,
                 "bot_slots": self.bot_slots_data,
+                "local_slots": self.local_slots_data,
                 "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "hi_res_mode": getattr(self, 'hi_res_mode', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0
             }
             with open(self.save_file, "w") as f: json.dump(data, f)
@@ -2236,7 +2246,7 @@ class WinCurl3:
                     if b["id"] == curr_hov:
                         self.audio.play_click()
                         new_target = None
-                        if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
+                        if b["id"] == "local": self.game_mode = "LOCAL"; self.slot_intention = "local"; self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.slot_intention = "bot"; self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] == "story":
@@ -2328,7 +2338,7 @@ class WinCurl3:
             mx, my = self.get_pointer_pos()
             cx = BASE_WIDTH // 2
             
-            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'BOT':
+            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == getattr(self, 'game_mode', ''):
                 start_btn = pygame.Rect(cx - 200, 450, 400, 100)
                 if start_btn.collidepoint(mx, my):
                     self.audio.play_click(); self.audio.stop_music(); self.restore_match(); return
@@ -3062,10 +3072,10 @@ class WinCurl3:
     def draw_bot_menu(self):
         self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16))
         cx = BASE_WIDTH // 2
-        lbl_v = self.font_72.render("LOCAL VS BOT", True, WHITE)
+        lbl_v = self.font_72.render("LOCAL VS BOT" if getattr(self, 'game_mode', '') == "BOT" else "LOCAL 1V1 MATCH", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 100))
 
-        if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'BOT':
+        if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == getattr(self, 'game_mode', ''):
             start_btn = pygame.Rect(cx - 200, 450, 400, 100)
             draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
             lbl_btn2 = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
@@ -3089,7 +3099,9 @@ class WinCurl3:
         title = self.font.render("SELECT SAVE SLOT", True, TEAM_YELLOW)
         self.canvas.blit(title, (cx - title.get_width()//2, 150))
         
-        slots = self.bot_slots_data if getattr(self, 'game_mode', '') == "BOT" else self.slots_data
+        if getattr(self, 'game_mode', '') == "BOT": slots = self.bot_slots_data
+        elif getattr(self, 'game_mode', '') == "LOCAL": slots = self.local_slots_data
+        else: slots = self.slots_data
         for i in range(3):
             rect = pygame.Rect(cx - 300, 300 + i * 200, 600, 150)
             is_hover = rect.collidepoint(self.get_pointer_pos())
@@ -3100,6 +3112,8 @@ class WinCurl3:
                 # Summary of slot
                 if getattr(self, 'game_mode', '') == "BOT":
                     txt_main = self.font.render(f"BOT SLOT {i+1}", True, WHITE)
+                elif getattr(self, 'game_mode', '') == "LOCAL":
+                    txt_main = self.font.render(f"1V1 SLOT {i+1}", True, WHITE)
                 else:
                     prog = slot_data.get("story", {}).get("current_rink", 0) + 1
                     txt_main = self.font.render(f"SLOT {i+1} - STORY RINK {prog}", True, WHITE)
@@ -3319,9 +3333,14 @@ class WinCurl3:
             t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
             self.canvas.blit(t1, (BASE_WIDTH//2 - t1.get_width()//2, 30)); self.canvas.blit(t2, (BASE_WIDTH//2 - t2.get_width()//2, 80))
         else:
-            self.canvas.blit(self.score_font.render("RED", True, HOUSE_RED), (55, 20)); self.canvas.blit(self.score_font.render("YLW", True, TEAM_YELLOW), (55, 70))
-            pygame.draw.circle(self.canvas, (180, 180, 180), (30, 32), 10); pygame.draw.circle(self.canvas, (100, 100, 100), (30, 32), 10, 2); pygame.draw.circle(self.canvas, HOUSE_RED, (30, 32), 5); pygame.draw.circle(self.canvas, (40, 40, 40), (30, 32), 5, 1)
-            pygame.draw.circle(self.canvas, (180, 180, 180), (30, 82), 10); pygame.draw.circle(self.canvas, (100, 100, 100), (30, 82), 10, 2); pygame.draw.circle(self.canvas, TEAM_YELLOW, (30, 82), 5); pygame.draw.circle(self.canvas, (40, 40, 40), (30, 82), 5, 1)
+            pygame.draw.circle(self.canvas, HOUSE_RED, (30, 35), 12); pygame.draw.circle(self.canvas, (60, 60, 60), (30, 35), 12, 2)
+            pygame.draw.circle(self.canvas, (100, 100, 100), (30, 35), 6, 2)
+            self.canvas.blit(self.score_font.render("RED", True, HOUSE_RED), (55, 20))
+            
+            pygame.draw.circle(self.canvas, TEAM_YELLOW, (30, 85), 12); pygame.draw.circle(self.canvas, (60, 60, 60), (30, 85), 12, 2)
+            pygame.draw.circle(self.canvas, (100, 100, 100), (30, 85), 6, 2)
+            self.canvas.blit(self.score_font.render("YLW", True, TEAM_YELLOW), (55, 70))
+
             
             rem_r = self.stones_per_team - self.stones_thrown[0]
             rem_y = self.stones_per_team - self.stones_thrown[1]
