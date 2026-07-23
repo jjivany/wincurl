@@ -1703,6 +1703,7 @@ class WinCurl3:
         
         self.btn_next_end = pygame.Rect(BASE_WIDTH//2-200, BASE_HEIGHT//2+120, 400, 95)
         self.btn_pause = pygame.Rect(BASE_WIDTH - 280, 140, 240, 60)
+        self.btn_chat = pygame.Rect(BASE_WIDTH - 280, 220, 240, 60)
         self.btn_resume = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-220, 500, 100)
         self.btn_options_pause = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2-100, 500, 100)
         self.btn_save_quit = pygame.Rect(BASE_WIDTH//2-250, BASE_HEIGHT//2+20, 500, 100)
