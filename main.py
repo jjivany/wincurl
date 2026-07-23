@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "33"
+VERSION = "33.1"
 
 
 class CachedFont:
@@ -2201,7 +2201,7 @@ class WinCurl3:
                 self.ai_difficulty = int(1 + max(0.0, min(1.0, (mx-350)/500.0))*9)
                 self.dragging_slider = True
         elif event.type == KEYDOWN and self.typing_target == "name":
-            if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
+            if event.key in (K_RETURN, K_KP_ENTER): self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
             else:
                 if hasattr(event, 'unicode') and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
@@ -2222,7 +2222,7 @@ class WinCurl3:
                 self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, 'preferred_color', 0))
 
         if event.type == KEYDOWN and self.typing_target == "room":
-            if event.key == K_RETURN and len(self.room_text) > 0:
+            if event.key in (K_RETURN, K_KP_ENTER) and len(self.room_text) > 0:
                 self.audio.play_click()
                 self.save_progress()
                 self.app_state = "MENU"
@@ -2927,7 +2927,7 @@ class WinCurl3:
                         self.set_typing_target(new_target)
                         break
         elif event.type == KEYDOWN and self.typing_target == "name":
-            if event.key == K_RETURN: self.set_typing_target(None); self.save_progress()
+            if event.key in (K_RETURN, K_KP_ENTER): self.set_typing_target(None); self.save_progress()
             elif event.key == K_BACKSPACE: self.username = self.username[:-1]; self.save_progress()
         if self.is_pointer_pressed:
             for b in self.options_buttons:
@@ -3579,9 +3579,13 @@ class WinCurl3:
                             self.save_progress()
 
                 if event.type == KEYDOWN:
+                    if not IS_ANDROID and getattr(event, 'key', None) == K_f:
+                        self.audio.play_click()
+                        self.toggle_fullscreen()
+                        continue
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"]:
                         if self.typing_chat:
-                            if event.key == K_RETURN:
+                            if event.key in (K_RETURN, K_KP_ENTER):
                                 if self.chat_input.strip():
                                     self.net.send_action({'cmd': 'chat', 'msg': self.chat_input})
                                     self.chat_messages.append({"text": f"Me: {self.chat_input}", "time": pygame.time.get_ticks()})
@@ -3593,7 +3597,7 @@ class WinCurl3:
                                 self.chat_input = self.chat_input[:-1]
                             continue
                         else:
-                            if event.key == K_t or event.key == K_RETURN:
+                            if event.key == K_t or event.key in (K_RETURN, K_KP_ENTER):
                                 self.typing_chat = True
                                 try: pygame.key.start_text_input()
                                 except: pass
