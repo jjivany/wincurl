@@ -11,7 +11,7 @@ The ice has never been this hot! "WinCurl 3.0" is taking the gaming world by sto
 - 🌐 **Global Multiplayer**: Built-in high-speed network matchmaking! Challenge players around the world and assert dominance!
 - 🎨 **Next-Gen Visuals**: A pristine, ultra-responsive UI featuring dynamic animated glassmorphism, procedural graphics, and sick 2D pixel art cutscenes!
 - 🎶 **Procedural Phonk Audio**: An insanely fast, non-blocking audio engine that bumps custom synthesized beats while keeping you at a buttery smooth 60 FPS!
-- 📱 **Cross-Platform Domination**: From Linux desktops to Android devices—play anywhere, anytime!
+- 📱 **Cross-Platform Domination**: From desktops to Android devices—play anywhere, anytime!
 
 ## 🛠 Elite Technology Stack:
 - **Language**: Python 3 (Because we code fast and play hard)
