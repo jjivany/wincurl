@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "35"
+VERSION = "36"
 
 
 class CachedFont:
@@ -995,7 +995,10 @@ class Stone:
 
 import base64
 import io
-import portraits_data
+try:
+    import portraits_data
+except ImportError:
+    from . import portraits_data
 
 PIXEL_PORTRAIT_CACHE = {}
 def get_pixel_portrait(name, size=(120, 120)):
@@ -3102,7 +3105,7 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_story_map(self):
-        self.screen.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
+        self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 100))
         
