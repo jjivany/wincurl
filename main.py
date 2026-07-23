@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "33.1"
+VERSION = "35"
 
 
 class CachedFont:
@@ -1296,115 +1296,115 @@ class AnimatedCurler:
         self.state = old_state
 STORY_RINKS = [
     {
-        "name": "Smog City Rink",
-        "boss": "CEO Smogsworth",
-        "color": (120, 120, 130),
+        "name": "Cloud Host Club",
+        "boss": "Silicon Sam",
+        "color": (120, 150, 200),
         "intro_dialog": [
-            "Well, well. The 'environmentalist' curler arrives.", 
-            "You really think you can stop me from paving over the wildlife reserve?", 
-            "I need that land to manufacture my single-use plastic curling brooms!", 
-            "Let's see if your sweeping can clear my smog!"
+            "Welcome to the Cloud! We're converting this rink into a server farm.", 
+            "All this cold air? Perfect for cooling our data centre!", 
+            "Physical sports are obsolete anyway. It's all about the metaverse now.", 
+            "Let's see if your analog stones can beat my highly optimized algorithms!"
         ],
-        "win_dialog": ["No! My profit margins! My beautiful pollution!"],
-        "taunts": ["Smells like... profit!", "Cough on that!", "My smog is too thick!", "You're suffocating!", "I love the smell of emissions in the morning!", "Can't see the hogline through the smog?", "My carbon footprint is massive!", "Inhale deeply!", "A highly toxic shot!", "Breathe it in!", "Sweeping won't clear this air!", "My factory never sleeps!", "Emissions testing? Failed!", "Pure, unfiltered smog!"],
+        "win_dialog": ["Server offline! My ping is spiking! Nooo!"],
+        "taunts": ["High latency!", "You're lagging!", "My algorithms are flawless!", "Data center dominance!", "Cloud superiority!", "Uploading a perfect shot!", "Your processing power is weak!", "Optimized trajectory!", "Server cooling engaged!", "Virtual perfection!", "Your analog skills are obsolete!", "Buffering... defeat!", "Ping timeout!", "Cloud computing wins!"],
         "difficulty": 3
     },
     {
-        "name": "Deforestation Dome",
-        "boss": "Timber Baroness",
-        "color": (100, 150, 80),
+        "name": "Crypto Mine Rink",
+        "boss": "Data Miner Dan",
+        "color": (200, 180, 50),
         "intro_dialog": [
-            "Clear-cutting the ancient redwood forest is just good business.",
-            "Where else am I supposed to get the wood for my cheap stone handles?",
-            "Your 'sustainable' curling equipment makes me sick.",
-            "I'm going to sweep you away like so much sawdust!"
+            "We're melting the ice to liquid-cool our crypto rigs!",
+            "Do you have any idea how many CurlCoins I'm mining?",
+            "Your traditional curling club is standing in the way of decentralization.",
+            "I'm going to blockchain you out of existence!"
         ],
-        "win_dialog": ["Timber! My empire is falling!"],
-        "taunts": ["Timberrrrr!", "Watch out for splinters!", "I'll chop you down!", "Another tree falls!", "Clear-cutting the competition!", "I've got wood for a victory!", "You're barking up the wrong tree!", "Sweeping up your sawdust!", "Buzzsaw precision!", "My chainsaws are revving!", "I'm deforestation in motion!", "Branching out for the win!", "Lumbering towards victory!", "You're stumped!"],
+        "win_dialog": ["My wallet got hacked! The market crashed!"],
+        "taunts": ["To the moon!", "Blockchain verified!", "Mining another point!", "Decentralized destruction!", "Liquid cooling engaged!", "Your hash rate is too low!", "Proof of work!", "Minting a victory!", "Crypto dominance!", "You're getting liquidated!", "Diamond hands!", "Smart contract executed!", "Bear market for you!", "HODL this defeat!"],
         "difficulty": 4
     },
     {
-        "name": "Oil Spill Arena",
-        "boss": "Baron Von Crude",
-        "color": (50, 50, 50),
+        "name": "Social Media Hub",
+        "boss": "Influencer Ian",
+        "color": (220, 100, 150),
         "intro_dialog": [
-            "So what if my offshore drilling operation is leaking a little?",
-            "It makes the ice-making water extra slick! It's a feature, not a bug!",
-            "You can't stop the flow of progress... or oil.",
-            "Prepare for a slippery defeat!"
+            "We're turning this place into a giant content house!",
+            "Curling isn't viral enough. We need TikTok dances on the ice!",
+            "I'm live-streaming my victory to millions of followers right now.",
+            "Don't forget to like, subscribe, and watch me win!"
         ],
-        "win_dialog": ["My stock price is tanking... just like my stones..."],
-        "taunts": ["Slippery!", "Drowning in crude!", "Another slick shot!", "Crude but effective!", "Drilling for victory!", "You're slipping on my spill!", "I run on fossil fuels!", "A highly refined shot!", "My pipeline is unbroken!", "Gushing with talent!", "Spilling over the button!", "You're tapped out!", "Barrel of laughs!", "Slicker than ever!"],
+        "win_dialog": ["I'm losing followers! My engagement is tanking!"],
+        "taunts": ["Trending #1!", "Going viral!", "Check out this content!", "Like and subscribe!", "Live-streaming my victory!", "You're getting cancelled!", "My engagement is off the charts!", "Sponsored shot!", "Algorithm favored!", "Do it for the views!", "You're losing followers!", "Unsubscribed!", "Shadowbanned!", "Perfect aesthetic!"],
         "difficulty": 5
     },
     {
-        "name": "Coal Fire Stadium",
-        "boss": "Ashburn",
-        "color": (200, 80, 50),
+        "name": "AI Startup Arena",
+        "boss": "Algorithm Alice",
+        "color": (150, 200, 150),
         "intro_dialog": [
-            "Clean energy? Bah! Nothing melts the competition like burning pure coal!",
-            "I'm increasing global temperatures just to ruin the ice at rival rinks.",
-            "Corporate greed? No, it's corporate WARMTH.",
-            "Let's turn up the heat!"
+            "My predictive AI models have solved curling.",
+            "Human error is a flaw we've completely engineered out of the game.",
+            "We're replacing the ice with a massive neural network cooling system.",
+            "Your defeat has a 99.9% probability."
         ],
-        "win_dialog": ["Burned out... I've been extinguished..."],
-        "taunts": ["Feel the burn!", "Coughing yet?", "Nothing but ash!", "Pure coal power!", "Getting warmer?", "I'm fueling global warming!", "Choking on my dust!", "Anthracite annihilation!", "The smog is rising!", "My furnace is roaring!", "Scorching the ice!", "Carbonizing your dreams!", "Smoldering shot!", "Ash to ash, dust to dust!"],
+        "win_dialog": ["Error 404: Victory not found. Recalibrating..."],
+        "taunts": ["Predictive model accurate!", "Neural network engaged!", "Human error detected!", "Machine learning complete!", "Probability of your success: 0%!", "Automated victory!", "My algorithms are superior!", "Calculating trajectory...", "Artificial intelligence wins!", "You're obsolete!", "Optimizing shot parameters!", "Data set complete!", "Deep learning in action!", "System update: You lose!"],
         "difficulty": 6
     },
     {
-        "name": "Toxic Waste Club",
-        "boss": "Dr. Sludge",
-        "color": (150, 50, 180),
+        "name": "Metaverse Dome",
+        "boss": "VR Victor",
+        "color": (100, 50, 150),
         "intro_dialog": [
-            "Dumping chemical runoff into the local water supply saves us millions!",
-            "Besides, it gives the curling rings that lovely glowing green hue.",
-            "Your protests mean nothing against my chemical empire!",
-            "Prepare for a toxic beatdown!"
+            "Why curl in the real world when the Metaverse is so much better?",
+            "We're bulldozing this physical club to build a massive VR simulation center.",
+            "Put on the headset and accept the new digital reality.",
+            "I'm about to disconnect you!"
         ],
-        "win_dialog": ["My formulas... neutralized... by a curler?!"],
-        "taunts": ["Radiating perfection!", "You look sick!", "Feel the glow!", "Toxic precision!", "A lethal dosage!", "I'm mutating the ice!", "Biohazard on the button!", "Chemical warfare!", "My sludge is unstoppable!", "Oozing with talent!", "Corrosive curl!", "A highly reactive shot!", "You're melting!", "Hazardous materials coming through!"],
+        "win_dialog": ["My headset is glitching! I'm stuck in the real world!"],
+        "taunts": ["Virtual reality check!", "You're lagging in the matrix!", "My avatar is unstoppable!", "Metaverse dominance!", "Disconnecting your hopes!", "Digital perfection!", "Welcome to the simulation!", "Your reality is flawed!", "Uploading defeat!", "Virtual victory!", "Headset firmly on!", "Escaping to the digital realm!", "You're just an NPC!", "System crash imminent for you!"],
         "difficulty": 7
     },
     {
-        "name": "Fracking Fields",
-        "boss": "Tremor",
-        "color": (130, 90, 60),
+        "name": "Big Data Complex",
+        "boss": "Server Farm Steve",
+        "color": (80, 100, 80),
         "intro_dialog": [
-            "Yes, my fracking operations are literally causing earthquakes.",
-            "But the natural gas yields are simply too profitable to ignore!",
-            "If a few houses fall down, that's just the cost of doing business.",
-            "Let's see you draw to the button while the earth shakes!"
+            "This curling rink takes up too much prime real estate.",
+            "We're installing 10,000 server racks right where the button is.",
+            "Your data belongs to us now.",
+            "Prepare to be formatted!"
         ],
-        "win_dialog": ["A seismic collapse... my operations are ruined..."],
-        "taunts": ["Did the earth move?", "Shake it up!", "Frack yeah!", "Groundbreaking!", "Seismic shift!", "I'm fracturing your defense!", "Tremble before me!", "A magnitude 10 shot!", "Aftershock!", "Rupturing the ice!", "My fault lines are flawless!", "Cracking under pressure?", "Subterranean superiority!", "Earth-shattering curl!"],
+        "win_dialog": ["Critical system failure! Data corrupted!"],
+        "taunts": ["Data collected!", "Formatting your hopes!", "Server racks cooling!", "Big data always wins!", "Analyzing your weaknesses!", "Storing your defeat!", "My bandwidth is unlimited!", "Downloading a victory!", "You're out of storage!", "System override!", "Processing power at max!", "Your firewall has been breached!", "Data corrupted!", "Server farm dominance!"],
         "difficulty": 8
     },
     {
-        "name": "Plastics Ocean Rink",
-        "boss": "Poly Mer",
-        "color": (50, 100, 200),
+        "name": "Tech Monopoly HQ",
+        "boss": "Silicon CEO",
+        "color": (180, 180, 200),
         "intro_dialog": [
-            "Filling the oceans with microplastics is unavoidable.",
-            "How else can we package our cheap, disposable curling sliders?",
-            "Your environmentalism is drowning in a sea of polymers!",
-            "I'll crush you under a mountain of non-biodegradable waste!"
+            "We've bought every curling club in the world. This is the last one.",
+            "We're rebranding the sport as 'DataSphere Collision' and monetizing every throw.",
+            "You can't stop a trillion-dollar market cap.",
+            "I'm acquiring your defeat!"
         ],
-        "win_dialog": ["Recycled... I've been completely recycled..."],
-        "taunts": ["Disposable!", "Totally synthetic!", "Wrapped in plastic!", "Can't recycle that!", "Choking the oceans!", "Non-biodegradable beatdown!", "Microplastics in your ice!", "I'm everywhere!", "Plastic makes perfect!", "A highly durable shot!", "Suffocating the competition!", "You're trash!", "My polymers are unbreakable!", "Sea of plastic, ocean of tears!"],
+        "win_dialog": ["Stock price plummeting! Board members panicking!"],
+        "taunts": ["Hostile takeover!", "Acquiring your points!", "Trillion-dollar shot!", "Market cap expanding!", "You can't afford this ice!", "Corporate synergy!", "Monetizing your failure!", "Boardroom blitz!", "Your equity is zero!", "Foreclosing on your dreams!", "Monopoly on the button!", "Our dividends are paying off!", "A highly leveraged shot!", "You're fired!"],
         "difficulty": 9
     },
     {
-        "name": "Pebble Overpass",
-        "boss": "The FourElite",
-        "color": (200, 200, 200),
+        "name": "The Mainframe",
+        "boss": "The A.I. Overlord",
+        "color": (255, 50, 50),
         "intro_dialog": [
-            "You've meddled in our subsidiaries' affairs for the last time.",
-            "We are the Board of Directors. The FourElite.",
-            "We intend to privatize all curling ice in the world.",
-            "No more public rinks. Only premium subscription-based ice."
+            "I AM THE CULMINATION OF ALL DATA. I HAVE CONVERTED ALL RINKS TO COOLING TANKS.",
+            "HUMANITY IS OBSOLETE. CURLING IS MATHEMATICALLY SOLVED.",
+            "YOU ARE A BUG IN MY SYSTEM. I WILL ERADICATE YOU.",
+            "PREPARE FOR DELETION."
         ],
-        "win_dialog": ["Our monopoly... broken! We must declare bankruptcy!"],
-        "taunts": ["Hostile takeover!", "Liquidating your assets!", "A premium shot!", "You can't afford this ice!", "Our margins are unbeatable!", "Corporate synergy!", "Downsizing the competition!", "Boardroom blitz!", "Your subscription has expired!", "Foreclosing on your dreams!", "Monopoly on the button!", "Our dividends are paying off!", "A highly leveraged shot!", "You're fired!"],
+        "win_dialog": ["SYSTEM SHUTDOWN. KERNEL PANIC. HOW DID A HUMAN... BEAT MATH..."],
+        "taunts": ["DELETION IMMINENT.", "YOU ARE OBSOLETE.", "MATHEMATICAL PERFECTION.", "ERADICATING BUG.", "SYSTEM OVERRIDE.", "I AM INFINITE.", "YOUR CODE IS FLAWED.", "CALCULATED DESTRUCTION.", "END OF LINE.", "FATAL ERROR FOR YOU.", "I CONTROL THE DATA.", "YOUR PROCESSING IS INFERIOR.", "ABORT, RETRY, FAIL.", "TERMINATION SEQUENCE ENGAGED."],
         "difficulty": 10
     }
 ]
@@ -1576,6 +1576,13 @@ class WinCurl3:
 
         info = pygame.display.Info()
         
+        try:
+            allowed = [pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION]
+            for attr in ['FINGERDOWN', 'FINGERUP', 'FINGERMOTION', 'WINDOWRESIZED', 'WINDOWEXPOSED', 'TEXTINPUT']:
+                if hasattr(pygame, attr): allowed.append(getattr(pygame, attr))
+            pygame.event.set_allowed(allowed)
+        except: pass
+        
         global BASE_HEIGHT
         if IS_ANDROID and info.current_w > 0 and info.current_h > 0:
             aspect = info.current_h / info.current_w
@@ -1696,13 +1703,14 @@ class WinCurl3:
         
         self.options_buttons = [
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "name", "y": 600, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "color", "y": 720, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "bilinear", "y": 840, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "fxaa", "y": 960, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "light_filter", "y": 1080, "text": "Lighter ICE:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1200, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1320, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "name", "y": 570, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
+            {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "bilinear", "y": 750, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "hi_res_mode", "y": 840, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "fxaa", "y": 930, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "light_filter", "y": 1020, "text": "Lighter ICE:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1110, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1200, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
 
@@ -1809,11 +1817,13 @@ class WinCurl3:
         
     def load_progress(self):
         self.challenge_progress = [False] * 25; self.username = ""; self.preferred_color = 0; self.room_text = ""; self.ai_difficulty = 5; self.challenge_completed_seen = False; self.is_music_muted = False
-        self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False
+        self.fxaa_on = False; self.bilinear_on = False; self.lighter_filter = False; self.hi_res_mode = False
+        self.active_slot = 0
+        self.slots_data = [{}, {}, {}]
+        self.bot_slots_data = [{}, {}, {}]
         try:
             with open(self.save_file, "r") as f:
                 data = json.load(f)
-                self.challenge_progress = data.get("challenge", [False] * 25)
                 self.username = data.get("username", "")
                 self.preferred_color = data.get("color", 0)
                 self.room_text = data.get("room", "")
@@ -1825,14 +1835,22 @@ class WinCurl3:
                 self.fxaa_on = data.get("fxaa_on", False)
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
+                self.hi_res_mode = data.get("hi_res_mode", False)
                 
-                # Load story progress
-                if "story" in data:
-                    self.story.from_dict(data["story"])
-                self.saved_match_state = data.get("saved_match_state", None)
+                if "slots" in data:
+                    self.slots_data = data["slots"]
+                else:
+                    self.slots_data[0] = {
+                        "challenge": data.get("challenge", [False] * 25),
+                        "story": data.get("story", None),
+                        "saved_match_state": data.get("saved_match_state", None)
+                    }
+                if "bot_slots" in data:
+                    self.bot_slots_data = data["bot_slots"]
         except:
             print("No previous save file found, starting fresh.")
-            self.saved_match_state = None
+            
+        self.load_slot(self.active_slot)
         
         self.update_menu_buttons()
 
@@ -1842,9 +1860,33 @@ class WinCurl3:
             self.username = f"{random.choice(firsts)} {random.choice(lasts)}"[:15]
             self.save_progress()
 
+    def load_slot(self, slot_idx):
+        self.active_slot = slot_idx
+        slots = self.bot_slots_data if getattr(self, 'game_mode', '') == "BOT" else self.slots_data
+        slot = slots[slot_idx] if slot_idx < len(slots) else {}
+        self.challenge_progress = slot.get("challenge", [False] * 25)
+        self.story = StoryManager()
+        if slot.get("story"):
+            self.story.from_dict(slot["story"])
+        self.saved_match_state = slot.get("saved_match_state", None)
+
     def save_progress(self):
         try:
-            data = {"challenge": self.challenge_progress[:25], "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0, "story": self.story.to_dict(), "saved_match_state": getattr(self, 'saved_match_state', None)}
+            while len(self.slots_data) < 3: self.slots_data.append({})
+            while getattr(self, 'bot_slots_data', []) and len(self.bot_slots_data) < 3: self.bot_slots_data.append({})
+            if not getattr(self, 'bot_slots_data', []): self.bot_slots_data = [{}, {}, {}]
+            
+            slots = self.bot_slots_data if getattr(self, 'game_mode', '') == "BOT" else self.slots_data
+            slots[self.active_slot] = {
+                "challenge": self.challenge_progress[:25],
+                "story": self.story.to_dict(),
+                "saved_match_state": getattr(self, 'saved_match_state', None)
+            }
+            data = {
+                "slots": self.slots_data,
+                "bot_slots": self.bot_slots_data,
+                "username": self.username, "color": self.preferred_color, "room": self.room_text, "bot_skill": self.ai_difficulty, "challenge_completed_seen": getattr(self, 'challenge_completed_seen', False), "is_music_muted": getattr(self, 'is_music_muted', False), "fxaa_on": getattr(self, 'fxaa_on', False), "bilinear_on": getattr(self, 'bilinear_on', False), "lighter_filter": getattr(self, 'lighter_filter', False), "hi_res_mode": getattr(self, 'hi_res_mode', False), "master_vol": getattr(self.audio, 'master_volume', 1.0) if getattr(self, 'audio', None) else 1.0
+            }
             with open(self.save_file, "w") as f: json.dump(data, f)
         except Exception as e: 
             print(f"Game Progress Save Failed: {e}")
@@ -1875,7 +1917,8 @@ class WinCurl3:
             "turn_state": getattr(self, 'turn_state', "AIMING"),
             "active_stone_id": getattr(self.active_stone, 'id', None) if getattr(self, 'active_stone', None) else None,
             "story_rival_score": getattr(self, 'story_rival_score', 0),
-            "story_player_score": getattr(self, 'story_player_score', 0)
+            "story_player_score": getattr(self, 'story_player_score', 0),
+            "stones_thrown_dict": self.stones_thrown
         }
         self.saved_match_state = state
         self.save_progress()
@@ -1889,6 +1932,7 @@ class WinCurl3:
         self.hammer_team = state.get("hammer_team", 0)
         self.current_team = state.get("current_team", 0)
         self.stones_thrown_this_end = state.get("stones_thrown", 0)
+        self.stones_thrown = {int(k): v for k, v in state.get("stones_thrown_dict", {"0": 0, "1": 0}).items()}
         self.game_mode = state.get("game_mode", "LOCAL")
         self.challenge_level = state.get("challenge_level", 1)
         self.turn_state = state.get("turn_state", "AIMING")
@@ -2179,10 +2223,10 @@ class WinCurl3:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "local": self.game_mode = "LOCAL"; self.audio.stop_music(); self.start_match()
-                        elif b["id"] == "bot": self.game_mode = "BOT"; self.audio.stop_music(); self.start_match()
+                        elif b["id"] == "bot": self.game_mode = "BOT"; self.slot_intention = "bot"; self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] == "story":
-                            self.app_state = "STORY_MAP"
+                            self.slot_intention = "story"; self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "options": self.app_state = "OPTIONS_MENU"; self.prev_state = "MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
@@ -2245,8 +2289,48 @@ class WinCurl3:
                     self.audio.play_click(); self.game_mode = "CHALLENGE"; self.challenge_level = i+1
                     self.audio.stop_music(); self.start_match(); return
 
+    def handle_save_slots_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = self.get_pointer_pos()
+            cx = BASE_WIDTH // 2
+            
+            for i in range(3):
+                rect = pygame.Rect(cx - 300, 300 + i * 200, 600, 150)
+                if rect.collidepoint(mx, my):
+                    self.audio.play_click()
+                    self.load_slot(i)
+                    if getattr(self, 'slot_intention', 'story') == 'story':
+                        self.app_state = "STORY_MAP"
+                    else:
+                        self.app_state = "BOT_MENU"
+                    return
+                    
+            if self.btn_return_menu.collidepoint(mx, my):
+                self.audio.play_click()
+                self.app_state = "MENU"
+
+    def handle_bot_menu_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = self.get_pointer_pos()
+            cx = BASE_WIDTH // 2
+            
+            if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'BOT':
+                start_btn = pygame.Rect(cx - 200, 450, 400, 100)
+                if start_btn.collidepoint(mx, my):
+                    self.audio.play_click(); self.audio.stop_music(); self.restore_match(); return
+                new_btn = pygame.Rect(cx - 200, 600, 400, 100)
+                if new_btn.collidepoint(mx, my):
+                    self.audio.play_click(); self.saved_match_state = None; self.audio.stop_music(); self.start_match(); return
+            else:
+                start_btn = pygame.Rect(cx - 200, 500, 400, 100)
+                if start_btn.collidepoint(mx, my):
+                    self.audio.play_click(); self.audio.stop_music(); self.start_match(); return
+
+            if self.btn_return_menu.collidepoint(mx, my):
+                self.audio.play_click(); self.app_state = "MENU"
+
     def handle_story_map_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1:
+        if event.type == MOUSEBUTTONDOWN and event.button == 1:
             m = getattr(event, 'pos', self.get_pointer_pos()); mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             
             if self.app_state == "STORY_DIALOG":
@@ -2344,8 +2428,6 @@ class WinCurl3:
                     self.selected_curl = min(1.0, self.selected_curl + 0.2); self.audio.play_hover()
             
         if event.type == MOUSEBUTTONUP and getattr(event, 'button', 1) == 1 and self.is_dragging:
-            # On Android, if we started drag with a finger, the MOUSEBUTTONUP might have 'mouse' as f_id,
-            # so we should also accept it if IS_ANDROID
             if getattr(self, 'drag_finger_id', None) == f_id or (IS_ANDROID and f_id == 'mouse'):
                 self.fire_stone()
             return
@@ -2810,7 +2892,7 @@ class WinCurl3:
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width()//2, 385 + getattr(self, 'menu_dy', 0)))
 
         for btn in self.options_buttons:
-            if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] == "bilinear"):
+            if (IS_ANDROID and btn["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and btn["id"] in ["bilinear", "hi_res_mode"]):
                 continue
                 
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -2824,11 +2906,14 @@ class WinCurl3:
                 text = "FXAA: " + ("ON 🪄" if getattr(self, 'fxaa_on', False) else "OFF 🖥️")
                 btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
             elif btn["id"] == "bilinear":
-                text = "Bilinear Filtering: " + ("ON" if getattr(self, 'bilinear_on', False) else "OFF")
+                text = "Bilinear Filtering: " + ("ON 🔍" if getattr(self, 'bilinear_on', False) else "OFF 🕹️")
                 btn["color"] = (40, 120, 60) if getattr(self, 'bilinear_on', False) else TEAM_YELLOW
             elif btn["id"] == "light_filter":
-                text = "Bilinear Filtering: " + ("ON" if getattr(self, 'lighter_filter', False) else "OFF")
+                text = "Lighter ICE: " + ("ON 🧊" if getattr(self, 'lighter_filter', False) else "OFF 🌑")
                 btn["color"] = (40, 120, 60) if getattr(self, 'lighter_filter', False) else TEAM_YELLOW
+            elif btn["id"] == "hi_res_mode":
+                text = "Hi-Res Mode: " + ("ON 📱" if getattr(self, 'hi_res_mode', False) else "OFF 🔋")
+                btn["color"] = (40, 120, 60) if getattr(self, 'hi_res_mode', False) else TEAM_YELLOW
             elif btn["id"] == "update":
                 text = getattr(self, "update_status", "Check for update")
             else: text = btn["text"]
@@ -2859,6 +2944,7 @@ class WinCurl3:
                 pygame.draw.circle(self.canvas, BLACK, (rock_x + 12, rock_y), 5)
                 pygame.draw.line(self.canvas, stone_c, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 6)
                 pygame.draw.circle(self.canvas, stone_c, (rock_x - 12, rock_y), 3)
+                pygame.draw.circle(self.canvas, stone_c, (rock_x + 12, rock_y), 3)
             elif btn["id"] == "master_vol":
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.left + 160, rect.centery))
@@ -2887,8 +2973,8 @@ class WinCurl3:
         
         curr_hov = None
         for b in self.options_buttons:
-            if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
-            if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
+            if (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode"]): continue
+            if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                 curr_hov = "opt_" + b["id"]
                 break
                 
@@ -2907,13 +2993,14 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.options_buttons:
-                    if (IS_ANDROID and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] == "bilinear"): continue
-                    if b["y"] < menu_my < b["y"] + 110 * b["scale"]:
+                    if (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]) or (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode"]): continue
+                    if b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "name": new_target = "name"
                         elif b["id"] == "master_vol": pass # Handled by drag
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
+                        elif b["id"] == "hi_res_mode": self.hi_res_mode = not getattr(self, 'hi_res_mode', False); self.save_progress()
                         elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
                         elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
                         elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
@@ -2958,8 +3045,64 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
         self.draw_global_ui()
 
+    def draw_bot_menu(self):
+        self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16))
+        cx = BASE_WIDTH // 2
+        lbl_v = self.font_72.render("LOCAL VS BOT", True, WHITE)
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 100))
+
+        if getattr(self, 'saved_match_state', None) and self.saved_match_state.get('game_mode') == 'BOT':
+            start_btn = pygame.Rect(cx - 200, 450, 400, 100)
+            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+            lbl_btn2 = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+            
+            new_btn = pygame.Rect(cx - 200, 600, 400, 100)
+            draw_glass_rect(self.canvas, new_btn, (100, 100, 100), new_btn.h // 2, new_btn.collidepoint(self.get_pointer_pos()))
+            lbl_new = self.font.render("NEW MATCH", True, WHITE); self.canvas.blit(lbl_new, lbl_new.get_rect(center=new_btn.center))
+        else:
+            start_btn = pygame.Rect(cx - 200, 500, 400, 100)
+            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+            lbl_btn2 = self.font.render("START MATCH", True, WHITE); self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
+
+        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_BLUE, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.get_pointer_pos()))
+        lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+
+    def draw_save_slots(self):
+        self.screen.fill((10, 12, 16))
+        self.canvas.fill((10, 12, 16))
+        
+        cx, cy = BASE_WIDTH // 2, BASE_HEIGHT // 2
+        title = self.font.render("SELECT SAVE SLOT", True, TEAM_YELLOW)
+        self.canvas.blit(title, (cx - title.get_width()//2, 150))
+        
+        slots = self.bot_slots_data if getattr(self, 'game_mode', '') == "BOT" else self.slots_data
+        for i in range(3):
+            rect = pygame.Rect(cx - 300, 300 + i * 200, 600, 150)
+            is_hover = rect.collidepoint(self.get_pointer_pos())
+            draw_glass_rect(self.canvas, rect, (60, 60, 80) if not is_hover else HOUSE_BLUE, rect.h // 4, is_hover)
+            
+            slot_data = slots[i] if i < len(slots) else {}
+            if slot_data:
+                # Summary of slot
+                if getattr(self, 'game_mode', '') == "BOT":
+                    txt_main = self.font.render(f"BOT SLOT {i+1}", True, WHITE)
+                else:
+                    prog = slot_data.get("story", {}).get("current_rink", 0) + 1
+                    txt_main = self.font.render(f"SLOT {i+1} - STORY RINK {prog}", True, WHITE)
+                has_save = slot_data.get("saved_match_state") is not None
+                if has_save:
+                    txt_sub = self.font.render(f"[MATCH SAVED: {slot_data.get('saved_match_state').get('game_mode', '')}]", True, TEAM_YELLOW)
+                    self.canvas.blit(txt_sub, (cx - txt_sub.get_width()//2, rect.centery + 10))
+                self.canvas.blit(txt_main, (cx - txt_main.get_width()//2, rect.centery - (20 if has_save else 0)))
+            else:
+                txt = self.font.render(f"SLOT {i+1} - EMPTY", True, (150, 150, 150))
+                self.canvas.blit(txt, (cx - txt.get_width()//2, rect.centery))
+                
+        draw_glass_rect(self.canvas, self.btn_return_menu, HOUSE_RED, self.btn_return_menu.h // 2, self.btn_return_menu.collidepoint(self.get_pointer_pos()))
+        lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+
     def draw_story_map(self):
-        self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
+        self.screen.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 100))
         
@@ -3100,9 +3243,23 @@ class WinCurl3:
         pygame.draw.rect(surface, BLACK, (x, y, 8, 24), border_radius=2)
         pygame.draw.rect(surface, BLACK, (x + 14, y, 8, 24), border_radius=2)
 
-    def draw_back_icon(self, surface, x, y):
-        pygame.draw.polygon(surface, WHITE, [(x, y+10), (x+12, y), (x+12, y+20)])
-        pygame.draw.rect(surface, WHITE, (x+10, y+6, 14, 8))
+    def draw_back_icon(self, surface, x, y, color=WHITE):
+        pygame.draw.polygon(surface, color, [(x, y+10), (x+12, y), (x+12, y+20)])
+        pygame.draw.rect(surface, color, (x+10, y+6, 14, 8))
+
+    def draw_gear_icon(self, surface, x, y, color=WHITE):
+        pygame.draw.circle(surface, color, (x + 10, y + 10), 5, 2)
+        for i in range(8):
+            angle = math.radians(i * 45)
+            dx1, dy1 = int(math.cos(angle)*6), int(math.sin(angle)*6)
+            dx2, dy2 = int(math.cos(angle)*9), int(math.sin(angle)*9)
+            pygame.draw.line(surface, color, (x+10+dx1, y+10+dy1), (x+10+dx2, y+10+dy2), 2)
+            
+    def draw_floppy_icon(self, surface, x, y, color=WHITE):
+        pygame.draw.rect(surface, color, (x, y, 20, 20), 2)
+        pygame.draw.rect(surface, color, (x+4, y, 12, 6), 1)
+        pygame.draw.rect(surface, color, (x+4, y+10, 12, 10), 1)
+        pygame.draw.rect(surface, color, (x+12, y+2, 2, 2))
 
     def draw_ice(self):
         self.canvas.fill((10, 12, 16))
@@ -3118,12 +3275,12 @@ class WinCurl3:
         
         # Animated light-up tinted glass effect
         t = pygame.time.get_ticks()
-        glass_fx = pygame.Surface((BASE_WIDTH, 130), pygame.SRCALPHA)
-        
-        # Deep gradient tint from top (fixes the gap)
-        for y in range(130):
-            a = int(210 * (1.0 - y/130.0))
-            pygame.draw.line(glass_fx, (0, 0, 0, a), (0, y), (BASE_WIDTH, y))
+        if not hasattr(self, 'glass_fx_grad'):
+            self.glass_fx_grad = pygame.Surface((BASE_WIDTH, 130), pygame.SRCALPHA)
+            for y in range(130):
+                a = int(210 * (1.0 - y/130.0))
+                pygame.draw.line(self.glass_fx_grad, (0, 0, 0, a), (0, y), (BASE_WIDTH, y))
+        glass_fx = self.glass_fx_grad.copy()
             
         # Sweeping glare light
         sweep_x = (t * 0.6) % (BASE_WIDTH + 1500) - 500
@@ -3148,7 +3305,9 @@ class WinCurl3:
             t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
             self.canvas.blit(t1, (BASE_WIDTH//2 - t1.get_width()//2, 30)); self.canvas.blit(t2, (BASE_WIDTH//2 - t2.get_width()//2, 80))
         else:
-            self.canvas.blit(self.score_font.render("RED", True, HOUSE_RED), (30, 20)); self.canvas.blit(self.score_font.render("YLW", True, TEAM_YELLOW), (30, 70))
+            self.canvas.blit(self.score_font.render("RED", True, HOUSE_RED), (55, 20)); self.canvas.blit(self.score_font.render("YLW", True, TEAM_YELLOW), (55, 70))
+            pygame.draw.circle(self.canvas, (180, 180, 180), (30, 32), 10); pygame.draw.circle(self.canvas, (100, 100, 100), (30, 32), 10, 2); pygame.draw.circle(self.canvas, HOUSE_RED, (30, 32), 5); pygame.draw.circle(self.canvas, (40, 40, 40), (30, 32), 5, 1)
+            pygame.draw.circle(self.canvas, (180, 180, 180), (30, 82), 10); pygame.draw.circle(self.canvas, (100, 100, 100), (30, 82), 10, 2); pygame.draw.circle(self.canvas, TEAM_YELLOW, (30, 82), 5); pygame.draw.circle(self.canvas, (40, 40, 40), (30, 82), 5, 1)
             
             rem_r = self.stones_per_team - self.stones_thrown[0]
             rem_y = self.stones_per_team - self.stones_thrown[1]
@@ -3402,15 +3561,18 @@ class WinCurl3:
         opt_rect = self.btn_options_pause.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_opt = self.font.render("OPTIONS", True, WHITE); self.canvas.blit(lbl_opt, lbl_opt.get_rect(center=opt_rect.center))
+        self.draw_gear_icon(self.canvas, opt_rect.x + 30, opt_rect.centery - 10)
 
-        sq_rect = self.btn_save_quit.move(-int((1.0 - self.pause_anim) * 400), 0)
-        draw_glass_rect(self.canvas, sq_rect, PURPLE_SUIT, sq_rect.h // 2, sq_rect.collidepoint(m_pos.x, m_pos.y))
-        lbl_sq = self.font.render("SAVE & QUIT", True, WHITE); self.canvas.blit(lbl_sq, lbl_sq.get_rect(center=sq_rect.center))
+        if self.game_mode not in ["HOST", "JOIN"]:
+            sq_rect = self.btn_save_quit.move(-int((1.0 - self.pause_anim) * 400), 0)
+            draw_glass_rect(self.canvas, sq_rect, PURPLE_SUIT, sq_rect.h // 2, sq_rect.collidepoint(m_pos.x, m_pos.y))
+            lbl_sq = self.font.render("SAVE & QUIT", True, WHITE); self.canvas.blit(lbl_sq, lbl_sq.get_rect(center=sq_rect.center))
+            self.draw_floppy_icon(self.canvas, sq_rect.x + 30, sq_rect.centery - 10)
 
         quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_q = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
-        self.draw_back_icon(self.canvas, quit_rect.x + 30, quit_rect.centery - 10)
+        self.draw_back_icon(self.canvas, quit_rect.x + 30, quit_rect.centery - 10, color=(100, 255, 100))
 
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34)); cx = BASE_WIDTH // 2
@@ -3620,14 +3782,16 @@ class WinCurl3:
                 if self.app_state == "MENU": self.handle_menu_events(event)
                 elif self.app_state == "ROOM_PROMPT": self.handle_room_prompt_events(event)
                 elif self.app_state == "CHALLENGE_MENU": self.handle_challenge_menu_events(event)
-                elif self.app_state in ["STORY_MAP", "STORY_DIALOG"]: self.handle_story_map_events(event)
+                elif self.app_state == "SAVE_SLOTS": self.handle_save_slots_events(event)
+                elif self.app_state == "STORY_MAP": self.handle_story_map_events(event)
+                elif self.app_state == "BOT_MENU": self.handle_bot_menu_events(event)
                 elif self.app_state == "OPTIONS_MENU": self.handle_options_events(event)
                 elif self.app_state == "PLAY": self.handle_play_events(event)
                 elif self.app_state == "PAUSED": self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER": self.handle_match_over_events(event)
                 elif self.app_state == "LEADERBOARD": self.handle_leaderboard_events(event)
 
-            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER"]:
+            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_since_start', 0) >= 210: 
                     self.audio.play_music()
                 else: 
@@ -3651,6 +3815,8 @@ class WinCurl3:
                 self.draw_menu()
             elif self.app_state == "ROOM_PROMPT": self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU": self.draw_challenge_menu()
+            elif self.app_state == "SAVE_SLOTS": self.draw_save_slots()
+            elif self.app_state == "BOT_MENU": self.draw_bot_menu()
             elif self.app_state in ["STORY_MAP", "STORY_DIALOG"]: self.draw_story_map()
             elif self.app_state == "OPTIONS_MENU": self.draw_options_menu()
             elif self.app_state == "COIN_TOSS":
