@@ -998,7 +998,10 @@ import io
 try:
     import portraits_data
 except ImportError:
-    from . import portraits_data
+    try:
+        from . import portraits_data
+    except ImportError:
+        portraits_data = None
 
 PIXEL_PORTRAIT_CACHE = {}
 def get_pixel_portrait(name, size=(120, 120)):
@@ -1006,6 +1009,12 @@ def get_pixel_portrait(name, size=(120, 120)):
     if key in PIXEL_PORTRAIT_CACHE:
         return PIXEL_PORTRAIT_CACHE[key]
     
+    if portraits_data is None:
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        surf.fill((100, 100, 100, 255))
+        PIXEL_PORTRAIT_CACHE[key] = surf
+        return surf
+
     b64 = portraits_data.PORTRAITS_B64.get(name, portraits_data.PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
