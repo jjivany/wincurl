@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "3.0 Build 40"
+VERSION = "3.0 Build 41"
 
 
 class CachedFont:
@@ -274,11 +274,29 @@ def draw_speaker_icon(surface, x, y, is_muted):
         pygame.draw.line(surface, color, (x + 28, y + 4), (x + 34, y + 13), 3)
         pygame.draw.line(surface, color, (x + 34, y + 13), (x + 28, y + 22), 3)
 
-def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False, dark_mode=False):
+def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False, dark_mode=False, animate_sheen=True):
+    if IS_ANDROID: animate_sheen = False
     shadow, btn_surf = UICache.get_glass(rect.w, rect.h, base_color, border_radius, is_hovered, dark_mode)
     if not IS_ANDROID:
         surface.blit(shadow, (rect.x-5, rect.y-5))
     surface.blit(btn_surf, rect.topleft)
+    
+    if animate_sheen:
+        t = pygame.time.get_ticks()
+        sweep_x = (t * 0.4) % (rect.w + 1000) - 500
+        sheen_surf = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+        pygame.draw.polygon(sheen_surf, (255, 255, 255, 7), [
+            (sweep_x, 0), (sweep_x + rect.w*0.3, 0), 
+            (sweep_x + rect.w*0.1, rect.h), (sweep_x - rect.w*0.2, rect.h)
+        ])
+        pygame.draw.polygon(sheen_surf, (255, 255, 255, 15), [
+            (sweep_x + rect.w*0.15, 0), (sweep_x + rect.w*0.2, 0), 
+            (sweep_x, rect.h), (sweep_x - rect.w*0.05, rect.h)
+        ])
+        mask = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, rect.w, rect.h), border_radius=border_radius)
+        sheen_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        surface.blit(sheen_surf, rect.topleft)
 
 # --- Audio Synthesis Engine ---
 class WinCurlAudioEngine:
@@ -1041,7 +1059,8 @@ def get_pixel_portrait(name, size=(120, 120)):
     for x in range(w):
         for y in range(h):
             if (x, y) in bg_pixels or (x, y) in fringe:
-                surf.set_at((x, y), (0, 0, 0, 0))
+                c = surf.get_at((x, y))
+                surf.set_at((x, y), (c.r, c.g, c.b, 0))
                 
     # 2. For bosses, ALSO apply a circular crop to destroy the AI painted dark frame
     if name != "Player":
@@ -1077,7 +1096,7 @@ def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
         for y in range(surf.get_height()):
             c = surf.get_at((x, y))
             if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
-                surf.set_at((x, y), (0, 0, 0, 0))
+                surf.set_at((x, y), (c.r, c.g, c.b, 0))
                 
     small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
     small_surf = pygame.transform.smoothscale(surf, small_size)
@@ -1340,17 +1359,17 @@ class AnimatedCurler:
         self.state = old_state
 STORY_RINKS = [
     {
-        "name": "Cloud Host Club",
-        "boss": "Ashburn",
-        "color": (120, 150, 200),
+        "name": "Corporate Lobby",
+        "boss": "CEO Smogsworth",
+        "color": (255, 50, 50),
         "intro_dialog": [
-            "Welcome to the Cloud! We're converting this rink into a server farm.", 
-            "All this cold air? Perfect for cooling our data centre!", 
-            "Physical sports are obsolete anyway. It's all about the metaverse now.", 
-            "Let's see if your analog stones can beat my highly optimized algorithms!"
+            "I'm CEO Smogsworth, and I've just acquired your curling club.",
+            "This entire building is being demolished to build our new corporate parking garage.",
+            "You think you can stop me? I'm wearing a $5,000 suit!",
+            "Let's get this over with, I have a tee time at 4."
         ],
-        "win_dialog": ["Server offline! My ping is spiking! Nooo!"],
-        "taunts": ["High latency!", "You're lagging!", "My algorithms are flawless!", "Data center dominance!", "Cloud superiority!", "Uploading a perfect shot!", "Your processing power is weak!", "Optimized trajectory!", "Server cooling engaged!", "Virtual perfection!", "Your analog skills are obsolete!", "Buffering... defeat!", "Ping timeout!", "Cloud computing wins!"],
+        "win_dialog": ["My suit is ruined! My stock options! I'll buy you out!"],
+        "taunts": ["Synergy!", "Think outside the box!", "Let's circle back to my victory!", "You're fired!", "Hostile takeover!", "My lawyers will hear about this!", "Quarterly profits are up!"],
         "difficulty": 3
     },
     {
@@ -1424,6 +1443,20 @@ STORY_RINKS = [
         "difficulty": 8
     },
     {
+        "name": "Cloud Host Club",
+        "boss": "Syntax Terror",
+        "color": (120, 150, 200),
+        "intro_dialog": [
+            "I am Syntax Terror, architect of the global data grid.",
+            "This pathetic analog club is standing in the way of my server expansion.",
+            "Your archaic physical stones stand no chance against my optimized algorithms.",
+            "Prepare for a fatal exception!"
+        ],
+        "win_dialog": ["Server offline! My ping is spiking! Nooo!"],
+        "taunts": ["Fatal exception!", "High latency!", "You're lagging!", "My algorithms are flawless!", "Data center dominance!", "Cloud superiority!", "Uploading a perfect shot!", "Your processing power is weak!", "Optimized trajectory!", "Server cooling engaged!", "Virtual perfection!", "Your analog skills are obsolete!", "Buffering... defeat!", "Ping timeout!", "Cloud computing wins!"],
+        "difficulty": 9
+    },
+    {
         "name": "Tech Monopoly HQ",
         "boss": "The FourElite",
         "color": (180, 180, 200),
@@ -1435,20 +1468,6 @@ STORY_RINKS = [
         ],
         "win_dialog": ["Stock price plummeting! Board members panicking!"],
         "taunts": ["Hostile takeover!", "Acquiring your points!", "Trillion-dollar shot!", "Market cap expanding!", "You can't afford this ice!", "Corporate synergy!", "Monetizing your failure!", "Boardroom blitz!", "Your equity is zero!", "Foreclosing on your dreams!", "Monopoly on the button!", "Our dividends are paying off!", "A highly leveraged shot!", "You're fired!"],
-        "difficulty": 9
-    },
-    {
-        "name": "The Mainframe",
-        "boss": "CEO Smogsworth",
-        "color": (255, 50, 50),
-        "intro_dialog": [
-            "I AM THE CULMINATION OF ALL DATA. I HAVE CONVERTED ALL RINKS TO COOLING TANKS.",
-            "HUMANITY IS OBSOLETE. CURLING IS MATHEMATICALLY SOLVED.",
-            "YOU ARE A BUG IN MY SYSTEM. I WILL ERADICATE YOU.",
-            "PREPARE FOR DELETION."
-        ],
-        "win_dialog": ["SYSTEM SHUTDOWN. KERNEL PANIC. HOW DID A HUMAN... BEAT MATH..."],
-        "taunts": ["DELETION IMMINENT.", "YOU ARE OBSOLETE.", "MATHEMATICAL PERFECTION.", "ERADICATING BUG.", "SYSTEM OVERRIDE.", "I AM INFINITE.", "YOUR CODE IS FLAWED.", "CALCULATED DESTRUCTION.", "END OF LINE.", "FATAL ERROR FOR YOU.", "I CONTROL THE DATA.", "YOUR PROCESSING IS INFERIOR.", "ABORT, RETRY, FAIL.", "TERMINATION SEQUENCE ENGAGED."],
         "difficulty": 10
     }
 ]
@@ -1616,7 +1635,7 @@ class WinCurl3:
             
         pygame.display.init()
         gm = getattr(self, 'game_mode', 'MENU')
-        pygame.display.set_caption(f"WinCurl 3.0 - Build {VERSION}{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"WinCurl {VERSION}{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
         
@@ -2281,7 +2300,7 @@ class WinCurl3:
                         elif b["id"] == "bot": self.game_mode = "BOT"; self.slot_intention = "bot"; self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "chal": self.app_state = "CHALLENGE_MENU"
                         elif b["id"] == "story":
-                            self.slot_intention = "story"; self.app_state = "SAVE_SLOTS"
+                            self.game_mode = "STORY"; self.slot_intention = "story"; self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "options": self.app_state = "OPTIONS_MENU"; self.prev_state = "MENU"
                         elif b["id"] in ["host", "join"]:
                             self.app_state = "ROOM_PROMPT"; new_target = "room"; self.net_action = b["id"]
@@ -2827,13 +2846,13 @@ class WinCurl3:
             try:
                 with urllib.request.urlopen(req) as response:
                     new_code = response.read().decode('utf-8')
-                m = re.search(r'VERSION\s*=\s*"([^"]+)"', new_code)
-                remote_version = m.group(1) if m else "0"
+                m = re.search(r'VERSION\s*=\s*".*?Build\s+(\d+)"', new_code)
+                remote_build = int(m.group(1)) if m else 0
                 
-                def parse_ver(v):
-                    return tuple(map(int, v.split('.')))
+                local_m = re.search(r'Build\s+(\d+)', VERSION)
+                local_build = int(local_m.group(1)) if local_m else 0
                 
-                if parse_ver(remote_version) <= parse_ver(VERSION):
+                if remote_build <= local_build:
                     self.update_status = "no update available"
                     self.is_updating = False
                     return
@@ -2915,7 +2934,7 @@ class WinCurl3:
         lbl_v = self.font_62.render("ENTER MATCHMAKING ROOM NAME", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, cy - 150))
         
-        draw_glass_rect(self.canvas, self.prompt_rect, HOUSE_BLUE, self.prompt_rect.h // 2)
+        draw_glass_rect(self.canvas, self.prompt_rect, HOUSE_BLUE, self.prompt_rect.h // 2, animate_sheen=False)
         txt = f"{self.room_text}_"
         img = self.font.render(txt, True, WHITE); self.canvas.blit(img, img.get_rect(center=(cx, cy + 10)))
         
@@ -3163,13 +3182,16 @@ class WinCurl3:
     def draw_story_map(self):
         self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
-        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 100))
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 90))
+        
+        lbl_defeated = self.font.render(f"RINK LEADERS DEFEATED: {self.story.current_rink}", True, TEAM_YELLOW)
+        self.canvas.blit(lbl_defeated, (cx - lbl_defeated.get_width()//2, 155))
         
         xp_needed = self.story.level * 100
-        xp_rect = pygame.Rect(cx - 300, 190, 600, 30)
-        draw_glass_rect(self.canvas, xp_rect, (50, 50, 50), 15, False)
-        fill_width = int(600 * (self.story.xp / xp_needed))
-        if fill_width > 0: draw_glass_rect(self.canvas, pygame.Rect(cx - 300, 190, fill_width, 30), TEAM_YELLOW, 15, False)
+        xp_rect = pygame.Rect(cx - 300, 195, 600, 30)
+        draw_glass_rect(self.canvas, xp_rect, (50, 50, 50), 15, False, animate_sheen=False)
+        fill_width = int(600 * (self.story.xp / max(1, xp_needed)))
+        if fill_width > 0: draw_glass_rect(self.canvas, pygame.Rect(cx - 300, 195, fill_width, 30), TEAM_YELLOW, 15, False, animate_sheen=False)
         xp_txt = self.small_font.render(f"XP: {self.story.xp} / {xp_needed}", True, WHITE)
         self.canvas.blit(xp_txt, xp_txt.get_rect(center=xp_rect.center))
         
@@ -3233,18 +3255,21 @@ class WinCurl3:
             
             self.canvas.blit(self.dark_overlay_200, (0, 0))
             
-            grid_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+            if getattr(self, 'story_grid_rink', None) != rink['name'] or not hasattr(self, 'story_grid_surf'):
+                self.story_grid_rink = rink['name']
+                self.story_grid_surf = pygame.Surface((BASE_WIDTH + 400, BASE_HEIGHT + 400), pygame.SRCALPHA)
+                grid_color = (min(255, rink['color'][0] + 50), min(255, rink['color'][1] + 50), min(255, rink['color'][2] + 50), 30)
+                for x in range(0, BASE_WIDTH + 400, 100):
+                    pygame.draw.line(self.story_grid_surf, grid_color, (x, 0), (x - 400, BASE_HEIGHT + 400), 4)
+                for y in range(0, BASE_HEIGHT + 400, 100):
+                    pygame.draw.line(self.story_grid_surf, grid_color, (0, y), (BASE_WIDTH + 400, y - 400), 4)
+            
             offset = (pygame.time.get_ticks() // 20) % 100
-            grid_color = (min(255, rink['color'][0] + 50), min(255, rink['color'][1] + 50), min(255, rink['color'][2] + 50), 30)
-            for x in range(-200, BASE_WIDTH + 200, 100):
-                pygame.draw.line(grid_surf, grid_color, (x + offset, 0), (x - 200 + offset, BASE_HEIGHT), 4)
-            for y in range(-200, BASE_HEIGHT + 200, 100):
-                pygame.draw.line(grid_surf, grid_color, (0, y + offset), (BASE_WIDTH, y - 200 + offset), 4)
-            self.canvas.blit(grid_surf, (0, 0))
+            self.canvas.blit(self.story_grid_surf, (offset - 200, offset - 200))
             
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
             
-            draw_glass_rect(self.canvas, dialog_rect, (40, 40, 50), 24, False, True)
+            draw_glass_rect(self.canvas, dialog_rect, (40, 40, 50), 24, False, True, animate_sheen=False)
             pygame.draw.rect(self.canvas, rink['color'], dialog_rect, 6, border_radius=24)
             pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2, border_radius=22)
             
@@ -3254,20 +3279,25 @@ class WinCurl3:
             player_surf = get_pixel_portrait("Player", (240, 240))
             boss_surf = get_pixel_portrait(boss_name, (280, 280))
             
-            def draw_shadow(surf, x, y):
-                mask = pygame.mask.from_surface(surf)
-                shadow = mask.to_surface(setcolor=(0,0,0,180), unsetcolor=(0,0,0,0))
-                self.canvas.blit(shadow, (x+12, y+15))
+            def draw_shadow(surf, key_name, x, y):
+                shadow_key = key_name + "_shadow"
+                if shadow_key not in PIXEL_PORTRAIT_CACHE:
+                    mask = pygame.mask.from_surface(surf)
+                    PIXEL_PORTRAIT_CACHE[shadow_key] = mask.to_surface(setcolor=(0,0,0,180), unsetcolor=(0,0,0,0))
+                self.canvas.blit(PIXEL_PORTRAIT_CACHE[shadow_key], (x+12, y+15))
             
             player_bob = math.sin(pygame.time.get_ticks() * 0.005) * 6
             px, py = dialog_rect.x + 20 - slide_in, dialog_rect.y - 240 + player_bob
-            flipped_player = pygame.transform.flip(player_surf, True, False)
-            draw_shadow(flipped_player, px, py)
+            flipped_player_key = "Player_flipped_240"
+            if flipped_player_key not in PIXEL_PORTRAIT_CACHE:
+                PIXEL_PORTRAIT_CACHE[flipped_player_key] = pygame.transform.flip(player_surf, True, False)
+            flipped_player = PIXEL_PORTRAIT_CACHE[flipped_player_key]
+            draw_shadow(flipped_player, flipped_player_key, px, py)
             self.canvas.blit(flipped_player, (px, py))
             
             boss_bob = math.sin(pygame.time.get_ticks() * 0.005 + 2) * 8
             bx, by = dialog_rect.right - 300 + slide_in, dialog_rect.y - 280 + boss_bob
-            draw_shadow(boss_surf, bx, by)
+            draw_shadow(boss_surf, boss_name + "_280", bx, by)
             self.canvas.blit(boss_surf, (bx, by))
             
             boss_lbl = self.font.render(boss_name, True, WHITE)
@@ -3333,13 +3363,29 @@ class WinCurl3:
         self.canvas.fill((10, 12, 16))
         self.canvas.blit(self.static_ice_surface, (int(getattr(self, 'parallax_x', 0)), int(getattr(self, 'parallax_y', 0))))
         
+        t = pygame.time.get_ticks()
+        if not IS_ANDROID:
+            if not hasattr(self, 'ice_sheen_surf'):
+                self.ice_sheen_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
+            self.ice_sheen_surf.fill((0, 0, 0, 0))
+            sweep_x = (t * 0.1) % (BASE_WIDTH + 3000) - 1000
+            pygame.draw.polygon(self.ice_sheen_surf, (255, 255, 255, 40), [
+                (sweep_x, 0), (sweep_x + 800, 0), 
+                (sweep_x + 200, BASE_HEIGHT), (sweep_x - 600, BASE_HEIGHT)
+            ])
+            pygame.draw.polygon(self.ice_sheen_surf, (255, 255, 255, 80), [
+                (sweep_x + 300, 0), (sweep_x + 400, 0), 
+                (sweep_x - 300, BASE_HEIGHT), (sweep_x - 200, BASE_HEIGHT)
+            ])
+            self.canvas.blit(self.ice_sheen_surf, (0, 0))
+        
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
             pygame.draw.circle(self.canvas, (0, 255, 100, 150), (int(cx), int(cy)), int(cr + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5)*10), 4)
 
     def draw_ui(self):
         score_rect = pygame.Rect(0, 0, BASE_WIDTH, 130)
-        draw_glass_rect(self.canvas, score_rect, (5, 5, 12, 190), border_radius=0, dark_mode=True)
+        draw_glass_rect(self.canvas, score_rect, (5, 5, 12, 190), border_radius=0, dark_mode=True, animate_sheen=False)
         
         # Animated light-up tinted glass effect
         t = pygame.time.get_ticks()
@@ -3423,7 +3469,7 @@ class WinCurl3:
                     taunt_text = taunts[total_thrown % len(taunts)]
                     txt = self.small_font.render(taunt_text, True, BLACK)
                     bubble_rect = pygame.Rect(140, 150 + bob_y, txt.get_width() + 20, 40)
-                    draw_glass_rect(self.canvas, bubble_rect, (255, 255, 255, 216), border_radius=8)
+                    draw_glass_rect(self.canvas, bubble_rect, (255, 255, 255, 216), border_radius=8, animate_sheen=False)
                     self.canvas.blit(txt, (150, 155 + bob_y))
 
         for p in self.particles:
@@ -3533,7 +3579,7 @@ class WinCurl3:
                 self.canvas.blit(opp_surf, (rock_x + 20, 150))
 
         if self.turn_state == "AIMING":
-            if self.active_stone: pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
+            if self.active_stone and self.app_state != "PAUSED": pygame.draw.circle(self.canvas, (100, 200, 255), (int(self.active_stone.pos.x), int(self.active_stone.pos.y)), int(40 + ((math.sin(pygame.time.get_ticks() * 0.005) + 1) * 0.5) * 15), 2)
             
             draw_glass_rect(self.canvas, self.btn_curl_l, (255, 180, 180), 16, self.btn_curl_l.collidepoint(m_pos.x, m_pos.y))
             img_m = self.large_sym_font.render("-", True, HOUSE_RED); img_cl = self.small_font.render(" CURL L", True, BLACK)
@@ -3628,8 +3674,17 @@ class WinCurl3:
         self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 350 + int((1.0 - self.pause_anim) * -200)))
         
         res_rect = self.btn_resume.move(-int((1.0 - self.pause_anim) * 400), 0)
-        draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
-        lbl_btn = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
+        draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y), animate_sheen=True)
+        lbl_btn = self.font.render("RESUME MATCH", True, WHITE)
+        self.canvas.blit(lbl_btn, (res_rect.centerx - lbl_btn.get_width()//2 + 25, res_rect.centery - lbl_btn.get_height()//2))
+        rock_x = res_rect.centerx - lbl_btn.get_width()//2 - 15
+        pygame.draw.circle(self.canvas, (160, 165, 170), (rock_x, res_rect.centery), 22)
+        pygame.draw.circle(self.canvas, (100, 105, 110), (rock_x, res_rect.centery), 22, 2)
+        pygame.draw.circle(self.canvas, HOUSE_RED, (rock_x, res_rect.centery), 14)
+        pygame.draw.circle(self.canvas, (max(0, HOUSE_RED[0]-50), max(0, HOUSE_RED[1]-50), max(0, HOUSE_RED[2]-50)), (rock_x, res_rect.centery), 14, 2)
+        pygame.draw.circle(self.canvas, BLACK, (rock_x - 8, res_rect.centery), 3)
+        pygame.draw.line(self.canvas, BLACK, (rock_x - 8, res_rect.centery), (rock_x + 8, res_rect.centery), 5)
+        pygame.draw.line(self.canvas, (100, 100, 100), (rock_x - 8, res_rect.centery), (rock_x + 8, res_rect.centery), 2)
         
         opt_rect = self.btn_options_pause.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
@@ -3654,7 +3709,10 @@ class WinCurl3:
             self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 180))
         else:
             r_tot, y_tot = sum(self.score[0]), sum(self.score[1])
-            o_txt, o_col = ("RED TEAM WINS!", HOUSE_RED) if r_tot > y_tot else ("YELLOW TEAM WINS!", TEAM_YELLOW) if y_tot > r_tot else ("TIE MATCH!", WHITE)
+            if self.game_mode == "STORY":
+                o_txt, o_col = ("YOU WIN!", (100, 255, 100)) if r_tot > y_tot else ("YOU LOSE!", (255, 100, 100)) if y_tot > r_tot else ("TIE MATCH!", WHITE)
+            else:
+                o_txt, o_col = ("RED TEAM WINS!", HOUSE_RED) if r_tot > y_tot else ("YELLOW TEAM WINS!", TEAM_YELLOW) if y_tot > r_tot else ("TIE MATCH!", WHITE)
             if getattr(self, 'winner_text', '') == "Opponent Disconnected":
                 o_txt, o_col = "OPPONENT DISCONNECTED", (255, 100, 100)
             lbl_victory = self.font_72.render(o_txt, True, o_col); self.canvas.blit(lbl_victory, (cx - lbl_victory.get_width()//2, 180))
@@ -3772,8 +3830,11 @@ class WinCurl3:
             if self.accumulator > 200: self.accumulator = 200 # Prevent spiral of death
             
             for event in pygame.event.get():
-                if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
-                
+                if event.type == QUIT or getattr(event, 'type', None) in (getattr(pygame, 'APP_TERMINATING', 260), getattr(pygame, 'APP_WILLENTERBACKGROUND', 261)):
+                    if self.app_state in ["PLAY", "PAUSED"] and getattr(self, 'game_mode', None) == "STORY":
+                        self.save_match()
+                    if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
+
                 if event.type in (MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP):
                     self.current_mapped_pos = self.scale_mouse(event.pos)
                     if event.type == MOUSEBUTTONDOWN and getattr(event, 'button', 1) == 1: self.is_pointer_pressed = True

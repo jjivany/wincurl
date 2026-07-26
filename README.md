@@ -34,7 +34,7 @@ The ice has never been this hot! "WinCurl 3.0" is taking the gaming world by sto
 
 ## 📱 The Build Page (Android Deployment):
 This project is fully weaponized for automated Android deployment!
-We've optimized the Android build to perfection (BUILD 40). 
+We've optimized the Android build to perfection (BUILD 41). 
 - **Want the game NOW?** Grab the `wincurl_latest.apk` directly from the repo and sideload it to experience the viral hit immediately!
 - **Developers:** Automated GitHub Actions build the APK natively in the cloud. Check the Actions tab to see the magic happen!
 
