@@ -921,10 +921,11 @@ class ThreeDStone:
         # PROPER 3D CRESCENT GLARE REFLECTION
         glare = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA)
         glare.fill((0, 0, 0, 0))
-        pygame.draw.circle(glare, (255, 255, 255, 80), (r_max, r_max), r_max - 10)
+        pygame.draw.circle(glare, (255, 255, 255, 120), (r_max, r_max), r_max - 10)
+        pygame.draw.circle(glare, (255, 255, 255, 160), (r_max, r_max), r_max - 14)
         inner_mask = pygame.Surface((r_max*2, r_max*2), pygame.SRCALPHA)
         inner_mask.fill((0, 0, 0, 0))
-        pygame.draw.circle(inner_mask, (255, 255, 255, 255), (r_max, r_max + 24), r_max - 10)
+        pygame.draw.circle(inner_mask, (255, 255, 255, 255), (r_max, r_max + 34), r_max - 10)
         glare.blit(inner_mask, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         surf.blit(glare, (bx - r_max, by - r_max))
         cls.cached_surf = surf
@@ -2042,8 +2043,7 @@ class WinCurl3:
             if len(s)>8 and st.id == state.get("active_stone_id"):
                 self.active_stone = st
         
-        self.saved_match_state = None
-        self.save_progress()
+        # We no longer wipe the save here, it persists until overwritten
         self.update_menu_buttons()
         self.app_state = "PLAY"
         
@@ -2278,7 +2278,10 @@ class WinCurl3:
                 if r_tot > y_tot and getattr(self.audio, 'snd_red_wins', None): self.audio.ch_voice.play(self.audio.snd_red_wins)
                 elif y_tot > r_tot and getattr(self.audio, 'snd_ylw_wins', None): self.audio.ch_voice.play(self.audio.snd_ylw_wins)
                 elif getattr(self.audio, 'snd_end_match', None): self.audio.ch_voice.play(self.audio.snd_end_match)
-        else: self.reset_end()
+        else:
+            self.reset_end()
+            if getattr(self, 'game_mode', None) in ["STORY", "BOT"]:
+                self.save_match()
 
     def handle_menu_events(self, event):
         mouse_pos = getattr(event, 'pos', self.get_pointer_pos())
@@ -3418,14 +3421,7 @@ class WinCurl3:
         if not IS_ANDROID:
             if not hasattr(self, 'score_sheen_surf'):
                 self.score_sheen_surf = pygame.Surface((700, 130), pygame.SRCALPHA)
-                pygame.draw.polygon(self.score_sheen_surf, (255, 255, 255, 12), [
-                    (400, 0), (600, 0), 
-                    (250, 130), (50, 130)
-                ])
-                pygame.draw.polygon(self.score_sheen_surf, (255, 255, 255, 25), [
-                    (480, 0), (520, 0), 
-                    (370, 130), (330, 130)
-                ])
+                pygame.draw.polygon(self.score_sheen_surf, (255, 255, 255, 25), [(260, 0), (320, 0), (220, 130), (160, 130)])
             sweep_x = (t * 0.6) % (BASE_WIDTH + 1500) - 500
             self.canvas.blit(self.score_sheen_surf, (sweep_x - 400, 0))
         pulse = (math.sin(t * 0.003) + 1.0) * 0.5
@@ -3849,7 +3845,7 @@ class WinCurl3:
             
             for event in pygame.event.get():
                 if event.type == QUIT or getattr(event, 'type', None) in (getattr(pygame, 'APP_TERMINATING', 260), getattr(pygame, 'APP_WILLENTERBACKGROUND', 261)):
-                    if self.app_state in ["PLAY", "PAUSED"] and getattr(self, 'game_mode', None) == "STORY":
+                    if self.app_state in ["PLAY", "PAUSED"] and getattr(self, 'game_mode', None) in ["STORY", "BOT"]:
                         self.save_match()
                     if event.type == QUIT: self.net.close(); pygame.quit(); sys.exit()
 
