@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "3.0 Build 41"
+VERSION = "3.0 Build 42"
 
 
 class CachedFont:
@@ -282,21 +282,33 @@ def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=Fals
     surface.blit(btn_surf, rect.topleft)
     
     if animate_sheen:
+        if not hasattr(UICache, 'sheen_surfs'):
+            UICache.sheen_surfs = {}
+        sheen_key = (rect.w, rect.h, border_radius)
+        if sheen_key not in UICache.sheen_surfs:
+            sheen_base = pygame.Surface((rect.w * 3, rect.h), pygame.SRCALPHA)
+            pygame.draw.polygon(sheen_base, (255, 255, 255, 7), [
+                (rect.w, 0), (rect.w + rect.w*0.3, 0), 
+                (rect.w + rect.w*0.1, rect.h), (rect.w - rect.w*0.2, rect.h)
+            ])
+            pygame.draw.polygon(sheen_base, (255, 255, 255, 15), [
+                (rect.w + rect.w*0.15, 0), (rect.w + rect.w*0.2, 0), 
+                (rect.w, rect.h), (rect.w - rect.w*0.05, rect.h)
+            ])
+            mask = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+            pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, rect.w, rect.h), border_radius=border_radius)
+            sheen_layer = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+            UICache.sheen_surfs[sheen_key] = (sheen_base, mask, sheen_layer)
+        
+        sheen_base, mask, sheen_layer = UICache.sheen_surfs[sheen_key]
+        
         t = pygame.time.get_ticks()
         sweep_x = (t * 0.4) % (rect.w + 1000) - 500
-        sheen_surf = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
-        pygame.draw.polygon(sheen_surf, (255, 255, 255, 7), [
-            (sweep_x, 0), (sweep_x + rect.w*0.3, 0), 
-            (sweep_x + rect.w*0.1, rect.h), (sweep_x - rect.w*0.2, rect.h)
-        ])
-        pygame.draw.polygon(sheen_surf, (255, 255, 255, 15), [
-            (sweep_x + rect.w*0.15, 0), (sweep_x + rect.w*0.2, 0), 
-            (sweep_x, rect.h), (sweep_x - rect.w*0.05, rect.h)
-        ])
-        mask = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
-        pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, rect.w, rect.h), border_radius=border_radius)
-        sheen_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        surface.blit(sheen_surf, rect.topleft)
+        
+        sheen_layer.fill((0, 0, 0, 0))
+        sheen_layer.blit(sheen_base, (sweep_x - rect.w, 0))
+        sheen_layer.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        surface.blit(sheen_layer, rect.topleft)
 
 # --- Audio Synthesis Engine ---
 class WinCurlAudioEngine:
@@ -3308,9 +3320,15 @@ class WinCurl3:
             chars_to_show = dt_ticks // 5
             typed_text = full_text[:chars_to_show]
             
-            lines = textwrap.wrap(typed_text, width=50)
-            for j, line in enumerate(lines):
-                line_lbl = self.font.render(line, True, (220, 220, 220))
+            if not hasattr(self, 'dialog_text_cache_index') or self.dialog_text_cache_index != self.dialog_index:
+                self.dialog_text_cache = {}
+                self.dialog_text_cache_index = self.dialog_index
+                
+            if typed_text not in self.dialog_text_cache:
+                lines = textwrap.wrap(typed_text, width=50)
+                self.dialog_text_cache[typed_text] = [self.font.render(line, True, (220, 220, 220)) for line in lines]
+            
+            for j, line_lbl in enumerate(self.dialog_text_cache[typed_text]):
                 self.canvas.blit(line_lbl, (dialog_rect.x + 40, dialog_rect.y + 80 + j * 45))
             
             if chars_to_show >= len(full_text) and (pygame.time.get_ticks() % 1000 > 500):
@@ -3366,18 +3384,18 @@ class WinCurl3:
         t = pygame.time.get_ticks()
         if not IS_ANDROID:
             if not hasattr(self, 'ice_sheen_surf'):
-                self.ice_sheen_surf = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA)
-            self.ice_sheen_surf.fill((0, 0, 0, 0))
+                self.ice_sheen_surf = pygame.Surface((1800, BASE_HEIGHT), pygame.SRCALPHA)
+                self.ice_sheen_surf.fill((0, 0, 0, 0))
+                pygame.draw.polygon(self.ice_sheen_surf, (255, 255, 255, 40), [
+                    (600, 0), (1400, 0), 
+                    (800, BASE_HEIGHT), (0, BASE_HEIGHT)
+                ])
+                pygame.draw.polygon(self.ice_sheen_surf, (255, 255, 255, 80), [
+                    (900, 0), (1000, 0), 
+                    (300, BASE_HEIGHT), (400, BASE_HEIGHT)
+                ])
             sweep_x = (t * 0.1) % (BASE_WIDTH + 3000) - 1000
-            pygame.draw.polygon(self.ice_sheen_surf, (255, 255, 255, 40), [
-                (sweep_x, 0), (sweep_x + 800, 0), 
-                (sweep_x + 200, BASE_HEIGHT), (sweep_x - 600, BASE_HEIGHT)
-            ])
-            pygame.draw.polygon(self.ice_sheen_surf, (255, 255, 255, 80), [
-                (sweep_x + 300, 0), (sweep_x + 400, 0), 
-                (sweep_x - 300, BASE_HEIGHT), (sweep_x - 200, BASE_HEIGHT)
-            ])
-            self.canvas.blit(self.ice_sheen_surf, (0, 0))
+            self.canvas.blit(self.ice_sheen_surf, (sweep_x - 600, 0))
         
         if self.game_mode == "CHALLENGE" and self.challenge_target:
             cx, cy, cr = self.challenge_target
@@ -3394,26 +3412,26 @@ class WinCurl3:
             for y in range(130):
                 a = int(210 * (1.0 - y/130.0))
                 pygame.draw.line(self.glass_fx_grad, (0, 0, 0, a), (0, y), (BASE_WIDTH, y))
-        glass_fx = self.glass_fx_grad.copy()
+        self.canvas.blit(self.glass_fx_grad, (0, 0))
             
         # Sweeping glare light
-        sweep_x = (t * 0.6) % (BASE_WIDTH + 1500) - 500
-        pygame.draw.polygon(glass_fx, (255, 255, 255, 12), [
-            (sweep_x, 0), (sweep_x + 200, 0), 
-            (sweep_x + 50, 130), (sweep_x - 150, 130)
-        ])
-        pygame.draw.polygon(glass_fx, (255, 255, 255, 25), [
-            (sweep_x + 80, 0), (sweep_x + 120, 0), 
-            (sweep_x - 30, 130), (sweep_x - 70, 130)
-        ])
-        
-        # Animated glowing bottom border line
+        if not IS_ANDROID:
+            if not hasattr(self, 'score_sheen_surf'):
+                self.score_sheen_surf = pygame.Surface((700, 130), pygame.SRCALPHA)
+                pygame.draw.polygon(self.score_sheen_surf, (255, 255, 255, 12), [
+                    (400, 0), (600, 0), 
+                    (250, 130), (50, 130)
+                ])
+                pygame.draw.polygon(self.score_sheen_surf, (255, 255, 255, 25), [
+                    (480, 0), (520, 0), 
+                    (370, 130), (330, 130)
+                ])
+            sweep_x = (t * 0.6) % (BASE_WIDTH + 1500) - 500
+            self.canvas.blit(self.score_sheen_surf, (sweep_x - 400, 0))
         pulse = (math.sin(t * 0.003) + 1.0) * 0.5
         border_alpha = int(60 + pulse * 100)
-        pygame.draw.line(glass_fx, (150, 50, 50, border_alpha), (0, 128), (BASE_WIDTH, 128), 3)
-        pygame.draw.line(glass_fx, (255, 100, 100, int(border_alpha*0.5)), (0, 127), (BASE_WIDTH, 127), 1)
-        
-        self.canvas.blit(glass_fx, (0, 0))
+        pygame.draw.line(self.canvas, (150, 50, 50, border_alpha), (0, 128), (BASE_WIDTH, 128), 3)
+        pygame.draw.line(self.canvas, (255, 100, 100, int(border_alpha*0.5)), (0, 127), (BASE_WIDTH, 127), 1)
         
         if self.game_mode == "CHALLENGE":
             t1, t2 = self.font.render(self.challenge_text_1, True, WHITE), self.small_font.render(self.challenge_text_2, True, TEAM_YELLOW)
