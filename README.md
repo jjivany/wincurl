@@ -10,7 +10,7 @@ The ice has never been this hot! "WinCurl 3.0" is taking the gaming world by sto
 - 🎯 **Hyper-Realistic Physics Engine**: Precision curling stone mechanics that feel so real, you'll feel the chill of the ice!
 - 🌐 **Global Multiplayer**: Built-in high-speed network matchmaking! Challenge players around the world and assert dominance!
 - 🎨 **Next-Gen Visuals**: A pristine, ultra-responsive UI featuring dynamic animated glassmorphism, procedural graphics, and sick 2D pixel art cutscenes!
-- 🎶 **Procedural Phonk Audio**: An insanely fast, non-blocking audio engine that bumps custom synthesized beats while keeping you at a buttery smooth 60 FPS!
+- 🎶 **Procedural Phonk Audio**: An insanely fast, non-blocking audio engine that bumps custom synthesized beats while keeping you at a buttery smooth 120 FPS!
 - 📱 **Cross-Platform Domination**: From desktops to Android devices—play anywhere, anytime!
 
 ## 🛠 Elite Technology Stack:
@@ -34,7 +34,7 @@ The ice has never been this hot! "WinCurl 3.0" is taking the gaming world by sto
 
 ## 📱 The Build Page (Android Deployment):
 This project is fully weaponized for automated Android deployment!
-We've optimized the Android build to perfection (BUILD 42). 
+We've optimized the Android build to perfection (BUILD 60). 
 - **Want the game NOW?** Grab the `wincurl_latest.apk` directly from the repo and sideload it to experience the viral hit immediately!
 - **Developers:** Automated GitHub Actions build the APK natively in the cloud. Check the Actions tab to see the magic happen!
 

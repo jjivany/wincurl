@@ -1,4 +1,4 @@
-# WinCurl 3.0 Wiki (Build 44)
+# WinCurl 3.0 Wiki (Build 60)
 
 Welcome to the WinCurl 3.0 Wiki! This is the documentation hub for WinCurl, the premier curling simulation game.
 
@@ -27,7 +27,7 @@ WinCurl 3.0 now supports a fully-featured **Save & Resume System** for both 1v1 
 
 ## Settings & Optimization
 - **Hi-Res Mode (Android Only)**: For high-end devices, enabling this will use your device's native resolution and enable GPU bilinear filtering for crisp graphics! It's off by default to save battery and boost performance on older devices.
-- **Optimization**: The game uses intelligent UI caching, surface reusing, and event filtering to maintain a smooth 60 FPS on almost all platforms.
+- **Optimization**: The game uses intelligent UI caching, surface reusing, and event filtering to maintain a buttery smooth 120 FPS across modern displays!
 
 ## Story Mode
 The curling world is under threat! An evil tech-bro conglomerate (led by the nefarious Baron Von Crude) is attempting to buy out every curling club to build massive data centres. You must defeat all 8 rinks and reclaim the clubs!
