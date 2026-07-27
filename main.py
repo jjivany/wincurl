@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "3.0 Build 44"
+VERSION = "3.0 Build 53"
 
 
 class CachedFont:
@@ -273,6 +273,29 @@ def draw_speaker_icon(surface, x, y, is_muted):
         pygame.draw.line(surface, color, (x + 28, y + 13), (x + 24, y + 18), 3)
         pygame.draw.line(surface, color, (x + 28, y + 4), (x + 34, y + 13), 3)
         pygame.draw.line(surface, color, (x + 34, y + 13), (x + 28, y + 22), 3)
+
+
+
+def draw_trophy(surface, x, y, size=40):
+    # Handles (draw first so they go behind the bowl)
+    pygame.draw.ellipse(surface, (255, 215, 0), (int(x), int(y + size*0.15), int(size*0.4), int(size*0.4)), 3)
+    pygame.draw.ellipse(surface, (200, 150, 50), (int(x + size*0.6), int(y + size*0.15), int(size*0.4), int(size*0.4)), 3)
+
+    # Base and stem
+    pygame.draw.rect(surface, (150, 100, 20), (int(x + size*0.3), int(y + size*0.8), int(size*0.4), int(size*0.2)))
+    pygame.draw.rect(surface, (200, 150, 50), (int(x + size*0.35), int(y + size*0.85), int(size*0.3), int(size*0.1)))
+    
+    # Stem
+    pygame.draw.rect(surface, (200, 150, 50), (int(x + size*0.45), int(y + size*0.5), int(size*0.1), int(size*0.3)))
+    pygame.draw.rect(surface, (255, 215, 0), (int(x + size*0.45), int(y + size*0.5), int(size*0.05), int(size*0.3)))
+    
+    # Bowl
+    pygame.draw.ellipse(surface, (200, 150, 50), (int(x + size*0.2), int(y + size*0.1), int(size*0.6), int(size*0.5)))
+    pygame.draw.ellipse(surface, (255, 215, 0), (int(x + size*0.25), int(y + size*0.15), int(size*0.3), int(size*0.3)))
+    
+    # Lip
+    pygame.draw.ellipse(surface, (255, 230, 100), (int(x + size*0.2), int(y + size*0.05), int(size*0.6), int(size*0.2)))
+    pygame.draw.ellipse(surface, (180, 120, 30), (int(x + size*0.25), int(y + size*0.08), int(size*0.5), int(size*0.14)))
 
 def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=False, dark_mode=False, animate_sheen=True):
     if IS_ANDROID: animate_sheen = False
@@ -1089,6 +1112,7 @@ def get_pixel_portrait(name, size=(120, 120)):
                     c = surf.get_at((x, y))
                     surf.set_at((x, y), (c.r, c.g, c.b, int(c.a * alpha_factor)))
 
+    # High res 2D Sprite
     scaled = pygame.transform.smoothscale(surf, size)
                 
     PIXEL_PORTRAIT_CACHE[key] = scaled
@@ -1379,10 +1403,11 @@ STORY_RINKS = [
             "I'm CEO Smogsworth, and I've just acquired your curling club.",
             "This entire building is being demolished to build our new corporate parking garage.",
             "You think you can stop me? I'm wearing a $5,000 suit!",
+            "I've optimized my curling strategy through endless corporate synergies.",
             "Let's get this over with, I have a tee time at 4."
         ],
-        "win_dialog": ["My suit is ruined! My stock options! I'll buy you out!"],
-        "taunts": ["Synergy!", "Think outside the box!", "Let's circle back to my victory!", "You're fired!", "Hostile takeover!", "My lawyers will hear about this!", "Quarterly profits are up!"],
+        "win_dialog": ["My suit is ruined! My stock options! I'll buy you out!", "This was not in the quarterly projections!"],
+        "taunts": ["Synergy!", "Think outside the box!", "Let's circle back to my victory!", "You're fired!", "Hostile takeover!", "My lawyers will hear about this!", "Quarterly profits are up!", "Liquidating your assets!", "Corporate restructuring!", "I'm delegating your defeat!", "Downsizing your score!", "Let's touch base on how bad you are!", "Outsourced!"],
         "difficulty": 3
     },
     {
@@ -1393,11 +1418,12 @@ STORY_RINKS = [
             "We're melting the ice to liquid-cool our crypto rigs!",
             "Do you have any idea how many CurlCoins I'm mining?",
             "Your traditional curling club is standing in the way of decentralization.",
+            "Fiat currency is dead. Welcome to the new digital economy.",
             "I'm going to blockchain you out of existence!"
         ],
-        "win_dialog": ["My wallet got hacked! The market crashed!"],
-        "taunts": ["To the moon!", "Blockchain verified!", "Mining another point!", "Decentralized destruction!", "Liquid cooling engaged!", "Your hash rate is too low!", "Proof of work!", "Minting a victory!", "Crypto dominance!", "You're getting liquidated!", "Diamond hands!", "Smart contract executed!", "Bear market for you!", "HODL this defeat!"],
-        "difficulty": 4
+        "win_dialog": ["My wallet got hacked! The market crashed!", "I lost my private keys!"],
+        "taunts": ["To the moon!", "Blockchain verified!", "Mining another point!", "Decentralized destruction!", "Liquid cooling engaged!", "Your hash rate is too low!", "Proof of work!", "Minting a victory!", "Crypto dominance!", "You're getting liquidated!", "Diamond hands!", "Smart contract executed!", "Bear market for you!", "HODL this defeat!", "Gas fees are too high!", "Rug pull!", "Bullish on me, bearish on you!", "Yield farming!"],
+        "difficulty": 5
     },
     {
         "name": "Social Media Hub",
@@ -1407,11 +1433,12 @@ STORY_RINKS = [
             "We're turning this place into a giant content house!",
             "Curling isn't viral enough. We need TikTok dances on the ice!",
             "I'm live-streaming my victory to millions of followers right now.",
+            "Make sure to smash that subscribe button while I smash your stones.",
             "Don't forget to like, subscribe, and watch me win!"
         ],
-        "win_dialog": ["I'm losing followers! My engagement is tanking!"],
-        "taunts": ["Trending #1!", "Going viral!", "Check out this content!", "Like and subscribe!", "Live-streaming my victory!", "You're getting cancelled!", "My engagement is off the charts!", "Sponsored shot!", "Algorithm favored!", "Do it for the views!", "You're losing followers!", "Unsubscribed!", "Shadowbanned!", "Perfect aesthetic!"],
-        "difficulty": 5
+        "win_dialog": ["I'm losing followers! My engagement is tanking!", "I'm being cancelled!"],
+        "taunts": ["Trending #1!", "Going viral!", "Check out this content!", "Like and subscribe!", "Live-streaming my victory!", "You're getting cancelled!", "My engagement is off the charts!", "Sponsored shot!", "Algorithm favored!", "Do it for the views!", "You're losing followers!", "Unsubscribed!", "Shadowbanned!", "Perfect aesthetic!", "Ratio'd!", "Clickbait curling!", "Influencer status!", "You didn't pass the vibe check!"],
+        "difficulty": 6
     },
     {
         "name": "AI Startup Arena",
@@ -1421,11 +1448,12 @@ STORY_RINKS = [
             "My predictive AI models have solved curling.",
             "Human error is a flaw we've completely engineered out of the game.",
             "We're replacing the ice with a massive neural network cooling system.",
+            "I have simulated this match 14 million times.",
             "Your defeat has a 99.9% probability."
         ],
-        "win_dialog": ["Error 404: Victory not found. Recalibrating..."],
-        "taunts": ["Predictive model accurate!", "Neural network engaged!", "Human error detected!", "Machine learning complete!", "Probability of your success: 0%!", "Automated victory!", "My algorithms are superior!", "Calculating trajectory...", "Artificial intelligence wins!", "You're obsolete!", "Optimizing shot parameters!", "Data set complete!", "Deep learning in action!", "System update: You lose!"],
-        "difficulty": 6
+        "win_dialog": ["Error 404: Victory not found. Recalibrating...", "Division by zero!"],
+        "taunts": ["Predictive model accurate!", "Neural network engaged!", "Human error detected!", "Machine learning complete!", "Probability of your success: 0%!", "Automated victory!", "My algorithms are superior!", "Calculating trajectory...", "Artificial intelligence wins!", "You're obsolete!", "Optimizing shot parameters!", "Data set complete!", "Deep learning in action!", "System update: You lose!", "Turing test failed!", "Garbage in, garbage out!", "I'm recursively destroying you!", "Vector math wins!"],
+        "difficulty": 7
     },
     {
         "name": "Metaverse Dome",
@@ -1435,11 +1463,12 @@ STORY_RINKS = [
             "Why curl in the real world when the Metaverse is so much better?",
             "We're bulldozing this physical club to build a massive VR simulation center.",
             "Put on the headset and accept the new digital reality.",
+            "Physical friction is just a setting in my physics engine.",
             "I'm about to disconnect you!"
         ],
-        "win_dialog": ["My headset is glitching! I'm stuck in the real world!"],
-        "taunts": ["Virtual reality check!", "You're lagging in the matrix!", "My avatar is unstoppable!", "Metaverse dominance!", "Disconnecting your hopes!", "Digital perfection!", "Welcome to the simulation!", "Your reality is flawed!", "Uploading defeat!", "Virtual victory!", "Headset firmly on!", "Escaping to the digital realm!", "You're just an NPC!", "System crash imminent for you!"],
-        "difficulty": 7
+        "win_dialog": ["My headset is glitching! I'm stuck in the real world!", "VR sickness kicking in!"],
+        "taunts": ["Virtual reality check!", "You're lagging in the matrix!", "My avatar is unstoppable!", "Metaverse dominance!", "Disconnecting your hopes!", "Digital perfection!", "Welcome to the simulation!", "Your reality is flawed!", "Uploading defeat!", "Virtual victory!", "Headset firmly on!", "Escaping to the digital realm!", "You're just an NPC!", "System crash imminent for you!", "Polygon perfection!", "Respawn denied!", "Glitch in the system!", "Your graphics card is too weak!"],
+        "difficulty": 8
     },
     {
         "name": "Big Data Complex",
@@ -1449,11 +1478,12 @@ STORY_RINKS = [
             "This curling rink takes up too much prime real estate.",
             "We're installing 10,000 server racks right where the button is.",
             "Your data belongs to us now.",
+            "I have indexed every possible move you could make.",
             "Prepare to be formatted!"
         ],
-        "win_dialog": ["Critical system failure! Data corrupted!"],
-        "taunts": ["Data collected!", "Formatting your hopes!", "Server racks cooling!", "Big data always wins!", "Analyzing your weaknesses!", "Storing your defeat!", "My bandwidth is unlimited!", "Downloading a victory!", "You're out of storage!", "System override!", "Processing power at max!", "Your firewall has been breached!", "Data corrupted!", "Server farm dominance!"],
-        "difficulty": 8
+        "win_dialog": ["Critical system failure! Data corrupted!", "My hard drives!"],
+        "taunts": ["Data collected!", "Formatting your hopes!", "Server racks cooling!", "Big data always wins!", "Analyzing your weaknesses!", "Storing your defeat!", "My bandwidth is unlimited!", "Downloading a victory!", "You're out of storage!", "System override!", "Processing power at max!", "Your firewall has been breached!", "Data corrupted!", "Server farm dominance!", "Packet loss detected!", "Query successful!", "Indexed and archived!", "You've been fragmented!"],
+        "difficulty": 9
     },
     {
         "name": "Cloud Host Club",
@@ -1463,24 +1493,11 @@ STORY_RINKS = [
             "I am Syntax Terror, architect of the global data grid.",
             "This pathetic analog club is standing in the way of my server expansion.",
             "Your archaic physical stones stand no chance against my optimized algorithms.",
+            "I control the cloud, the data, and the physics of this rink.",
             "Prepare for a fatal exception!"
         ],
-        "win_dialog": ["Server offline! My ping is spiking! Nooo!"],
-        "taunts": ["Fatal exception!", "High latency!", "You're lagging!", "My algorithms are flawless!", "Data center dominance!", "Cloud superiority!", "Uploading a perfect shot!", "Your processing power is weak!", "Optimized trajectory!", "Server cooling engaged!", "Virtual perfection!", "Your analog skills are obsolete!", "Buffering... defeat!", "Ping timeout!", "Cloud computing wins!"],
-        "difficulty": 9
-    },
-    {
-        "name": "Tech Monopoly HQ",
-        "boss": "The FourElite",
-        "color": (180, 180, 200),
-        "intro_dialog": [
-            "We've bought every curling club in the world. This is the last one.",
-            "We're rebranding the sport as 'DataSphere Collision' and monetizing every throw.",
-            "You can't stop a trillion-dollar market cap.",
-            "I'm acquiring your defeat!"
-        ],
-        "win_dialog": ["Stock price plummeting! Board members panicking!"],
-        "taunts": ["Hostile takeover!", "Acquiring your points!", "Trillion-dollar shot!", "Market cap expanding!", "You can't afford this ice!", "Corporate synergy!", "Monetizing your failure!", "Boardroom blitz!", "Your equity is zero!", "Foreclosing on your dreams!", "Monopoly on the button!", "Our dividends are paying off!", "A highly leveraged shot!", "You're fired!"],
+        "win_dialog": ["Server offline! My ping is spiking! Nooo!", "Kernel panic!"],
+        "taunts": ["Fatal exception!", "High latency!", "You're lagging!", "My algorithms are flawless!", "Data center dominance!", "Cloud superiority!", "Uploading a perfect shot!", "Your processing power is weak!", "Optimized trajectory!", "Server cooling engaged!", "Virtual perfection!", "Your analog skills are obsolete!", "Buffering... defeat!", "Ping timeout!", "Cloud computing wins!", "Segmentation fault!", "Connection lost!", "Blue screen of death!"],
         "difficulty": 10
     }
 ]
@@ -1557,12 +1574,7 @@ class WinCurl3:
         self.dark_overlay_150 = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); self.dark_overlay_150.fill((0, 0, 0, 150))
         self.dark_overlay_200 = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha(); self.dark_overlay_200.fill((0, 0, 0, 200))
         
-        self.BOT_LOGIC_CACHE = {
-            "easy": {"error_multiplier": 2.5, "takeout_chance": 0.1, "guard_chance": 0.3},
-            "medium": {"error_multiplier": 1.0, "takeout_chance": 0.4, "guard_chance": 0.5},
-            "hard": {"error_multiplier": 0.2, "takeout_chance": 0.8, "guard_chance": 0.7}
-        }
-        
+                
         t_text = 'WinCurl 3'
         
         # Use standard Pygame font for the original heavy bold look.
@@ -1963,10 +1975,17 @@ class WinCurl3:
             if getattr(self, 'game_mode', '') == "BOT": slots = self.bot_slots_data
             elif getattr(self, 'game_mode', '') == "LOCAL": slots = self.local_slots_data
             else: slots = self.slots_data
+            
+            # Ensure saved_match_state matches the slot type to avoid segfault cross-pollination
+            sm_state = getattr(self, 'saved_match_state', None)
+            if sm_state and sm_state.get('game_mode', '') != getattr(self, 'game_mode', ''):
+                sm_state = None
+                
+            story_dict = self.story.to_dict() if getattr(self, 'story', None) else {}
             slots[self.active_slot] = {
                 "challenge": self.challenge_progress[:25],
-                "story": self.story.to_dict(),
-                "saved_match_state": getattr(self, 'saved_match_state', None)
+                "story": story_dict,
+                "saved_match_state": sm_state
             }
             data = {
                 "slots": self.slots_data,
@@ -2087,6 +2106,7 @@ class WinCurl3:
         
     def start_match(self):
         self.reset_match()
+        if hasattr(self, 'end_delay_timer'): del self.end_delay_timer
         self.parallax_y = 1000.0  # mode 7 slide in
         self.parallax_x = 0.0
         if self.game_mode == "CHALLENGE":
@@ -2094,7 +2114,7 @@ class WinCurl3:
             self.challenge_announced = False
         else:
             if getattr(self, 'game_mode', None) == "STORY":
-                rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                rink_idx = min(getattr(self.story, 'current_rink', 0), len(STORY_RINKS) - 1) if getattr(self, 'story', None) else 0
                 self.match_ai_difficulty = STORY_RINKS[rink_idx]['difficulty']
                 
             else:
@@ -2169,8 +2189,11 @@ class WinCurl3:
                             for _ in range(int(impulse * 5)): self.particles.append({'pos': pygame.math.Vector2(mid_x, mid_y), 'vel': normal.rotate(random.uniform(-45, 45)) * random.uniform(2, 10), 'life': 1.0, 'decay': random.uniform(0.02, 0.05), 'type': 'spark'})
 
     def execute_ai(self):
-        bot_level = "easy" if getattr(self, 'match_ai_difficulty', 5) < 4 else "medium" if getattr(self, 'match_ai_difficulty', 5) < 8 else "hard"
-        params = self.BOT_LOGIC_CACHE[bot_level]
+        diff = int(getattr(self, 'match_ai_difficulty', 5))
+        err_mult = max(0.1, 3.0 - ((diff - 1) * 0.32))
+        takeout_chance = min(0.9, (diff - 1) * 0.1)
+        guard_chance = min(0.8, 0.1 + (diff - 1) * 0.08)
+        params = {"error_multiplier": err_mult, "takeout_chance": takeout_chance, "guard_chance": guard_chance}
         
         if not hasattr(self, 'ai_wait_start'):
             self.ai_wait_start = pygame.time.get_ticks()
@@ -3204,23 +3227,33 @@ class WinCurl3:
     def draw_story_map(self):
         self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
-        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 90))
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 70))
         
-        lbl_defeated = self.font.render(f"RINK LEADERS DEFEATED: {self.story.current_rink}", True, TEAM_YELLOW)
-        self.canvas.blit(lbl_defeated, (cx - lbl_defeated.get_width()//2, 155))
+        lbl_defeated = self.font.render(f"RINK LEADERS DEFEATED: {getattr(self.story, 'current_rink', 0)}", True, TEAM_YELLOW)
+        self.canvas.blit(lbl_defeated, (cx - lbl_defeated.get_width()//2, 130))
         
-        xp_needed = self.story.level * 100
-        xp_rect = pygame.Rect(cx - 300, 195, 600, 30)
+        # Trophies (Mario Kart style)
+        trophy_w = 40
+        spacing = 10
+        cur_rink = getattr(self.story, 'current_rink', 0)
+        total_w = cur_rink * (trophy_w + spacing) - spacing
+        start_x = cx - total_w // 2
+        for i in range(cur_rink):
+            rink = STORY_RINKS[i] if i < len(STORY_RINKS) else STORY_RINKS[-1]
+            draw_trophy(self.canvas, start_x + i * (trophy_w + spacing), 165, size=trophy_w)
+        
+        xp_needed = getattr(self.story, 'level', 1) * 100
+        xp_rect = pygame.Rect(cx - 300, 220, 600, 30)
         draw_glass_rect(self.canvas, xp_rect, (50, 50, 50), 15, False, animate_sheen=False)
-        fill_width = int(600 * (self.story.xp / max(1, xp_needed)))
-        if fill_width > 0: draw_glass_rect(self.canvas, pygame.Rect(cx - 300, 195, fill_width, 30), TEAM_YELLOW, 15, False, animate_sheen=False)
-        xp_txt = self.small_font.render(f"XP: {self.story.xp} / {xp_needed}", True, WHITE)
+        fill_width = int(600 * (getattr(self.story, 'xp', 0) / max(1, xp_needed)))
+        if fill_width > 0: draw_glass_rect(self.canvas, pygame.Rect(cx - 300, 220, fill_width, 30), TEAM_YELLOW, 15, False, animate_sheen=False)
+        xp_txt = self.small_font.render(f"XP: {getattr(self.story, 'xp', 0)} / {xp_needed}", True, WHITE)
         self.canvas.blit(xp_txt, xp_txt.get_rect(center=xp_rect.center))
         
-        spent_points = sum(self.story.stats.values())
-        avail_points = max(0, (self.story.level - 1) - spent_points)
-        pts_txt = self.font.render(f"LEVEL {self.story.level} - SKILL POINTS: {avail_points}", True, (100, 255, 100) if avail_points > 0 else WHITE)
-        self.canvas.blit(pts_txt, (cx - pts_txt.get_width()//2, 240))
+        spent_points = sum(getattr(self.story, 'stats', {}).values())
+        avail_points = max(0, (getattr(self.story, 'level', 1) - 1) - spent_points)
+        pts_txt = self.font.render(f"LEVEL {getattr(self.story, 'level', 1)} - SKILL POINTS: {avail_points}", True, (100, 255, 100) if avail_points > 0 else WHITE)
+        self.canvas.blit(pts_txt, (cx - pts_txt.get_width()//2, 265))
         
         stat_names = [('power', 'LAUNCH POWER', 'Increases max throwing velocity'), ('curl_control', 'CURL CONTROL', 'Improves stone curl responsiveness'), ('trajectory_preview', 'TRAJECTORY PREVIEW', 'Lengthens the aiming line')]
         self.btn_upgrades = {}
@@ -3472,7 +3505,7 @@ class WinCurl3:
                 team_c = HOUSE_RED if self.current_team == 0 else TEAM_YELLOW
                 
                 if is_evil:
-                    rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                    rink_idx = min(getattr(self.story, 'current_rink', 0), len(STORY_RINKS) - 1) if getattr(self, 'story', None) else 0
                     boss_name = STORY_RINKS[rink_idx]['boss']
                 else:
                     boss_name = "Player"
@@ -3480,7 +3513,7 @@ class WinCurl3:
                 portrait_surf = get_pixel_portrait(boss_name, (120, 120))
                 self.canvas.blit(portrait_surf, (20, 140 + bob_y))
                 
-                rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                rink_idx = min(getattr(self.story, 'current_rink', 0), len(STORY_RINKS) - 1) if getattr(self, 'story', None) else 0
                 rink = STORY_RINKS[rink_idx]
                 player_taunts = ["Let's clean this up!", "For the environment!", "Recycle that!", "Eco sweep!", "Sustainable curling!", "I'm carbon neutral!", "Green energy shot!", "Biodegradable stone!", "Compost this!", "Protect the wildlife!", "Clear the air!", "Leave no trace!", "Save the redwoods!", "Clean water initiative!", "Renewable power!", "Mother Nature sends her regards!", "Reduce, reuse, curl!"]
                 taunts = rink.get('taunts', []) if is_evil else player_taunts
@@ -3687,25 +3720,21 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_pause_screen(self):
+        # 1. Grey background
+        self.canvas.fill((128, 128, 128))
+        
+        # 2. Draw global UI / scoreboard so it is visible as requested
+        self.draw_ui()
+        
         self.pause_anim += (1.0 - self.pause_anim) * 0.15
-        self.dark_overlay_200.set_alpha(int(215 * self.pause_anim)); self.canvas.blit(self.dark_overlay_200, (0, 0)); self.dark_overlay_200.set_alpha(200)
         m_pos = self.get_pointer_pos()
         
         lbl_p = self.font_85.render("PAUSED", True, WHITE)
         self.canvas.blit(lbl_p, (BASE_WIDTH//2 - lbl_p.get_width()//2, BASE_HEIGHT//2 - 350 + int((1.0 - self.pause_anim) * -200)))
         
         res_rect = self.btn_resume.move(-int((1.0 - self.pause_anim) * 400), 0)
-        draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y), animate_sheen=True)
-        lbl_btn = self.font.render("RESUME MATCH", True, WHITE)
-        self.canvas.blit(lbl_btn, (res_rect.centerx - lbl_btn.get_width()//2 + 25, res_rect.centery - lbl_btn.get_height()//2))
-        rock_x = res_rect.centerx - lbl_btn.get_width()//2 - 15
-        pygame.draw.circle(self.canvas, (160, 165, 170), (rock_x, res_rect.centery), 22)
-        pygame.draw.circle(self.canvas, (100, 105, 110), (rock_x, res_rect.centery), 22, 2)
-        pygame.draw.circle(self.canvas, HOUSE_RED, (rock_x, res_rect.centery), 14)
-        pygame.draw.circle(self.canvas, (max(0, HOUSE_RED[0]-50), max(0, HOUSE_RED[1]-50), max(0, HOUSE_RED[2]-50)), (rock_x, res_rect.centery), 14, 2)
-        pygame.draw.circle(self.canvas, BLACK, (rock_x - 8, res_rect.centery), 3)
-        pygame.draw.line(self.canvas, BLACK, (rock_x - 8, res_rect.centery), (rock_x + 8, res_rect.centery), 5)
-        pygame.draw.line(self.canvas, (100, 100, 100), (rock_x - 8, res_rect.centery), (rock_x + 8, res_rect.centery), 2)
+        draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
+        lbl_btn = self.font.render("RESUME MATCH", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
         
         opt_rect = self.btn_options_pause.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
@@ -3720,8 +3749,12 @@ class WinCurl3:
 
         quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
-        lbl_q = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_q, lbl_q.get_rect(center=quit_rect.center))
+        lbl_quit = self.font.render("QUIT TO MENU", True, WHITE); self.canvas.blit(lbl_quit, lbl_quit.get_rect(center=quit_rect.center))
         self.draw_back_icon(self.canvas, quit_rect.x + 30, quit_rect.centery - 10, color=(100, 255, 100))
+
+        self.draw_global_ui()
+
+    
 
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34)); cx = BASE_WIDTH // 2
