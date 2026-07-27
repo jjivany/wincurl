@@ -76,14 +76,16 @@ jobs:
         run: pip install pygbag
       - name: Build WebAssembly
         run: |
-          pygbag --build .
-          cd build/web
+          mkdir wincurl_web
+          cp main.py icon.png portraits_data.py bot_script.py wincurl_web/
+          pygbag --build wincurl_web
+          cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
           name: wincurl-web
-          path: build/web
+          path: wincurl_web/build/web
 
   deploy-itch:
     needs: [build-windows, build-mac, build-linux, build-web]
