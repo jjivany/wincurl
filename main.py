@@ -408,7 +408,9 @@ class WinCurlAudioEngine:
                     
         import sys
         if hasattr(sys, "platform") and sys.platform == "emscripten":
-            bg_worker()
+            empty_snd = pygame.mixer.Sound(buffer=bytearray(8))
+            for attr_name, _ in pending_tasks:
+                setattr(self, attr_name, empty_snd)
         else:
             threading.Thread(target=bg_worker, daemon=True).start()
         
@@ -879,7 +881,7 @@ class WinCurlAudioEngine:
                             except: pass
                         import sys
                         if hasattr(sys, "platform") and sys.platform == "emscripten":
-                            _synth_bg()
+                            self._synth_ready_path = None
                         else:
                             import threading
                             threading.Thread(target=_synth_bg, daemon=True).start()
