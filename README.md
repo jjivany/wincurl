@@ -52,5 +52,5 @@ Contributions are welcome. Feel free to open an issue or submit a pull request i
 *WinCurl 3.0 is a spiritual successor and derives inspiration from the original WinCurl 2.0:*
 [View the original on Archive.org](https://archive.org/details/WCURLD)
 
-Linux, Mac and Windows binary builds are now hosted on itch.io
+Linux, Mac and Windows binary builds are now hosted on itch.io:
 [https://jayjayivanygmailcom.itch.io/wincurl](https://jayjayivanygmailcom.itch.io/wincurl)
