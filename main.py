@@ -1,4 +1,7 @@
-import os, sys
+import sys
+print("DEBUG: main.py started", file=sys.stderr)
+print("DEBUG: main.py started to stdout")
+import os
 if hasattr(os, 'name') and os.name == 'posix' and not hasattr(sys, 'getandroidapilevel') and 'ANDROID_ARGUMENT' not in os.environ:
     os.environ['SDL_VIDEO_WAYLAND_WMCLASS'] = 'wincurl3'
     os.environ['SDL_VIDEO_X11_WMCLASS'] = 'wincurl3'
@@ -8,7 +11,6 @@ import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
 import io
 import collections
-import urllib.request
 
 VERSION = "3.0 Build 62"
 
