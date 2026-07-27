@@ -10,7 +10,7 @@ The ice has never been this hot! "WinCurl 3.0" is taking the gaming world by sto
 - 🎯 **Hyper-Realistic Physics Engine**: Precision curling stone mechanics that feel so real, you'll feel the chill of the ice!
 - 🌐 **Global Multiplayer**: Built-in high-speed network matchmaking! Challenge players around the world and assert dominance!
 - 🎨 **Next-Gen Visuals**: A pristine, ultra-responsive UI featuring dynamic animated glassmorphism, procedural graphics, and sick 2D pixel art cutscenes!
-- 🎶 **Procedural Phonk Audio**: An insanely fast, non-blocking audio engine that bumps custom synthesized beats while keeping you at a buttery smooth 120 FPS!
+- 🎶 **Procedural Phonk Audio**: An insanely fast, non-blocking audio engine that bumps custom synthesized beats while keeping the gameplay buttery smooth!
 - 📱 **Cross-Platform Domination**: From desktops to Android devices—play anywhere, anytime!
 
 ## 🛠 Elite Technology Stack:
