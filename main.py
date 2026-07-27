@@ -9,7 +9,7 @@ import struct
 import io
 import collections
 
-VERSION = "3.0 Build 61"
+VERSION = "3.0 Build 62"
 
 
 class CachedFont:
@@ -406,7 +406,11 @@ class WinCurlAudioEngine:
                     setattr(self, attr_name, fallback(return_bytes=True))
                 except Exception as e: pass
                     
-        threading.Thread(target=bg_worker, daemon=True).start()
+        import sys
+        if hasattr(sys, "platform") and sys.platform == "emscripten":
+            bg_worker()
+        else:
+            threading.Thread(target=bg_worker, daemon=True).start()
         
     def process_pending_sounds(self):
         import io, pygame
@@ -873,8 +877,12 @@ class WinCurlAudioEngine:
                                 fallback = self._synthesize_theme_song(return_path=True)
                                 self._synth_ready_path = fallback
                             except: pass
-                        import threading
-                        threading.Thread(target=_synth_bg, daemon=True).start()
+                        import sys
+                        if hasattr(sys, "platform") and sys.platform == "emscripten":
+                            _synth_bg()
+                        else:
+                            import threading
+                            threading.Thread(target=_synth_bg, daemon=True).start()
                     
                     if getattr(self, '_synth_ready_path', None):
                         try:
@@ -2956,7 +2964,12 @@ class WinCurl3:
                     pass
             except Exception as e:
                 print("Failed to post score:", e)
-        threading.Thread(target=_post, daemon=True).start()
+        import sys
+        if hasattr(sys, "platform") and sys.platform == "emscripten":
+            # Running this synchronously in web will freeze temporarily
+            _post()
+        else:
+            threading.Thread(target=_post, daemon=True).start()
 
     def fetch_leaderboard(self):
         self.leaderboard_data = None
@@ -2973,7 +2986,11 @@ class WinCurl3:
                     {"name": "Jason Ivany", "score": 100},
                 ]
                 print("Failed to fetch leaderboard:", e)
-        threading.Thread(target=_fetch, daemon=True).start()
+        import sys
+        if hasattr(sys, "platform") and sys.platform == "emscripten":
+            _fetch()
+        else:
+            threading.Thread(target=_fetch, daemon=True).start()
 
     def draw_room_prompt(self):
         self.draw_menu()
@@ -3123,7 +3140,11 @@ class WinCurl3:
                             if not getattr(self, 'is_updating', False):
                                 self.is_updating = True
                                 self.update_status = "updating..."
-                                threading.Thread(target=self.perform_update, daemon=True).start()
+                                import sys
+                                if hasattr(sys, "platform") and sys.platform == "emscripten":
+                                    self.perform_update()
+                                else:
+                                    threading.Thread(target=self.perform_update, daemon=True).start()
                         elif b["id"] == "back": self.app_state = "MENU"
                         self.set_typing_target(new_target)
                         break
@@ -4058,13 +4079,11 @@ class IRCNetworkManager:
         self.is_host = is_host; self.connecting = True; self.running = True
         
         if sys.platform == "emscripten":
-            self.connecting = False
+            self.connection_error = "Multiplayer not supported on Web"
             self.running = False
-            self.connection_error = "Multiplayer unsupported on Web"
-            return
-            
-        import threading
-        threading.Thread(target=self._irc_thread, daemon=True).start()
+        else:
+            import threading
+            threading.Thread(target=self._irc_thread, daemon=True).start()
 
     def _irc_thread(self):
         def enc_msg(msg_dict): return "Z" + base64.b64encode(zlib.compress(json.dumps(msg_dict).encode('utf-8'))).decode('utf-8')

@@ -115,8 +115,9 @@ jobs:
             echo "BUTLER_API_KEY secret is not set. Skipping itch.io deployment."
             exit 0
           fi
-          ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows
-          ./butler push artifacts/wincurl-mac $ITCH_TARGET:mac
-          ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux
-          ./butler push artifacts/wincurl-web $ITCH_TARGET:html5
-          ./butler push wincurl_latest.apk $ITCH_TARGET:android
+          VERSION=$(grep -m 1 -oP 'VERSION\s*=\s*"\K[^"]+' main.py || echo "3.0 Build 62")
+          ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows --userversion "$VERSION"
+          ./butler push artifacts/wincurl-mac $ITCH_TARGET:mac --userversion "$VERSION"
+          ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux --userversion "$VERSION"
+          ./butler push artifacts/wincurl-web $ITCH_TARGET:html5 --userversion "$VERSION"
+          ./butler push wincurl_latest.apk $ITCH_TARGET:android --userversion "$VERSION"
