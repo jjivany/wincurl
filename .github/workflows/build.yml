@@ -81,6 +81,7 @@ jobs:
           pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
+          sed -i 's/if platform.window.location.host.find(.*>.*0:/if True:/g' index.html
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
