@@ -5,7 +5,7 @@ package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
 source.exclude_patterns = setup.py
-version = 53
+version = 54
 # (str) Icon of the application
 icon.filename = icon.png
 
@@ -24,4 +24,4 @@ p4a.setup_py = false
 
 [buildozer]
 log_level = 2
-android.numeric_version = 53
+android.numeric_version = 54
