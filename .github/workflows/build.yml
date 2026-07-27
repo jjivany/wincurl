@@ -79,8 +79,6 @@ jobs:
           pygbag --build .
           cd build/web
           rm -f wincurl_web.tar.gz
-          mv wincurl_web.apk wincurl_web.data
-          sed -i 's/wincurl_web.apk/wincurl_web.data/g' index.html
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
