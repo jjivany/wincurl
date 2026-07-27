@@ -2,6 +2,7 @@ import os, sys
 if hasattr(os, 'name') and os.name == 'posix' and not hasattr(sys, 'getandroidapilevel') and 'ANDROID_ARGUMENT' not in os.environ:
     os.environ['SDL_VIDEO_WAYLAND_WMCLASS'] = 'wincurl3'
     os.environ['SDL_VIDEO_X11_WMCLASS'] = 'wincurl3'
+import asyncio
 import pygame
 import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
@@ -386,9 +387,9 @@ class WinCurlAudioEngine:
         load_sound("snd_end_match", "end_match.wav", self._synthesize_end_of_match)
         load_sound("snd_hurry", "vosim_HURRY.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
         load_sound("snd_hard", "vosim_HARD.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
-        load_sound("snd_chal_comp", "challenge_complete.wav", None)
-        load_sound("snd_red_wins", "red_wins.wav", None)
-        load_sound("snd_ylw_wins", "yellow_wins.wav", None)
+        load_sound("snd_chal_comp", "challenge_complete.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 1.2, return_bytes=return_bytes))
+        load_sound("snd_red_wins", "red_wins.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("RED_TEAM_WINS", 1.2, return_bytes=return_bytes))
+        load_sound("snd_ylw_wins", "yellow_wins.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 1.2, return_bytes=return_bytes))
         
         pending_tasks.extend([
             ("snd_slide", self._synthesize_rumble),
@@ -2107,6 +2108,7 @@ class WinCurl3:
         self.stones = []; self.stones_thrown = {0: 0, 1: 0}
         
     def start_match(self):
+        self.match_winner_announced = False
         self.reset_match()
         if hasattr(self, 'end_delay_timer'): del self.end_delay_timer
         self.parallax_y = 1000.0  # mode 7 slide in
@@ -3871,7 +3873,7 @@ class WinCurl3:
             
         pygame.display.flip()
 
-    def run(self):
+    async def run(self):
         self.accumulator = 0.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
         while True:
@@ -3997,6 +3999,7 @@ class WinCurl3:
                 elif self.app_state == "PAUSED" and self.game_mode in ["HOST", "JOIN"]:
                     self.update_physics()
                 self.accumulator -= FIXED_DT
+            await asyncio.sleep(0)
                 
             if self.app_state == "MENU": 
                 self.audio.process_pending_sounds()
@@ -4053,6 +4056,14 @@ class IRCNetworkManager:
         self.preferred_color = preferred_color
         self.connection_error = ""
         self.is_host = is_host; self.connecting = True; self.running = True
+        
+        if sys.platform == "emscripten":
+            self.connecting = False
+            self.running = False
+            self.connection_error = "Multiplayer unsupported on Web"
+            return
+            
+        import threading
         threading.Thread(target=self._irc_thread, daemon=True).start()
 
     def _irc_thread(self):
@@ -4139,13 +4150,13 @@ class IRCNetworkManager:
             try: self.sock.close()
             except: pass
 
-def main():
+async def main():
     import os, sys
     if not hasattr(sys, 'getandroidapilevel'):
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
     game = WinCurl3()
     game.setup_display()
-    game.run()
+    await game.run()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

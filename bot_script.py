@@ -2,11 +2,11 @@ import os
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 import pygame
-import random
-import time
+import math
 import sys
-
-import sys
+import os
+import asyncio
+import main as wc
 import threading
 
 # Import main directly
@@ -154,7 +154,7 @@ class BotCurl(wc.WinCurl3):
         speed += random.uniform(-0.02, 0.02)
         angle += random.uniform(-0.002, 0.002)
         return math.cos(angle) * speed, math.sin(angle) * speed, fc        
-    def run(self):
+    async def run(self):
         while True:
             self.frames_elapsed += 1
             for event in pygame.event.get():
@@ -245,10 +245,14 @@ class BotCurl(wc.WinCurl3):
                         self.bot_timer = 0
             
             self.clock.tick(60)
+            await asyncio.sleep(0)
 
-if __name__ == "__main__":
+async def main_bot():
     room_name = "WinCurl"
     if len(sys.argv) > 1:
         room_name = sys.argv[1]
     bot = BotCurl(room_name)
-    bot.run()
+    await bot.run()
+
+if __name__ == "__main__":
+    asyncio.run(main_bot())

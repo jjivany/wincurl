@@ -15,9 +15,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pygame pyinstaller
+          pip install pygame pyinstaller pillow
       - name: Build with PyInstaller
-        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png;." main.py
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png;." --icon=icon.png main.py
       - name: Upload Windows Binary
         uses: actions/upload-artifact@v4
         with:
@@ -35,9 +35,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pygame pyinstaller
+          pip install pygame pyinstaller pillow
       - name: Build with PyInstaller
-        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." main.py
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --icon=icon.png main.py
       - name: Upload Mac Binary
         uses: actions/upload-artifact@v4
         with:
@@ -55,17 +55,41 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pygame pyinstaller
+          pip install pygame pyinstaller pillow
       - name: Build with PyInstaller
-        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." main.py
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --icon=icon.png main.py
       - name: Upload Linux Binary
         uses: actions/upload-artifact@v4
         with:
           name: wincurl-linux
           path: dist/wincurl
 
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pygbag
+        run: pip install pygbag
+      - name: Build WebAssembly
+        run: |
+          pygbag --build .
+          cd build/web
+          rm -f wincurl_web.tar.gz
+          mv wincurl_web.apk wincurl_web.data
+          sed -i 's/wincurl_web.apk/wincurl_web.data/g' index.html
+          zip -r ../../wincurl-web.zip favicon.png index.html wincurl_web.data
+      - name: Upload Web Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-web
+          path: wincurl-web.zip
+
   deploy-itch:
-    needs: [build-windows, build-mac, build-linux]
+    needs: [build-windows, build-mac, build-linux, build-web]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     env:
@@ -77,8 +101,9 @@ jobs:
           path: artifacts
       - name: Install Butler
         run: |
-          curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+          curl -L -o butler.zip https://github.com/itchio/butler/releases/download/v15.29.0/butler-linux-amd64.zip
           unzip butler.zip
+          mv linux-amd64/butler .
           chmod +x butler
       - name: Push to itch.io
         env:
@@ -91,4 +116,5 @@ jobs:
           ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows
           ./butler push artifacts/wincurl-mac $ITCH_TARGET:mac
           ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux
+          ./butler push artifacts/wincurl-web/wincurl-web.zip $ITCH_TARGET:html5
           ./butler push wincurl_latest.apk $ITCH_TARGET:android
