@@ -1073,10 +1073,7 @@ import io
 try:
     import portraits_data
 except ImportError:
-    try:
-        from . import portraits_data
-    except ImportError:
-        portraits_data = None
+    portraits_data = None
 
 PIXEL_PORTRAIT_CACHE = {}
 def get_pixel_portrait(name, size=(120, 120)):
