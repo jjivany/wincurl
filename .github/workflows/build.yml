@@ -81,12 +81,11 @@ jobs:
           rm -f wincurl_web.tar.gz
           mv wincurl_web.apk wincurl_web.data
           sed -i 's/wincurl_web.apk/wincurl_web.data/g' index.html
-          zip -r ../../wincurl-web.zip favicon.png index.html wincurl_web.data
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
           name: wincurl-web
-          path: wincurl-web.zip
+          path: build/web
 
   deploy-itch:
     needs: [build-windows, build-mac, build-linux, build-web]
@@ -116,5 +115,5 @@ jobs:
           ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows
           ./butler push artifacts/wincurl-mac $ITCH_TARGET:mac
           ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux
-          ./butler push artifacts/wincurl-web/wincurl-web.zip $ITCH_TARGET:html5
+          ./butler push artifacts/wincurl-web $ITCH_TARGET:html5
           ./butler push wincurl_latest.apk $ITCH_TARGET:android
