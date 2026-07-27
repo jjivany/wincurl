@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "3.0 Build 43"
+VERSION = "3.0 Build 44"
 
 
 class CachedFont:
@@ -2042,6 +2042,13 @@ class WinCurl3:
             self.stones.append(st)
             if len(s)>8 and st.id == state.get("active_stone_id"):
                 self.active_stone = st
+                
+        # Failsafe: Ensure stones_thrown is AT LEAST the number of stones currently on the ice
+        counts = {0: 0, 1: 0}
+        for s in self.stones:
+            if getattr(s, 'team', -1) in counts: counts[s.team] += 1
+        self.stones_thrown[0] = max(self.stones_thrown[0], counts[0])
+        self.stones_thrown[1] = max(self.stones_thrown[1], counts[1])
         
         # We no longer wipe the save here, it persists until overwritten
         self.update_menu_buttons()
@@ -2684,7 +2691,7 @@ class WinCurl3:
                         elif self.c_type == "DOUBLE": self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0
                         self.turn_state = "END"
                 else:
-                    if self.stones_thrown[0] == self.stones_per_team and self.stones_thrown[1] == self.stones_per_team:
+                    if self.stones_thrown[0] >= self.stones_per_team and self.stones_thrown[1] >= self.stones_per_team:
                         in_house = [((s.pos - self.house_pos).length(), s.team) for s in self.stones if (s.pos - self.house_pos).length() <= 210]
                         if in_house:
                             in_house.sort(key=lambda x: x[0]); winner = in_house[0][1]
