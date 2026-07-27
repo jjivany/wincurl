@@ -80,10 +80,7 @@ jobs:
           cp main.py icon.png portraits_data.py bot_script.py wincurl_web/
           pygbag --build wincurl_web
           cd wincurl_web/build/web
-          rm -f wincurl_web.tar.gz
-          mv wincurl_web.apk wincurl_web.data
-          sed -i 's/wincurl_web.apk/wincurl_web.data/g' index.html
-          sed -i 's/if platform.window.location.host.find(.*>.*0:/if True:/g' index.html
+          rm -f wincurl_web.apk
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:

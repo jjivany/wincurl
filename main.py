@@ -8,6 +8,7 @@ import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
 import io
 import collections
+import urllib.request
 
 VERSION = "3.0 Build 62"
 
@@ -408,9 +409,15 @@ class WinCurlAudioEngine:
                     
         import sys
         if hasattr(sys, "platform") and sys.platform == "emscripten":
-            empty_snd = pygame.mixer.Sound(buffer=bytearray(8))
+            import io, wave
+            empty_wav = io.BytesIO()
+            with wave.open(empty_wav, 'wb') as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(44100)
+                w.writeframes(b'\x00' * 8)
             for attr_name, _ in pending_tasks:
-                setattr(self, attr_name, empty_snd)
+                setattr(self, attr_name, io.BytesIO(empty_wav.getvalue()))
         else:
             threading.Thread(target=bg_worker, daemon=True).start()
         
