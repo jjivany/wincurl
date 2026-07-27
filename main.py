@@ -8,7 +8,7 @@ import struct
 import io
 import collections
 
-VERSION = "3.0 Build 54"
+VERSION = "3.0 Build 58"
 
 
 class CachedFont:
@@ -168,7 +168,8 @@ print("="*80 + "\n")
 
 # --- Configuration & Canvas Setup ---
 BASE_WIDTH, BASE_HEIGHT = 1200, 1800 
-FPS = 60
+FPS = 120
+PHYSICS_FPS = 60
 FRICTION_BASE = 0.022 
 
 # Premium Vector Palette
@@ -898,9 +899,9 @@ class Starfield:
         self.stars = [(random.randint(0, max_w or BASE_WIDTH), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)]
         self.colors = {s: (int(min(255, 30 + s*60)),)*3 for _, _, s in self.stars}
         
-    def draw(self, surface, speed_mult=1.0):
+    def draw(self, surface, speed_mult=1.0, time_mult=1.0):
         for i in range(len(self.stars)):
-            x, y, s = self.stars[i]; y = (y + s * speed_mult) % self.max_h
+            x, y, s = self.stars[i]; y = (y + s * speed_mult * time_mult) % self.max_h
             self.stars[i] = (x, y, s)
             size = max(1, int(s))
             surface.fill(self.colors[s], (int(x), int(y), size, size))
@@ -951,7 +952,7 @@ class ThreeDStone:
         pygame.draw.circle(inner_mask, (255, 255, 255, 255), (r_max, r_max + 34), r_max - 10)
         glare.blit(inner_mask, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         surf.blit(glare, (bx - r_max, by - r_max))
-        cls.cached_surf = surf
+        cls.cached_surf = surf.convert_alpha()
 
     def draw(self, surface, center_x, center_y, mouse_pos):
         bx, by = center_x + (mouse_pos[0] - center_x)*0.03, center_y + (mouse_pos[1] - center_y)*0.03
@@ -1382,18 +1383,21 @@ class AnimatedCurler:
         self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
 
     def render_portrait(self, surface, x, y, size, team_color, is_evil=False, bob_y=0):
-        self.tc = team_color
-        old_state = self.state
-        self.state = "BACKSWING"
-        
-        temp_surf = pygame.Surface((180, 260), pygame.SRCALPHA).convert_alpha()
-        temp_surf.fill((0,0,0,0))
-        self._draw_char_geometry(temp_surf, 90, 60, bob_y, 0, None, is_evil)
-        
-        scaled = pygame.transform.smoothscale(temp_surf, (size, int(size * (260/180))))
-        surface.blit(scaled, (x, y))
-        
-        self.state = old_state
+        if not hasattr(self, 'cached_portrait') or getattr(self, 'cached_portrait_size', 0) != size:
+            self.tc = team_color
+            old_state = self.state
+            self.state = "BACKSWING"
+            
+            temp_surf = pygame.Surface((180, 260), pygame.SRCALPHA).convert_alpha()
+            temp_surf.fill((0,0,0,0))
+            self._draw_char_geometry(temp_surf, 90, 60, 0, 0, None, is_evil)
+            
+            scaled = pygame.transform.smoothscale(temp_surf, (size, int(size * 260/180))).convert_alpha()
+            self.cached_portrait = scaled
+            self.cached_portrait_size = size
+            self.state = old_state
+            
+        surface.blit(self.cached_portrait, (x, y + bob_y))
 STORY_RINKS = [
     {
         "name": "Corporate Lobby",
@@ -1794,12 +1798,10 @@ class WinCurl3:
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
             {"id": "name", "y": 570, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
             {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "bilinear", "y": 750, "text": "Bilinear Filtering:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "hi_res_mode", "y": 840, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "fxaa", "y": 930, "text": "FXAA:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "light_filter", "y": 1020, "text": "Lighter ICE:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1110, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1200, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
+            {"id": "hi_res_mode", "y": 750, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "smoothscale", "y": 840, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 930, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1020, "text": "Back", "color": HOUSE_RED, "scale": 1.0}
         ]
         self.last_hovered = None
 
@@ -2808,7 +2810,7 @@ class WinCurl3:
             
         self.canvas.fill((10, 12, 16))
         self.last_starfield_speed = 2.0
-        self.starfield.draw(self.canvas, 2.0); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
+        self.starfield.draw(self.canvas, 2.0, getattr(self, 'time_mult', 1.0)); cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
             
         if not getattr(self, 'is_music_muted', False) and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU"] and self.frames_since_start >= 210:
             self.audio.play_music()
@@ -2992,7 +2994,7 @@ class WinCurl3:
     def draw_options_menu(self):
         self.canvas.fill((10, 12, 16))
         self.last_starfield_speed = 0.5
-        self.starfield.draw(self.canvas, 0.5)
+        self.starfield.draw(self.canvas, 0.5, getattr(self, 'time_mult', 1.0))
         
         cx, t_ms = BASE_WIDTH//2, pygame.time.get_ticks() * 0.001
         self.menu_dy = (BASE_HEIGHT - 1920) // 2
@@ -3011,7 +3013,7 @@ class WinCurl3:
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width()//2, 385 + getattr(self, 'menu_dy', 0)))
 
         for btn in self.options_buttons:
-            if (not IS_ANDROID and btn["id"] in ["bilinear", "hi_res_mode", "light_filter"]) or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and btn["id"] in ["fxaa", "light_filter"]):
+            if (not IS_ANDROID and btn["id"] == "hi_res_mode") or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and btn["id"] == "smoothscale"):
                 continue
                 
             if btn["id"] == "name": text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -3020,19 +3022,12 @@ class WinCurl3:
                 text = "My Team:"
             elif btn["id"] == "master_vol":
                 text = "Volume"
-
-            elif btn["id"] == "fxaa":
-                text = "FXAA: " + ("ON 🪄" if getattr(self, 'fxaa_on', False) else "OFF 🖥️")
-                btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
-            elif btn["id"] == "bilinear":
-                text = "Bilinear Filtering: " + ("ON 🔍" if getattr(self, 'bilinear_on', False) else "OFF 🕹️")
-                btn["color"] = (40, 120, 60) if getattr(self, 'bilinear_on', False) else TEAM_YELLOW
-            elif btn["id"] == "light_filter":
-                text = "Lighter ICE: " + ("ON 🧊" if getattr(self, 'lighter_filter', False) else "OFF 🌑")
-                btn["color"] = (40, 120, 60) if getattr(self, 'lighter_filter', False) else TEAM_YELLOW
             elif btn["id"] == "hi_res_mode":
-                text = "Hi-Res Mode: " + ("ON 📱" if getattr(self, 'hi_res_mode', False) else "OFF 🔋")
+                text = "Hi-Res Mode: " + ("ON" if getattr(self, 'hi_res_mode', False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, 'hi_res_mode', False) else TEAM_YELLOW
+            elif btn["id"] == "smoothscale":
+                text = "Smoothscale: " + ("ON" if getattr(self, 'fxaa_on', False) else "OFF")
+                btn["color"] = (40, 120, 60) if getattr(self, 'fxaa_on', False) else TEAM_YELLOW
             elif btn["id"] == "update":
                 text = getattr(self, "update_status", "Check for update")
             else: text = btn["text"]
@@ -3092,7 +3087,7 @@ class WinCurl3:
         
         curr_hov = None
         for b in self.options_buttons:
-            if (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode", "light_filter"]) or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]): continue
+            if (not IS_ANDROID and b["id"] == "hi_res_mode") or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] == "smoothscale"): continue
             if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                 curr_hov = "opt_" + b["id"]
                 break
@@ -3112,7 +3107,7 @@ class WinCurl3:
 
             if 300 < mx < 900:
                 for b in self.options_buttons:
-                    if (not IS_ANDROID and b["id"] in ["bilinear", "hi_res_mode", "light_filter"]) or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] in ["fxaa", "light_filter"]): continue
+                    if (not IS_ANDROID and b["id"] == "hi_res_mode") or (IS_ANDROID and not getattr(self, 'hi_res_mode', False) and b["id"] == "smoothscale"): continue
                     if b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
@@ -3120,9 +3115,7 @@ class WinCurl3:
                         elif b["id"] == "master_vol": pass # Handled by drag
                         elif b["id"] == "color": self.preferred_color = 1 if self.preferred_color == 0 else 0; self.save_progress()
                         elif b["id"] == "hi_res_mode": self.hi_res_mode = not getattr(self, 'hi_res_mode', False); self.save_progress()
-                        elif b["id"] == "fxaa": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
-                        elif b["id"] == "bilinear": self.bilinear_on = not getattr(self, 'bilinear_on', False); self.save_progress()
-                        elif b["id"] == "light_filter": self.lighter_filter = not getattr(self, 'lighter_filter', False); self.save_progress()
+                        elif b["id"] == "smoothscale": self.fxaa_on = not getattr(self, 'fxaa_on', False); self.save_progress()
 
                         elif b["id"] == "update":
                             if not getattr(self, 'is_updating', False):
@@ -3149,7 +3142,7 @@ class WinCurl3:
             
 
     def draw_challenge_menu(self):
-        self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 2.0; self.starfield.draw(self.canvas, 2.0); cx = BASE_WIDTH // 2
+        self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 2.0; self.starfield.draw(self.canvas, 2.0, getattr(self, 'time_mult', 1.0)); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("SELECT CHALLENGE", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 120))
         
@@ -3225,7 +3218,7 @@ class WinCurl3:
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE); self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_story_map(self):
-        self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0); cx = BASE_WIDTH // 2
+        self.screen.fill((10, 12, 16)); self.canvas.fill((10, 12, 16)); self.last_starfield_speed = 1.0; self.starfield.draw(self.canvas, 1.0, getattr(self, 'time_mult', 1.0)); cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("STORY PROGRESS", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width()//2, 70))
         
@@ -3310,17 +3303,14 @@ class WinCurl3:
             
             self.canvas.blit(self.dark_overlay_200, (0, 0))
             
-            if getattr(self, 'story_grid_rink', None) != rink['name'] or not hasattr(self, 'story_grid_surf'):
-                self.story_grid_rink = rink['name']
-                self.story_grid_surf = pygame.Surface((BASE_WIDTH + 400, BASE_HEIGHT + 400), pygame.SRCALPHA)
-                grid_color = (min(255, rink['color'][0] + 50), min(255, rink['color'][1] + 50), min(255, rink['color'][2] + 50), 30)
-                for x in range(0, BASE_WIDTH + 400, 100):
-                    pygame.draw.line(self.story_grid_surf, grid_color, (x, 0), (x - 400, BASE_HEIGHT + 400), 4)
-                for y in range(0, BASE_HEIGHT + 400, 100):
-                    pygame.draw.line(self.story_grid_surf, grid_color, (0, y), (BASE_WIDTH + 400, y - 400), 4)
-            
+            grid_color = (rink['color'][0] // 4 + 20, rink['color'][1] // 4 + 20, rink['color'][2] // 4 + 20)
             offset = (pygame.time.get_ticks() // 20) % 100
-            self.canvas.blit(self.story_grid_surf, (offset - 200, offset - 200))
+            start_x = offset - 200
+            start_y = offset - 200
+            for x in range(0, BASE_WIDTH + 400, 100):
+                pygame.draw.line(self.canvas, grid_color, (start_x + x, start_y), (start_x + x - 400, start_y + BASE_HEIGHT + 400), 2)
+            for y in range(0, BASE_HEIGHT + 400, 100):
+                pygame.draw.line(self.canvas, grid_color, (start_x, start_y + y), (start_x + BASE_WIDTH + 400, start_y + y - 400), 2)
             
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
             
@@ -3393,7 +3383,7 @@ class WinCurl3:
         if scale_x > 0.05: 
             c_surf = self.coin_red_surf if is_red else self.coin_yellow_surf
             w, h = c_surf.get_size()
-            scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h))
+            scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h)).convert_alpha()
             self.canvas.blit(scaled, (cx - scaled.get_width()//2, cy - h//2))
             
         lbl = self.font.render(text, True, WHITE); self.canvas.blit(lbl, (cx - lbl.get_width()//2, cy + 150))
@@ -3484,8 +3474,11 @@ class WinCurl3:
             
             rem_r = self.stones_per_team - self.stones_thrown[0]
             rem_y = self.stones_per_team - self.stones_thrown[1]
-            for i in range(rem_r): pygame.draw.circle(self.canvas, HOUSE_RED, (140 + i*18, 30), 6)
-            for i in range(rem_y): pygame.draw.circle(self.canvas, TEAM_YELLOW, (140 + i*18, 80), 6)
+            if self.turn_state in ["AIMING", "POWER", "CURL", "LUNGING"]:
+                if self.current_team == 0: rem_r -= 1
+                else: rem_y -= 1
+            for i in range(max(0, rem_r)): pygame.draw.circle(self.canvas, HOUSE_RED, (140 + i*18, 30), 6)
+            for i in range(max(0, rem_y)): pygame.draw.circle(self.canvas, TEAM_YELLOW, (140 + i*18, 80), 6)
             
             spacing = min(80, (BASE_WIDTH - 420) // 8)
             for e in range(1, 9):
@@ -3720,8 +3713,11 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_pause_screen(self):
-        # 1. Grey background
-        self.canvas.fill((128, 128, 128))
+        # 1. Light translucent grey background
+        if not hasattr(self, 'pause_grey_overlay'):
+            self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+            self.pause_grey_overlay.fill((50, 55, 60, 180))
+        self.canvas.blit(self.pause_grey_overlay, (0, 0))
         
         # 2. Draw global UI / scoreboard so it is visible as requested
         self.draw_ui()
@@ -3843,13 +3839,16 @@ class WinCurl3:
         sw, sh = int(BASE_WIDTH * scale), int(BASE_HEIGHT * scale)
         ox, oy = (ww - sw) // 2, (wh - sh) // 2
         
+        mult = getattr(self, 'time_mult', 1.0)
+        decay = math.pow(0.85, mult)
+        
         if getattr(self, 'parallax_y', 0) > 0.1:
-            self.parallax_y *= 0.85
+            self.parallax_y *= decay
         if self.shake_amount > 0.1: 
             # Apply shake directly to parallax so UI and Ice are decoupled
             self.parallax_x = random.uniform(-self.shake_amount, self.shake_amount)
-            self.parallax_y = getattr(self, 'parallax_y', 0) * 0.85 + random.uniform(-self.shake_amount, self.shake_amount)
-            self.shake_amount *= 0.85
+            self.parallax_y = getattr(self, 'parallax_y', 0) * decay + random.uniform(-self.shake_amount, self.shake_amount)
+            self.shake_amount *= decay
         else:
             self.parallax_x = 0
             if getattr(self, 'parallax_y', 0) < 0.1: self.parallax_y = 0 
@@ -3859,7 +3858,7 @@ class WinCurl3:
         else:
             self.screen.fill((10, 12, 16))
             if getattr(self, 'border_starfield', None):
-                self.border_starfield.draw(self.screen, getattr(self, 'last_starfield_speed', 0.5) * scale)
+                self.border_starfield.draw(self.screen, getattr(self, 'last_starfield_speed', 0.5) * scale, getattr(self, 'time_mult', 1.0))
                 
             if getattr(self, 'fxaa_on', False):
                 self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
@@ -3874,12 +3873,13 @@ class WinCurl3:
 
     def run(self):
         self.accumulator = 0.0
-        FIXED_DT = 1000.0 / FPS
+        FIXED_DT = 1000.0 / PHYSICS_FPS
         while True:
             if getattr(self, 'dragging_slider', False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
             ms_passed = self.clock.tick(FPS)
+            self.time_mult = ms_passed / (1000.0 / PHYSICS_FPS)
             self.accumulator += ms_passed
             if self.accumulator > 200: self.accumulator = 200 # Prevent spiral of death
             
