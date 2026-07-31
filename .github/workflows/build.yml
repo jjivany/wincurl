@@ -77,7 +77,7 @@ jobs:
       - name: Build WebAssembly
         run: |
           mkdir wincurl_web
-          cp main.py icon.png portraits_data.py bot_script.py wincurl_web/
+          cp main.py icon.png portraits_data.py bot_script.py *.wav wincurl_web/
           pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz

@@ -4,14 +4,17 @@ if hasattr(os, "name") and os.name == "posix" and not hasattr(sys, "getandroidap
     os.environ["SDL_VIDEO_WAYLAND_WMCLASS"] = "wincurl3"
     os.environ["SDL_VIDEO_X11_WMCLASS"] = "wincurl3"
 import pygame
-import math, random, time, json, socket, threading, queue, base64, zlib
+import math, random, time, json, socket, queue, base64, zlib
+import sys
+if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
+    import threading
 import struct
 import io
 import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 67"
+VERSION = "3.0 Build 69"
 
 
 class CachedFont:
@@ -1467,9 +1470,10 @@ class WinCurlAudioEngine:
                             except:
                                 pass
 
-                        import threading, sys
+                        import sys
 
                         if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
+                            import threading
                             threading.Thread(target=_synth_bg, daemon=True).start()
 
                     if getattr(self, "_synth_ready_path", None):
@@ -2822,7 +2826,11 @@ class WinCurl3:
         self.fxaa_on = False
         self.bilinear_on = False
         self.lighter_filter = False
+        self.time_mult = 1.0
         self.hi_res_mode = False
+        import sys
+        self.is_web = hasattr(sys, "platform") and sys.platform == "emscripten"
+        self.light_physics = False
         self.active_slot = 0
         self.slots_data = [{}, {}, {}]
         self.bot_slots_data = [{}, {}, {}]
@@ -5421,11 +5429,9 @@ class WinCurl3:
                     self.screen, getattr(self, "last_starfield_speed", 0.5) * scale, getattr(self, "time_mult", 1.0)
                 )
 
-            if getattr(self, "fxaa_on", False):
+            if not getattr(self, "is_web", False) and getattr(self, "fxaa_on", False):
                 self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
-            elif getattr(self, "lighter_filter", False):
-                # Lighter weight filter = standard bilinear without extra passes, but pygame smoothscale is already just bilinear.
-                # Let's use scale for off, and smoothscale for lighter/fxaa.
+            elif not getattr(self, "is_web", False) and getattr(self, "lighter_filter", False):
                 self.screen.blit(pygame.transform.smoothscale(self.canvas, (sw, sh)), (ox, oy))
             else:
                 self.screen.blit(pygame.transform.scale(self.canvas, (sw, sh)), (ox, oy))
