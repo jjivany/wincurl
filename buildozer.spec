@@ -4,8 +4,9 @@ package.name = wincurl3
 package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
-source.exclude_patterns = setup.py
-version = 61
+source.exclude_patterns = setup.py, *_test.py, test_*.py, test_*.js, *.apk
+source.exclude_dirs = wincurl_web, bin, wincurl_build_clean
+version = 64
 # (str) Icon of the application
 icon.filename = icon.png
 
@@ -14,7 +15,7 @@ icon.filename = icon.png
 requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer,pyjnius
 orientation = portrait
 fullscreen = 1
-android.archs = arm64-v8a
+android.archs = arm64-v8a, armeabi-v7a
 android.ndk = 25b
 android.api = 33
 android.minapi = 24
@@ -24,4 +25,4 @@ p4a.setup_py = false
 
 [buildozer]
 log_level = 2
-android.numeric_version = 61
+android.numeric_version = 63
