@@ -1408,7 +1408,7 @@ class WinCurlAudioEngine:
         self.ch_slide.set_volume((min(0.15, speed * 0.04) if speed > 0.05 else 0.0) * getattr(self, "master_volume", 1.0))
 
     def update_sweep(self, intensity):
-        self.ch_sweep.set_volume(min(0.8, intensity * 0.8) * getattr(self, "master_volume", 1.0))
+        self.ch_sweep.set_volume(min(1.0, intensity * 1.25) * getattr(self, 'master_volume', 1.0))
         if IS_ANDROID and intensity > 0.1:
             now = pygame.time.get_ticks()
             if not hasattr(self, "last_sweep_vib") or now - getattr(self, "last_sweep_vib", 0) > 100:
@@ -1450,9 +1450,29 @@ class WinCurlAudioEngine:
     def play_music(self, *args):
         if not getattr(self, "sfx_on", True) or not getattr(self, "snd_music", None):
             return
-        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.04)
-        if not pygame.mixer.music.get_busy():
-            loaded = False
+            
+        target = args[0] if len(args) > 0 and args[0] else "theme"
+        
+        if getattr(self, "current_track", None) == target:
+            if pygame.mixer.music.get_busy():
+                return
+            now = pygame.time.get_ticks()
+            if now - getattr(self, "last_music_play_time", 0) < 3000:
+                return
+                
+        self.current_track = target
+        self.last_music_play_time = pygame.time.get_ticks()
+        
+        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.6)
+        loaded = False
+        
+        if target != "theme":
+            try:
+                pygame.mixer.music.load(os.path.join(asset_dir, f"{target}.ogg"))
+                loaded = True
+            except:
+                pass
+        else:
             if isinstance(self.snd_music, list):
                 for p in self.snd_music:
                     try:
@@ -1464,19 +1484,11 @@ class WinCurlAudioEngine:
                 if not loaded:
                     if not getattr(self, "_synth_started", False):
                         self._synth_started = True
-
-                        def _synth_bg():
-                            try:
-                                fallback = self._synthesize_theme_song(return_path=True)
-                                self._synth_ready_path = fallback
-                            except:
-                                pass
-
-                        import sys
-
-                        if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
-                            import threading
-                            threading.Thread(target=_synth_bg, daemon=True).start()
+                        try:
+                            fallback = self._synthesize_theme_song(return_path=True)
+                            self._synth_ready_path = fallback
+                        except:
+                            pass
 
                     if getattr(self, "_synth_ready_path", None):
                         try:
@@ -1492,9 +1504,9 @@ class WinCurlAudioEngine:
                     loaded = True
                 except:
                     pass
-            if loaded:
-                pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.04)
-                pygame.mixer.music.play(-1)
+
+        if loaded:
+            pygame.mixer.music.play(-1)
 
     def stop_music(self):
         pygame.mixer.music.stop()
@@ -1717,6 +1729,8 @@ class Stone:
 
 import base64
 import io
+
+
 
 PORTRAITS_B64 = {
     "CEO Smogsworth": "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",
@@ -5584,9 +5598,9 @@ class WinCurl3:
                     self.handle_leaderboard_events(event)
 
             if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS"]:
-                if not getattr(self, "is_music_muted", False) and getattr(self, "frames_since_start", 0) >= 210:
+                if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_elapsed', 0) >= 210: 
                     self.audio.play_music()
-                else:
+                else: 
                     self.audio.stop_music()
             else:
                 self.audio.stop_music()

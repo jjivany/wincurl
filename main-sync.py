@@ -7,8 +7,6 @@ import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
 import io
 import collections
-import asyncio
-import sys
 
 VERSION = "3.0 Build 69"
 
@@ -381,16 +379,16 @@ class WinCurlAudioEngine:
                 except:
                     pending_tasks.append((attr_name, fallback))
 
-        self.snd_music = ["theme.ogg", os.path.join(asset_dir, "theme.ogg")]
+        self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
 
-        load_sound("snd_speech", "sega_speech.ogg", self._synthesize_sega_speech)
-        load_sound("snd_cheer", "cheer.ogg", self._synthesize_cheer)
-        load_sound("snd_end_match", "end_match.ogg", self._synthesize_end_of_match)
-        load_sound("snd_hurry", "vosim_HURRY.ogg", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
-        load_sound("snd_hard", "vosim_HARD.ogg", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
-        load_sound("snd_chal_comp", "challenge_complete.ogg", None)
-        load_sound("snd_red_wins", "red_wins.ogg", None)
-        load_sound("snd_ylw_wins", "yellow_wins.ogg", None)
+        load_sound("snd_speech", "sega_speech.wav", self._synthesize_sega_speech)
+        load_sound("snd_cheer", "cheer.wav", self._synthesize_cheer)
+        load_sound("snd_end_match", "end_match.wav", self._synthesize_end_of_match)
+        load_sound("snd_hurry", "vosim_HURRY.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
+        load_sound("snd_hard", "vosim_HARD.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
+        load_sound("snd_chal_comp", "challenge_complete.wav", None)
+        load_sound("snd_red_wins", "red_wins.wav", None)
+        load_sound("snd_ylw_wins", "yellow_wins.wav", None)
         
         pending_tasks.extend([
             ("snd_slide", self._synthesize_rumble),
@@ -467,7 +465,7 @@ class WinCurlAudioEngine:
 
     def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
-        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
+        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
@@ -492,7 +490,7 @@ class WinCurlAudioEngine:
         
         if cache_key:
             cache_dir = self._get_cache_dir()
-            path = os.path.join(cache_dir, f"{cache_key}.ogg")
+            path = os.path.join(cache_dir, f"{cache_key}.wav")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
                 with open(path, "wb") as f: f.write(wav)
@@ -673,7 +671,7 @@ class WinCurlAudioEngine:
     def _synthesize_theme_song(self, return_path=False):
         import os
         if return_path:
-            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.ogg")
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
             if os.path.exists(cache_file): return cache_file
         else:
             cached = self._get_cached_sound("theme_v2")
@@ -861,66 +859,44 @@ class WinCurlAudioEngine:
         if isinstance(getattr(self, 'snd_click', None), pygame.mixer.Sound): 
             self.ch_ui.set_volume(getattr(self, 'master_volume', 1.0) * 0.5)
             self.ch_ui.play(self.snd_click)
+
     def play_music(self, *args):
         if not getattr(self, 'sfx_on', True) or not getattr(self, 'snd_music', None): return
-        
-        target = args[0] if len(args) > 0 and args[0] else "theme"
-        
-        if getattr(self, "current_track", None) == target:
-            if pygame.mixer.music.get_busy():
-                return
-            now = pygame.time.get_ticks()
-            if now - getattr(self, "last_music_play_time", 0) < 3000:
-                return
-                
-        self.current_track = target
-        self.last_music_play_time = pygame.time.get_ticks()
-        
-        pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.6)
-        loaded = False
-        
-        if target != "theme":
-            try:
-                pygame.mixer.music.load(os.path.join(asset_dir, f"{target}.ogg"))
-                loaded = True
-            except:
-                pass
-        else:
+        now = pygame.time.get_ticks()
+        if now - getattr(self, "last_music_play_time", 0) < 500:
+            return
+            
+        if not pygame.mixer.music.get_busy():
+            self.last_music_play_time = now
+            loaded = False
             if isinstance(self.snd_music, list):
                 for p in self.snd_music:
                     try:
                         pygame.mixer.music.load(p)
-                        loaded = True
-                        break
-                    except:
-                        pass
+                        loaded = True; break
+                    except: pass
                 if not loaded:
-                    if not getattr(self, "_synth_started", False):
+                    if not getattr(self, '_synth_started', False):
                         self._synth_started = True
                         try:
                             fallback = self._synthesize_theme_song(return_path=True)
                             self._synth_ready_path = fallback
-                        except:
-                            pass
-
-                    if getattr(self, "_synth_ready_path", None):
+                        except: pass
+                    
+                    if getattr(self, '_synth_ready_path', None):
                         try:
                             self.snd_music = self._synth_ready_path
                             pygame.mixer.music.load(self._synth_ready_path)
                             loaded = True
                             self._synth_ready_path = None
-                        except:
-                            pass
+                        except: pass
             elif isinstance(self.snd_music, str):
                 try:
-                    pygame.mixer.music.load(self.snd_music)
-                    loaded = True
-                except:
-                    pass
-
-        if loaded:
-            pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.10)
-            pygame.mixer.music.play(-1)
+                    pygame.mixer.music.load(self.snd_music); loaded = True
+                except: pass
+            if loaded:
+                pygame.mixer.music.set_volume(getattr(self, 'master_volume', 1.0) * 0.10)
+                pygame.mixer.music.play(-1)
     def stop_music(self):
         pygame.mixer.music.stop()
 
@@ -3909,7 +3885,7 @@ class WinCurl3:
             
         pygame.display.flip()
 
-    async def run(self):
+    def run(self):
         self.accumulator = 0.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
         while True:
@@ -4177,13 +4153,13 @@ class IRCNetworkManager:
             try: self.sock.close()
             except: pass
 
-async def main():
+def main():
     import os, sys
     if not hasattr(sys, 'getandroidapilevel'):
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
     game = WinCurl3()
     game.setup_display()
-    await game.run()
+    game.run()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
