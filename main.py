@@ -7,8 +7,10 @@ import math, random, time, json, socket, threading, queue, base64, zlib
 import struct
 import io
 import collections
+import asyncio
+import sys
 
-VERSION = "3.0 Build 64"
+VERSION = "3.0 Build 65"
 
 
 class CachedFont:
@@ -379,16 +381,16 @@ class WinCurlAudioEngine:
                 except:
                     pending_tasks.append((attr_name, fallback))
 
-        self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
+        self.snd_music = ["theme.ogg", os.path.join(asset_dir, "theme.ogg")]
 
-        load_sound("snd_speech", "sega_speech.wav", self._synthesize_sega_speech)
-        load_sound("snd_cheer", "cheer.wav", self._synthesize_cheer)
-        load_sound("snd_end_match", "end_match.wav", self._synthesize_end_of_match)
-        load_sound("snd_hurry", "vosim_HURRY.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
-        load_sound("snd_hard", "vosim_HARD.wav", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
-        load_sound("snd_chal_comp", "challenge_complete.wav", None)
-        load_sound("snd_red_wins", "red_wins.wav", None)
-        load_sound("snd_ylw_wins", "yellow_wins.wav", None)
+        load_sound("snd_speech", "sega_speech.ogg", self._synthesize_sega_speech)
+        load_sound("snd_cheer", "cheer.ogg", self._synthesize_cheer)
+        load_sound("snd_end_match", "end_match.ogg", self._synthesize_end_of_match)
+        load_sound("snd_hurry", "vosim_HURRY.ogg", lambda return_bytes=False: self._synthesize_vosim_phrase("HURRY", 0.7, return_bytes=return_bytes))
+        load_sound("snd_hard", "vosim_HARD.ogg", lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes))
+        load_sound("snd_chal_comp", "challenge_complete.ogg", None)
+        load_sound("snd_red_wins", "red_wins.ogg", None)
+        load_sound("snd_ylw_wins", "yellow_wins.ogg", None)
         
         pending_tasks.extend([
             ("snd_slide", self._synthesize_rumble),
@@ -465,7 +467,7 @@ class WinCurlAudioEngine:
 
     def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
-        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
+        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
@@ -490,7 +492,7 @@ class WinCurlAudioEngine:
         
         if cache_key:
             cache_dir = self._get_cache_dir()
-            path = os.path.join(cache_dir, f"{cache_key}.wav")
+            path = os.path.join(cache_dir, f"{cache_key}.ogg")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
                 with open(path, "wb") as f: f.write(wav)
@@ -671,7 +673,7 @@ class WinCurlAudioEngine:
     def _synthesize_theme_song(self, return_path=False):
         import os
         if return_path:
-            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.ogg")
             if os.path.exists(cache_file): return cache_file
         else:
             cached = self._get_cached_sound("theme_v2")
@@ -3883,7 +3885,7 @@ class WinCurl3:
             
         pygame.display.flip()
 
-    def run(self):
+    async def run(self):
         self.accumulator = 0.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
         while True:
@@ -4151,13 +4153,13 @@ class IRCNetworkManager:
             try: self.sock.close()
             except: pass
 
-def main():
+async def main():
     import os, sys
     if not hasattr(sys, 'getandroidapilevel'):
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
     game = WinCurl3()
     game.setup_display()
-    game.run()
+    await game.run()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
