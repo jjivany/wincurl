@@ -11,7 +11,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 66"
+VERSION = "3.0 Build 67"
 
 
 class CachedFont:
@@ -135,7 +135,6 @@ class ChatFont:
 # --- Global Constants & Configurations ---
 from pygame.locals import *
 
-import wave
 import os
 
 VIBRATE_ENABLED = True
@@ -5641,10 +5640,9 @@ class WinCurl3:
                 self.draw_match_over_screen()
             elif self.app_state == "LEADERBOARD":
                 self.draw_leaderboard_screen()
-
             self.render()
-            await asyncio.sleep(0)
-
+            if hasattr(sys, "platform") and sys.platform == "emscripten":
+                await asyncio.sleep(0)
 
 # --- DAL.NET IRC Socket Manager ---
 class IRCNetworkManager:
