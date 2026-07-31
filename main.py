@@ -469,8 +469,10 @@ class WinCurlAudioEngine:
                 except:
                     pending_tasks.append((attr_name, fallback))
 
-        self.snd_music = ["theme.ogg", os.path.join(asset_dir, "theme.ogg")]
-
+        try:
+            self.snd_music = ["theme.wav", os.path.join(asset_dir, "theme.wav")]
+        except:
+            self.snd_music = None
         load_sound("snd_speech", "sega_speech.ogg", self._synthesize_sega_speech)
         load_sound("snd_cheer", "cheer.ogg", self._synthesize_cheer)
         load_sound("snd_end_match", "end_match.ogg", self._synthesize_end_of_match)
@@ -628,7 +630,7 @@ class WinCurlAudioEngine:
 
         if cache_key:
             cache_dir = self._get_cache_dir()
-            path = os.path.join(cache_dir, f"{cache_key}.ogg")
+            path = os.path.join(cache_dir, f"{cache_key}.wav")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
                 with open(path, "wb") as f:
@@ -922,7 +924,7 @@ class WinCurlAudioEngine:
         import os
 
         if return_path:
-            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.ogg")
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
             if os.path.exists(cache_file):
                 return cache_file
         else:
@@ -1448,7 +1450,7 @@ class WinCurlAudioEngine:
     def play_music(self, *args):
         if not getattr(self, "sfx_on", True) or not getattr(self, "snd_music", None):
             return
-        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.375)
+        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.04)
         if not pygame.mixer.music.get_busy():
             loaded = False
             if isinstance(self.snd_music, list):
@@ -1491,7 +1493,7 @@ class WinCurlAudioEngine:
                 except:
                     pass
             if loaded:
-                pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.10)
+                pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.04)
                 pygame.mixer.music.play(-1)
 
     def stop_music(self):
