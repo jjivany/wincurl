@@ -41,7 +41,7 @@ WinCurl 3 is a Python-based curling simulation built with Pygame. It offers a ph
 
 This project is configured for Android deployment. 
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
-- **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
+- **Developers**: The repository includes automated GitHub Actions that build the APK and various other system binaries natively in the cloud.
 
 ## 🤝 Contributing
 
