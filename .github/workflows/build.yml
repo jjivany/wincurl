@@ -73,7 +73,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pygbag and pygame
-        run: pip install pygbag==0.8.5 pygame ffmpeg-python
+        run: pip install pygbag pygame ffmpeg-python
       - name: Synthesize Theme
         run: |
           python -c "import os, pygame; os.environ['SDL_AUDIODRIVER']='dummy'; pygame.init(); pygame.mixer.init(); from main import WinCurlAudioEngine; e=WinCurlAudioEngine(); e._synthesize_theme_song(return_path=True)"
@@ -87,7 +87,7 @@ jobs:
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
           mv wincurl_web.apk wincurl_web.data
-          sed -i 's/wincurl_web.apk/wincurl_web.data/g' index.html
+          sed -i 's/"wincurl_web.apk"/"wincurl_web.data"/g' index.html
           sed -i 's/if platform.window.location.host.find(.*>.*0:/if True:/g' index.html
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4

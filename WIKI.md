@@ -1,4 +1,4 @@
-# WinCurl 3.0 Wiki (Build 60)
+# WinCurl 3.0 Wiki (Build 71)
 
 Welcome to the WinCurl 3.0 Wiki! This is the documentation hub for WinCurl, the premier curling simulation game.
 

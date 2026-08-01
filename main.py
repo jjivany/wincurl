@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 70"
+VERSION = "3.0 Build 71"
 
 
 class CachedFont:
@@ -486,6 +486,11 @@ class WinCurlAudioEngine:
             "vosim_HARD.ogg",
             lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes),
         )
+        load_sound(
+            "snd_you_win",
+            "vosim_YOU_WIN.ogg",
+            lambda return_bytes=False: self._synthesize_vosim_phrase("YOU_WIN", 1.2, return_bytes=return_bytes),
+        )
         load_sound("snd_chal_comp", "challenge_complete.ogg", None)
         load_sound("snd_red_wins", "red_wins.ogg", None)
         load_sound("snd_ylw_wins", "yellow_wins.ogg", None)
@@ -740,6 +745,11 @@ class WinCurlAudioEngine:
             f2_env = [(0.0, 1700), (0.3, 1200), (0.5, 1800), (0.7, 1100), (1.0, 1400)]
             f3_env = [(0.0, 2400), (0.5, 2200), (0.8, 2500), (1.0, 2000)]
             chord = [261.63, 311.13]
+        elif phrase == "YOU_WIN":
+            f1_env = [(0.0, 300), (0.2, 500), (0.4, 600), (0.6, 200), (0.8, 400), (1.0, 600)]
+            f2_env = [(0.0, 1000), (0.4, 1500), (0.6, 900), (1.0, 1200)]
+            f3_env = [(0.0, 2400), (0.5, 2600), (1.0, 2400)]
+            chord = [329.63, 440.00]
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -1463,7 +1473,8 @@ class WinCurlAudioEngine:
         self.current_track = target
         self.last_music_play_time = pygame.time.get_ticks()
         
-        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.8)
+        vol_mult = 0.8 if IS_ANDROID else 0.95
+        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * vol_mult)
         loaded = False
         
         if target != "theme":
@@ -2151,6 +2162,16 @@ STORY_RINKS = [
             "Downsizing your score!",
             "Let's touch base on how bad you are!",
             "Outsourced!",
+            "Low hanging fruit!",
+            "Core competency!",
+            "Leveraging my advantage!",
+            "Paradigm shift!",
+            "Monetizing this win!",
+            "You're not a team player!",
+            "Performance review: FAIL!",
+            "Strategic misalignment!",
+            "Return on investment!",
+            "Executive decision!",
         ],
         "difficulty": 3,
     },
@@ -2185,6 +2206,13 @@ STORY_RINKS = [
             "Rug pull!",
             "Bullish on me, bearish on you!",
             "Yield farming!",
+            "Pump and dump!",
+            "Altcoin energy!",
+            "Staking my claim!",
+            "Web3 superiority!",
+            "NFT drop incoming!",
+            "Airdropping a loss on you!",
+            "Market cap exceeded!",
         ],
         "difficulty": 5,
     },
@@ -2219,6 +2247,13 @@ STORY_RINKS = [
             "Clickbait curling!",
             "Influencer status!",
             "You didn't pass the vibe check!",
+            "Collab denied!",
+            "Swipe up to lose!",
+            "Monetized!",
+            "Brand deal secured!",
+            "Spill the tea!",
+            "Main character energy!",
+            "Getting demonetized!",
         ],
         "difficulty": 6,
     },
@@ -2253,6 +2288,12 @@ STORY_RINKS = [
             "Garbage in, garbage out!",
             "I'm recursively destroying you!",
             "Vector math wins!",
+            "Gradient descent!",
+            "Overfitting your weaknesses!",
+            "Backpropagation successful!",
+            "Heuristic analysis complete!",
+            "Self-driving stone!",
+            "You need more training data!",
         ],
         "difficulty": 7,
     },
@@ -2287,6 +2328,12 @@ STORY_RINKS = [
             "Respawn denied!",
             "Glitch in the system!",
             "Your graphics card is too weak!",
+            "Rendered useless!",
+            "Hitbox advantage!",
+            "Clipping through your defense!",
+            "Cyber-curling champion!",
+            "VR sickness!",
+            "Bandwidth throttled!",
         ],
         "difficulty": 8,
     },
@@ -2321,6 +2368,12 @@ STORY_RINKS = [
             "Query successful!",
             "Indexed and archived!",
             "You've been fragmented!",
+            "Caching the win!",
+            "SQL injection successful!",
+            "Database locked!",
+            "Root access granted!",
+            "Overclocked!",
+            "Ransomware activated!",
         ],
         "difficulty": 9,
     },
@@ -3654,9 +3707,25 @@ class WinCurl3:
             elif self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 if getattr(self, "game_mode", None) == "STORY":
-                    self.app_state = "STORY_MAP"
+                    if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
+                        self.app_state = "STORY_WIN"
+                        if getattr(self.audio, "snd_you_win", None):
+                            self.audio.ch_voice.play(self.audio.snd_you_win)
+                    else:
+                        self.app_state = "STORY_MAP"
                 else:
                     self.return_to_menu()
+
+    def handle_story_win_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            self.audio.play_click()
+            self.app_state = "CREDITS"
+
+    def handle_credits_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            self.audio.play_click()
+            self.return_to_menu()
+            self.credits_y = BASE_HEIGHT
 
     def handle_leaderboard_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -4982,6 +5051,23 @@ class WinCurl3:
                     "Renewable power!",
                     "Mother Nature sends her regards!",
                     "Reduce, reuse, curl!",
+                    "Solar powered sweep!",
+                    "Wind farm momentum!",
+                    "Ozone layer defense!",
+                    "Zero emissions throw!",
+                    "Organic trajectory!",
+                    "Planting trees, sinking stones!",
+                    "Tidal wave of ice!",
+                    "Earth friendly slide!",
+                    "Geothermal precision!",
+                    "Eco warrior strike!",
+                    "Naturally superior!",
+                    "Conserving momentum!",
+                    "Habitat restored!",
+                    "Clean energy victory!",
+                    "Biomass acceleration!",
+                    "Global cooling!",
+                    "Defending the biosphere!",
                 ]
                 taunts = rink.get("taunts", []) if is_evil else player_taunts
 
@@ -5302,6 +5388,73 @@ class WinCurl3:
 
         self.draw_global_ui()
 
+    def draw_story_win(self):
+        self.canvas.fill((16, 22, 34))
+        cx = BASE_WIDTH // 2
+        
+        lbl_v = self.font_72.render("CONGRATULATIONS!", True, (100, 255, 100))
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, 200))
+        
+        lbl_sub = self.font.render("You have defeated all the corporate bosses!", True, WHITE)
+        self.canvas.blit(lbl_sub, (cx - lbl_sub.get_width() // 2, 300))
+        
+        lbl_sub2 = self.font.render("The Curling Club is saved!", True, TEAM_YELLOW)
+        self.canvas.blit(lbl_sub2, (cx - lbl_sub2.get_width() // 2, 350))
+
+        if getattr(self, "frames_elapsed", 0) % 60 < 30:
+            lbl_cont = self.font.render("Click anywhere to continue...", True, (200, 200, 200))
+            self.canvas.blit(lbl_cont, (cx - lbl_cont.get_width() // 2, 500))
+
+        self.draw_global_ui()
+
+    def draw_credits(self):
+        self.canvas.fill((16, 22, 34))
+        cx = BASE_WIDTH // 2
+        
+        if not hasattr(self, "credits_y"):
+            self.credits_y = BASE_HEIGHT
+
+        credits_text = [
+            "WINCURL",
+            "",
+            "A game by",
+            "Jason (jayjayivany)",
+            "&",
+            "Antigravity (Google)",
+            "",
+            "Game Design & Art Direction",
+            "Jason (jayjayivany)",
+            "",
+            "Programming & AI Engineering",
+            "Antigravity",
+            "",
+            "Original Audio Synthesis",
+            "WinCurlAudioEngine",
+            "",
+            "Thanks for playing!",
+            "",
+            "(Click anywhere to return to menu)"
+        ]
+
+        y_offset = self.credits_y
+        for line in credits_text:
+            if line:
+                if line in ["WINCURL", "Thanks for playing!"]:
+                    lbl = self.font_72.render(line, True, TEAM_YELLOW)
+                elif line in ["Jason (jayjayivany)", "Antigravity (Google)", "Antigravity", "WinCurlAudioEngine"]:
+                    lbl = self.font.render(line, True, (100, 255, 100))
+                else:
+                    lbl = self.font.render(line, True, WHITE)
+                self.canvas.blit(lbl, (cx - lbl.get_width() // 2, y_offset))
+            y_offset += 50
+
+        self.credits_y -= 1.5
+
+        if self.credits_y < -len(credits_text) * 50:
+            self.credits_y = BASE_HEIGHT
+
+        self.draw_global_ui()
+
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34))
         cx = BASE_WIDTH // 2
@@ -5602,10 +5755,14 @@ class WinCurl3:
                     self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER":
                     self.handle_match_over_events(event)
+                elif self.app_state == "STORY_WIN":
+                    self.handle_story_win_events(event)
+                elif self.app_state == "CREDITS":
+                    self.handle_credits_events(event)
                 elif self.app_state == "LEADERBOARD":
                     self.handle_leaderboard_events(event)
 
-            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS"]:
+            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS", "STORY_WIN", "CREDITS"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_elapsed', 0) >= 210: 
                     self.audio.play_music()
                 else: 
@@ -5668,6 +5825,10 @@ class WinCurl3:
                 self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER":
                 self.draw_match_over_screen()
+            elif self.app_state == "STORY_WIN":
+                self.draw_story_win()
+            elif self.app_state == "CREDITS":
+                self.draw_credits()
             elif self.app_state == "LEADERBOARD":
                 self.draw_leaderboard_screen()
             self.render()
