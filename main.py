@@ -495,16 +495,12 @@ class WinCurlAudioEngine:
         load_sound("snd_red_wins", "red_wins.ogg", None)
         load_sound("snd_ylw_wins", "yellow_wins.ogg", None)
 
-        pending_tasks.extend(
-            [
-                ("snd_slide", self._synthesize_rumble),
-                ("snd_sweep", self._synthesize_sweep),
-                ("snd_throw", self._synthesize_throw),
-                ("snd_clack", self._synthesize_clack),
-                ("snd_hover", lambda return_bytes=False: self._synthesize_ui_sound(440, 0.05, "sine", return_bytes=return_bytes)),
-                ("snd_click", lambda return_bytes=False: self._synthesize_ui_sound(587, 0.12, "square", return_bytes=return_bytes)),
-            ]
-        )
+        load_sound("snd_slide", "snd_slide.ogg", self._synthesize_rumble)
+        load_sound("snd_sweep", "snd_sweep.ogg", self._synthesize_sweep)
+        load_sound("snd_throw", "snd_throw.ogg", self._synthesize_throw)
+        load_sound("snd_clack", "snd_clack.ogg", self._synthesize_clack)
+        load_sound("snd_hover", "snd_hover.ogg", lambda return_bytes=False: self._synthesize_ui_sound(440, 0.05, "sine", return_bytes=return_bytes))
+        load_sound("snd_click", "snd_click.ogg", lambda return_bytes=False: self._synthesize_ui_sound(587, 0.12, "square", return_bytes=return_bytes))
 
         import sys
 
@@ -784,10 +780,10 @@ class WinCurlAudioEngine:
                 ) * decay
             sample = int(max(-1.0, min(1.0, (val / len(chord)) * env * 2.0)) * 24000)
             struct.pack_into("<hh", buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key=f"vosim_{phrase}")
+        return self._create_wav_sound(buf, SR, cache_key=f"vosim_{phrase}", return_bytes=return_bytes)
 
-    def _synthesize_end_of_match(self):
-        cached = self._get_cached_sound("end_match")
+    def _synthesize_end_of_match(self, return_bytes=False):
+        cached = self._get_cached_sound("end_match", return_bytes=return_bytes)
         if cached:
             return cached
         SR = 11025

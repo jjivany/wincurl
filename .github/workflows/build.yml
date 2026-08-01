@@ -74,15 +74,13 @@ jobs:
           python-version: '3.12'
       - name: Install pygbag and pygame
         run: pip install pygbag pygame ffmpeg-python
-      - name: Synthesize Theme
+      - name: Synthesize Web Assets
         run: |
-          python -c "import os, pygame; os.environ['SDL_AUDIODRIVER']='dummy'; pygame.init(); pygame.mixer.init(); from main import WinCurlAudioEngine; e=WinCurlAudioEngine(); e._synthesize_theme_song(return_path=True)"
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          ffmpeg -y -i /tmp/wincurl_cache/theme_v2.wav theme.ogg
+          python generate_web_assets.py
       - name: Build WebAssembly
         run: |
-          mkdir wincurl_web
-          cp main.py icon.png theme.ogg wincurl_web/
+          cp main.py icon.png wincurl_web/
           pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
