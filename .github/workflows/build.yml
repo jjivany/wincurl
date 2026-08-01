@@ -83,11 +83,6 @@ jobs:
         run: |
           mkdir wincurl_web
           cp main.py icon.png theme.ogg wincurl_web/
-          cp wincurl_android/patch_pygbag.py wincurl_web/
-          cd wincurl_web
-          python patch_pygbag.py
-          mv main-pygbag.py main.py
-          cd ..
           pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz

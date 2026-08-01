@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 69"
+VERSION = "3.0 Build 70"
 
 
 class CachedFont:
@@ -1463,7 +1463,7 @@ class WinCurlAudioEngine:
         self.current_track = target
         self.last_music_play_time = pygame.time.get_ticks()
         
-        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.6)
+        pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.8)
         loaded = False
         
         if target != "theme":
@@ -1484,11 +1484,18 @@ class WinCurlAudioEngine:
                 if not loaded:
                     if not getattr(self, "_synth_started", False):
                         self._synth_started = True
-                        try:
-                            fallback = self._synthesize_theme_song(return_path=True)
-                            self._synth_ready_path = fallback
-                        except:
-                            pass
+                        import sys
+                        if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
+                            import threading
+                            def _synth_bg():
+                                try:
+                                    fallback = self._synthesize_theme_song(return_path=True)
+                                    self._synth_ready_path = fallback
+                                except:
+                                    pass
+                            threading.Thread(target=_synth_bg, daemon=True).start()
+                        else:
+                            self._synth_ready_path = "theme.ogg"
 
                     if getattr(self, "_synth_ready_path", None):
                         try:
@@ -1506,6 +1513,7 @@ class WinCurlAudioEngine:
                     pass
 
         if loaded:
+            pygame.mixer.music.set_volume(getattr(self, "master_volume", 1.0) * 0.05)
             pygame.mixer.music.play(-1)
 
     def stop_music(self):
