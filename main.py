@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 71"
+VERSION = "3.0 Build 72"
 
 
 class CachedFont:
@@ -1422,7 +1422,7 @@ class WinCurlAudioEngine:
                 vibrate_android(15)
 
     def play_throw(self):
-        if getattr(self, "snd_throw", None):
+        if isinstance(getattr(self, "snd_throw", None), pygame.mixer.Sound):
             self.ch_sfx.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_sfx.play(self.snd_throw)
 
@@ -1432,7 +1432,7 @@ class WinCurlAudioEngine:
             return
         self.last_clack = now
         ch = pygame.mixer.find_channel()
-        if ch and getattr(self, "snd_clack", None):
+        if ch and isinstance(getattr(self, "snd_clack", None), pygame.mixer.Sound):
             ch.play(self.snd_clack)
             ch.set_volume(min(0.4, force * 0.05) * getattr(self, "master_volume", 1.0))
 
@@ -1773,43 +1773,23 @@ def get_pixel_portrait(name, size=(120, 120)):
     w, h = surf.get_size()
 
     bg_color = surf.get_at((0, 0))
-    bg_pixels = set()
-    for x in range(w):
-        for y in range(h):
-            c = surf.get_at((x, y))
-            dist = abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b)
-            if dist < 45:
-                bg_pixels.add((x, y))
 
-    fringe = set()
-    for x in range(w):
-        for y in range(h):
-            if (x, y) not in bg_pixels:
-                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                    if (nx, ny) in bg_pixels or nx < 0 or nx >= w or ny < 0 or ny >= h:
-                        fringe.add((x, y))
-                        break
-
-    for x in range(w):
-        for y in range(h):
-            if (x, y) in bg_pixels or (x, y) in fringe:
-                c = surf.get_at((x, y))
-                surf.set_at((x, y), (c.r, c.g, c.b, 0))
+    # Create a mask of the background (including near-colors due to AI artifacting)
+    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
+    bg_mask.invert() # Invert to get the foreground character
+    
+    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+    result_surf.blit(surf, (0, 0))
+    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
     # 2. For bosses, ALSO apply a circular crop to destroy the AI painted dark frame
     if name != "Player":
-        cx, cy = w / 2, h / 2
-        max_r = min(w, h) / 2 * 0.85
-        for x in range(w):
-            for y in range(h):
-                dist_from_center = math.hypot(x - cx, y - cy)
-                if dist_from_center > max_r:
-                    c = surf.get_at((x, y))
-                    surf.set_at((x, y), (c.r, c.g, c.b, 0))
-                elif dist_from_center > max_r - 2:
-                    alpha_factor = (max_r - dist_from_center) / 2.0
-                    c = surf.get_at((x, y))
-                    surf.set_at((x, y), (c.r, c.g, c.b, int(255 * alpha_factor)))
+        circle_mask = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.circle(circle_mask, (255, 255, 255, 255), (w // 2, h // 2), min(w, h) / 2 * 0.85)
+        result_surf.blit(circle_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        
+    surf = result_surf
 
     # High res 2D Sprite
     scaled = pygame.transform.smoothscale(surf, size)
@@ -3060,7 +3040,10 @@ class WinCurl3:
             "story_rival_score": getattr(self, "story_rival_score", 0),
             "story_player_score": getattr(self, "story_player_score", 0),
             "stones_thrown_dict": self.stones_thrown,
+            "coords_version": 2,
         }
+        for s in state["stones"]:
+            s[1] -= (BASE_HEIGHT // 2) + 100
         self.saved_match_state = state
         self.save_progress()
         self.update_menu_buttons()
@@ -3093,7 +3076,10 @@ class WinCurl3:
 
         self.stones = []
         self.active_stone = None
+        coords_version = state.get("coords_version", 1)
         for s in state.get("stones", []):
+            if coords_version == 2:
+                s[1] += (BASE_HEIGHT // 2) + 100
             st = Stone(s[0], s[1], s[4], sid=s[8] if len(s) > 8 else None)
             st.set_state(s)
             self.stones.append(st)
@@ -3815,9 +3801,6 @@ class WinCurl3:
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, "drag_start_pos", None):
                 if f_id == getattr(self, "drag_finger_id", None) or (IS_ANDROID and f_id == "mouse"):
                     self.virtual_pull = self.drag_start_pos - mouse_pos
-                    if not IS_ANDROID:
-                        self.virtual_pull.x *= 0.25
-                        self.virtual_pull.y *= 0.5
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5:
                         self.pull_history.pop(0)
@@ -5409,17 +5392,16 @@ class WinCurl3:
         
         if not hasattr(self, "credits_y"):
             self.credits_y = BASE_HEIGHT
-
         credits_text = [
             "WINCURL",
             "",
             "A game by",
-            "Jason (jayjayivany)",
+            "Jason Ivany",
             "&",
             "Antigravity (Google)",
             "",
             "Game Design & Art Direction",
-            "Jason (jayjayivany)",
+            "Jason Ivany",
             "",
             "Programming & AI Engineering",
             "Antigravity",
@@ -5437,7 +5419,7 @@ class WinCurl3:
             if line:
                 if line in ["WINCURL", "Thanks for playing!"]:
                     lbl = self.font_72.render(line, True, TEAM_YELLOW)
-                elif line in ["Jason (jayjayivany)", "Antigravity (Google)", "Antigravity", "WinCurlAudioEngine"]:
+                elif line in ["Jason Ivany", "Antigravity (Google)", "Antigravity", "WinCurlAudioEngine"]:
                     lbl = self.font.render(line, True, (100, 255, 100))
                 else:
                     lbl = self.font.render(line, True, WHITE)
