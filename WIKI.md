@@ -1,4 +1,4 @@
-# WinCurl 3.0 Wiki (Build 71)
+# WinCurl 3.1 Wiki (Build 74)
 
 Welcome to the WinCurl 3.0 Wiki! This is the documentation hub for WinCurl, the premier curling simulation game.
 
@@ -32,7 +32,3 @@ WinCurl 3.0 now supports a fully-featured **Save & Resume System** for both 1v1 
 ## Story Mode
 The curling world is under threat! An evil tech-bro conglomerate (led by the nefarious Baron Von Crude) is attempting to buy out every curling club to build massive data centres. You must defeat all 8 rinks and reclaim the clubs!
 Each rink features unique dialogue, customized boss opponents, and specialized ice conditions. Good luck!
-
-### Build 65
-* Fully synced WASM `main-pygbag.py` with the latest fixes.
-* Deployed clean `wincurl_web_build65.zip` for itch.io web release.

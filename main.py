@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 72"
+VERSION = "3.0 Build 74"
 
 
 class CachedFont:
@@ -28,8 +28,8 @@ class CachedFont:
     def render(self, text, antialias, color, background=None):
         key = (text, antialias, str(color), str(background))
         if key not in self.cache:
-            if len(self.cache) > 256:
-                self.cache.clear()
+            if len(self.cache) > 2000:
+                del self.cache[next(iter(self.cache))]
             if background:
                 self.cache[key] = self.font.render(text, antialias, color, background)
             else:
@@ -1811,11 +1811,17 @@ def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
 
     bg_color = surf.get_at((0, 0))
-    for x in range(surf.get_width()):
-        for y in range(surf.get_height()):
-            c = surf.get_at((x, y))
-            if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
-                surf.set_at((x, y), (c.r, c.g, c.b, 0))
+    
+    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
+    bg_mask.invert()
+    
+    w, h = surf.get_size()
+    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+    result_surf.blit(surf, (0, 0))
+    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    
+    surf = result_surf
 
     small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
     small_surf = pygame.transform.smoothscale(surf, small_size)
@@ -2455,15 +2461,15 @@ class WinCurl3:
         return pygame.math.Vector2(mx, my)
 
     def preload_assets(self):
-        self.font = CachedFont(CachedFont(pygame.font.Font(None, 45)))
-        self.score_font = CachedFont(CachedFont(pygame.font.Font(None, 36)))
-        self.small_font = CachedFont(CachedFont(pygame.font.Font(None, 31)))
+        self.font = CachedFont(pygame.font.Font(None, 45))
+        self.score_font = CachedFont(pygame.font.Font(None, 36))
+        self.small_font = CachedFont(pygame.font.Font(None, 31))
         self.chat_font = ChatFont(31)
         self.title_font = CachedFont(pygame.font.Font(None, 120))
-        self.large_sym_font = CachedFont(CachedFont(pygame.font.Font(None, 95)))
-        self.font_62 = CachedFont(CachedFont(pygame.font.Font(None, 60)))
-        self.font_72 = CachedFont(CachedFont(pygame.font.Font(None, 70)))
-        self.font_85 = CachedFont(CachedFont(pygame.font.Font(None, 82)))
+        self.large_sym_font = CachedFont(pygame.font.Font(None, 95))
+        self.font_62 = CachedFont(pygame.font.Font(None, 60))
+        self.font_72 = CachedFont(pygame.font.Font(None, 70))
+        self.font_85 = CachedFont(pygame.font.Font(None, 82))
 
         self.sprites = {}
 
@@ -3126,6 +3132,10 @@ class WinCurl3:
         self.audio.stop_all_match_sounds()
         self.sweep_power = 0.0
         self.particles = []
+        self.sweep_particles = []
+        self.stones = []
+        import gc
+        gc.collect()
         pygame.event.set_grab(False)
         pygame.mouse.set_visible(True)
         if self.game_mode in ["HOST", "JOIN"]:
@@ -5595,12 +5605,18 @@ class WinCurl3:
 
     async def run(self):
         self.accumulator = 0.0
+        FPS = 60.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
-        while True:
+        while getattr(self, "running", True):
             if getattr(self, "dragging_slider", False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
-            ms_passed = self.clock.tick(FPS)
+            
+            if IS_ANDROID:
+                ms_passed = self.clock.tick_busy_loop(FPS)
+            else:
+                ms_passed = self.clock.tick(FPS)
+            
             self.time_mult = ms_passed / (1000.0 / PHYSICS_FPS)
             self.accumulator += ms_passed
             if self.accumulator > 200:
@@ -5799,7 +5815,6 @@ class WinCurl3:
                 [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
                 is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
-                self.draw_ui()
                 self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER":
                 self.draw_match_over_screen()
