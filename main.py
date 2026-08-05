@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 75"
+VERSION = "3.0 Build 76"
 
 
 class CachedFont:
@@ -743,10 +743,10 @@ class WinCurlAudioEngine:
             f3_env = [(0.0, 2400), (0.5, 2200), (0.8, 2500), (1.0, 2000)]
             chord = [261.63, 311.13]
         elif phrase == "YOU_WIN":
-            f1_env = [(0.0, 300), (0.2, 500), (0.4, 600), (0.6, 200), (0.8, 400), (1.0, 600)]
-            f2_env = [(0.0, 1000), (0.4, 1500), (0.6, 900), (1.0, 1200)]
-            f3_env = [(0.0, 2400), (0.5, 2600), (1.0, 2400)]
-            chord = [329.63, 440.00]
+            f1_env = [(0.0, 300), (0.2, 300), (0.5, 300), (0.7, 400), (1.0, 300)]
+            f2_env = [(0.0, 2200), (0.2, 870), (0.5, 600), (0.7, 2000), (1.0, 1500)]
+            f3_env = [(0.0, 3000), (0.2, 2240), (0.5, 2200), (0.7, 2550), (1.0, 2500)]
+            chord = [293.66, 392.00] # D4, G4 (more upbeat)
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -1749,20 +1749,9 @@ import io
 
 
 
-PORTRAITS_B64 = {
-    "CEO Smogsworth": "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",
-    "Timber Baroness": "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",
-    "Baron Von Crude": "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",
-    "Ashburn": "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",
-    "Dr. Sludge": "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",
-    "Tremor": "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",
-    "Poly Mer": "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",
-    "The FourElite": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAYFBMVEX///////7+//79/f3c1tKrgWt6b2h1TTVYSEhMMh9LJR08Njk2KCguIiQ5GRY1ExIoFQ8qEg8ZGSIXEhcmDA8dCwwZBQgUBQgUAwkUAggODhMJCg8JBQgNAQUKAgMCAQPc3+D1AAAER0lEQVR42u1Ua5erKBB05CEG0Ag+EsDw///lrcZHkjmzc8/sftize24lalq6iuoGUlX/Ouo/An8E/gj8RwTq373+H/Tg41R6l6rZ9/FnB2y/DnyK609ma3bq1fudMfbWWsbZW3n8NS5u6xcBVnEhBD/nrCsuheRnTs0kwOsnh/OPc+7CbwTnzaHAiC9I4YgF4kYeYc1UCprX7GgiEshAI54EcQjUewyLEKi3dqocfVbVq0AjnlOgQyVWgh2CspEYrvdefjgl1GI39SLAZNsAkh3NBQEfUSrESyaLI8Y+ttC0mE4z9twHZFCgB9sCINgcoa/brLzUeC6JanVj1LlgjEupGnzQabhmahzHFkVchmEAidMKNKRXmkKhJj0lOXn4wAzm/nBKapvXcRUVH/p+WhrRLFM3oy1mnu9ZN43J84DO63mcM5WQ75r8Uce8C1pZpZy1UVZ8mnxyspUu+wfCq3cuSGmlcwny3RRCNo00OQZyBE/RWq/kXSpvjXWcB++ilVFab4KuuHfWYdxBwHnOfIKA0k7lECMvSxisdRozWDxd4Dw6773UMigdHOPBERA7ZyNnSw4hWaU1hFIRkJShKcG6YCGQvfNRCamCD56TAISV1UjLgkVYT1YqOAi5CKiAcaM746z3mINjJFp0yWgbMwlsHghZspRSiF5ri0eWtIu0FQ08jygJxXguE2oEv83Wpyx43gRQGBXPYkw5RqdDyilrErCuaVoMg4RlsNygOCn7FGPOIUsRwQVgBM40T2BmVIlRnAjsNO488Qza0KB4ykCyzrCKcpOSECCFQPzoRCImHSYABitaJmqSQ2FkVIrswSU+PbJRYEcCBFLyanOQJ9xRKzYaM0T0SNgEeOHG8kU7rY7OGmW0i+QgwhqewTSNxRpBQCtP5pYU6IkdrR5puQIT3brLpQNR0d5vrx1gMHGydNwa5XK21TxPRPVEv96tFAZHKFBXsP98DwxTcjjtQmFf+X4Yl0d2dPhbHfMyVuMI51hF9A+DRkozdB5HAzABc166a9/7qBW90h5BP86T18Zgm2Deyhc2oRuGngR6nB7iKxuohAt8X32h48SFviNTPWL6QmDnO2jjGPcGFWzLQiVc+wuhH2ilyxvnMU2Pq9QI79U0TeNAoHL7jrrWlR8bLgf2uN8TB/zpTAT0YBz7A6+UpoD+zgmnzp5IN6KOrwKvEx4CB54CXZnmKTCVGk4LT8vvAt27g60KolalsvZA8zucme3elao0cOieuHyHl7x+Y5YSPmP8C3yVW7V/Dxe6cLtUj3+IagUe+D7WH4HyC6XCmV2WaV7W64+wLvO8zvhRrY/rvAn8wMPjuuJv4D5Nj7W6rWBPEwTW2+1+23EvuO13GrhvY+V+X4sAaOvtXaBgOVSW89f7+28Flp0KMvGXIrJs8an4hcC8C+zMN9xu79G3Ap/JX+CzwLKVMJPAl+lfKSB52gV+ARJGof37gjf6AAAAAElFTkSuQmCC",
-    "Player": "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",
-}
+from portraits_data import PORTRAITS_B64
 
 PIXEL_PORTRAIT_CACHE = {}
-
 
 def get_pixel_portrait(name, size=(120, 120)):
     key = (name, size)
@@ -1772,26 +1761,6 @@ def get_pixel_portrait(name, size=(120, 120)):
     b64 = PORTRAITS_B64.get(name, PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
-    w, h = surf.get_size()
-
-    bg_color = surf.get_at((0, 0))
-
-    # Create a mask of the background (including near-colors due to AI artifacting)
-    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
-    bg_mask.invert() # Invert to get the foreground character
-    
-    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-    result_surf.blit(surf, (0, 0))
-    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-
-    # 2. For bosses, ALSO apply a circular crop to destroy the AI painted dark frame
-    if name != "Player":
-        circle_mask = pygame.Surface((w, h), pygame.SRCALPHA)
-        pygame.draw.circle(circle_mask, (255, 255, 255, 255), (w // 2, h // 2), min(w, h) / 2 * 0.85)
-        result_surf.blit(circle_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        
-    surf = result_surf
 
     # High res 2D Sprite
     scaled = pygame.transform.smoothscale(surf, size)
@@ -1811,19 +1780,6 @@ def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
     b64 = PORTRAITS_B64.get(name, PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
-
-    bg_color = surf.get_at((0, 0))
-    
-    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
-    bg_mask.invert()
-    
-    w, h = surf.get_size()
-    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-    result_surf.blit(surf, (0, 0))
-    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    
-    surf = result_surf
 
     small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
     small_surf = pygame.transform.smoothscale(surf, small_size)
@@ -2760,12 +2716,12 @@ class WinCurl3:
         bg_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
         fg_tile = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
 
-        for _ in range(600):
+        for _ in range(30 if IS_ANDROID else 600):
             px, py = random.randint(0, tile_size), random.randint(0, tile_size)
             pygame.draw.circle(bg_tile, (0, 0, 0, 50), (px + 1, py + 1), 1)
             pygame.draw.circle(bg_tile, (255, 255, 255, 100), (px, py), 1)
 
-        for _ in range(400):
+        for _ in range(20 if IS_ANDROID else 400):
             pygame.draw.circle(
                 fg_tile, (255, 255, 255, random.randint(30, 90)), (random.randint(0, tile_size), random.randint(0, tile_size)), 1
             )
@@ -3314,8 +3270,8 @@ class WinCurl3:
         self.turn_state = "SLIDING"
 
     def update_trajectory_cache(self):
-        self.cached_trajectory_points = []
         if not hasattr(self, "active_stone") or not self.active_stone or self.app_state == "PAUSED":
+            self.cached_trajectory_points = []
             return
             
         vp = getattr(self, "virtual_pull", pygame.math.Vector2(0,0))
@@ -3329,7 +3285,15 @@ class WinCurl3:
             pull.x = 0
 
         if pull.length() <= 5:
+            self.cached_trajectory_points = []
             return
+
+        cache_key = (int(vp.x), int(vp.y), self.selected_curl)
+        if getattr(self, "_last_trajectory_params", None) == cache_key and getattr(self, "cached_trajectory_points", None) is not None:
+            return
+        self._last_trajectory_params = cache_key
+        
+        self.cached_trajectory_points = []
 
         max_vel = 16.0
         if getattr(self, "game_mode", None) == "STORY":
@@ -4839,7 +4803,7 @@ class WinCurl3:
             pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2, border_radius=22)
 
             boss_name = rink["boss"]
-            slide_in = max(0, 300 - dt_ticks)
+            slide_in = max(0, 300 - dt_ticks) if self.dialog_index == 0 else 0
 
             player_surf = get_pixel_portrait("Player", (240, 240))
             boss_surf = get_pixel_portrait(boss_name, (280, 280))

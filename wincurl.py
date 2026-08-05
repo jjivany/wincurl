@@ -1770,26 +1770,6 @@ def get_pixel_portrait(name, size=(120, 120)):
     b64 = PORTRAITS_B64.get(name, PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
-    w, h = surf.get_size()
-
-    bg_color = surf.get_at((0, 0))
-
-    # Create a mask of the background (including near-colors due to AI artifacting)
-    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
-    bg_mask.invert() # Invert to get the foreground character
-    
-    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-    result_surf.blit(surf, (0, 0))
-    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-
-    # 2. For bosses, ALSO apply a circular crop to destroy the AI painted dark frame
-    if name != "Player":
-        circle_mask = pygame.Surface((w, h), pygame.SRCALPHA)
-        pygame.draw.circle(circle_mask, (255, 255, 255, 255), (w // 2, h // 2), min(w, h) / 2 * 0.85)
-        result_surf.blit(circle_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        
-    surf = result_surf
 
     # High res 2D Sprite
     scaled = pygame.transform.smoothscale(surf, size)
@@ -1809,19 +1789,6 @@ def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
     b64 = PORTRAITS_B64.get(name, PORTRAITS_B64["Player"])
     data = base64.b64decode(b64)
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
-
-    bg_color = surf.get_at((0, 0))
-    
-    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
-    bg_mask.invert()
-    
-    w, h = surf.get_size()
-    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-    result_surf.blit(surf, (0, 0))
-    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    
-    surf = result_surf
 
     small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
     small_surf = pygame.transform.smoothscale(surf, small_size)
@@ -4783,7 +4750,7 @@ class WinCurl3:
             pygame.draw.rect(self.canvas, WHITE, dialog_rect.inflate(-12, -12), 2, border_radius=22)
 
             boss_name = rink["boss"]
-            slide_in = max(0, 300 - dt_ticks)
+            slide_in = max(0, 300 - dt_ticks) if self.dialog_index == 0 else 0
 
             player_surf = get_pixel_portrait("Player", (240, 240))
             boss_surf = get_pixel_portrait(boss_name, (280, 280))
