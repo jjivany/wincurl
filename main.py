@@ -425,6 +425,7 @@ class WinCurlAudioEngine:
         self.ch_crowd = pygame.mixer.Channel(5)
         self.ch_voice = pygame.mixer.Channel(6)
         pygame.mixer.set_num_channels(16)
+        pygame.mixer.set_reserved(7)
 
         self.sfx_on = True
 
@@ -569,26 +570,9 @@ class WinCurlAudioEngine:
             vibrate_android(int(vol * 150))
 
     def _get_cache_dir(self):
-        import os, tempfile
+        import os
 
-        if IS_ANDROID:
-            try:
-                from jnius import autoclass
-
-                PythonActivity = autoclass("org.kivy.android.PythonActivity")
-                cache_dir = os.path.join(PythonActivity.mActivity.getCacheDir().getAbsolutePath(), "wincurl_cache")
-                os.makedirs(cache_dir, exist_ok=True)
-                return cache_dir
-            except:
-                pass
-
-        try:
-            cache_dir = os.path.join(tempfile.gettempdir(), "wincurl_cache")
-            os.makedirs(cache_dir, exist_ok=True)
-            return cache_dir
-        except:
-            pass
-
+        # Always prefer pygame's persistent pref path so cache survives restarts
         try:
             base_dir = pygame.system.get_pref_path("jason", "wincurl3")
             cache_dir = os.path.join(base_dir, "wincurl_cache")
@@ -597,12 +581,30 @@ class WinCurlAudioEngine:
         except:
             pass
 
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "wincurl_cache")
+        if IS_ANDROID:
+            try:
+                from jnius import autoclass
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                cache_dir = os.path.join(PythonActivity.mActivity.getCacheDir().getAbsolutePath(), "wincurl_cache")
+                os.makedirs(cache_dir, exist_ok=True)
+                return cache_dir
+            except:
+                pass
+
+        import tempfile
+        try:
+            cache_dir = os.path.join(tempfile.gettempdir(), "wincurl_cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            return cache_dir
+        except:
+            return os.path.join(os.path.dirname(os.path.abspath(__file__)), "wincurl_cache")
 
     def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
 
-        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
+        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
+        if not os.path.exists(cache_file):
+            cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
@@ -713,7 +715,7 @@ class WinCurlAudioEngine:
         return self._create_wav_sound(buf, 44100, cache_key="sega_speech", return_bytes=return_bytes)
 
     def _synthesize_vosim_phrase(self, phrase, duration, return_bytes=False):
-        cached = self._get_cached_sound(f"vosim_{phrase}", return_bytes=return_bytes)
+        cached = self._get_cached_sound(f"vosim_{phrase}_v2", return_bytes=return_bytes)
         if cached:
             return cached
         SR = 44100
@@ -768,6 +770,20 @@ class WinCurlAudioEngine:
                 time.sleep(0.001)
             t_norm = i / steps
             env = min(1.0, t_norm / 0.1) * max(0.0, min(1.0, (1.0 - t_norm) / 0.2))
+            
+            # Add dips to separate syllables for better clarity
+            if phrase == "YOU_WIN":
+                if 0.35 < t_norm < 0.55:
+                    env *= max(0.1, 1.0 - math.sin((t_norm - 0.35) / 0.2 * math.pi) * 0.9)
+            elif phrase in ["RED_TEAM_WINS", "YELLOW_TEAM_WINS"]:
+                if 0.25 < t_norm < 0.35:
+                    env *= max(0.1, 1.0 - math.sin((t_norm - 0.25) / 0.1 * math.pi) * 0.9)
+                elif 0.55 < t_norm < 0.65:
+                    env *= max(0.1, 1.0 - math.sin((t_norm - 0.55) / 0.1 * math.pi) * 0.9)
+            elif phrase == "CHALLENGE_COMPLETE":
+                if 0.45 < t_norm < 0.55:
+                    env *= max(0.1, 1.0 - math.sin((t_norm - 0.45) / 0.1 * math.pi) * 0.9)
+
             if t_norm < 0.1:
                 env += random.uniform(-0.5, 0.5) * (0.1 - t_norm) * 15
             val = 0.0
@@ -781,7 +797,7 @@ class WinCurlAudioEngine:
                 ) * decay
             sample = int(max(-1.0, min(1.0, (val / len(chord)) * env * 2.0)) * 24000)
             struct.pack_into("<hh", buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key=f"vosim_{phrase}", return_bytes=return_bytes)
+        return self._create_wav_sound(buf, SR, cache_key=f"vosim_{phrase}_v2", return_bytes=return_bytes)
 
     def _synthesize_end_of_match(self, return_bytes=False):
         cached = self._get_cached_sound("end_match", return_bytes=return_bytes)
@@ -1412,9 +1428,13 @@ class WinCurlAudioEngine:
             self.ch_crowd.play(self.snd_cheer)
 
     def update_slide(self, speed):
+        if not self.ch_slide.get_busy() and isinstance(getattr(self, "snd_slide", None), pygame.mixer.Sound):
+            self.ch_slide.play(self.snd_slide, loops=-1)
         self.ch_slide.set_volume((min(0.15, speed * 0.04) if speed > 0.05 else 0.0) * getattr(self, "master_volume", 1.0))
 
     def update_sweep(self, intensity):
+        if not self.ch_sweep.get_busy() and isinstance(getattr(self, "snd_sweep", None), pygame.mixer.Sound):
+            self.ch_sweep.play(self.snd_sweep, loops=-1)
         self.ch_sweep.set_volume(min(1.0, intensity * 1.25) * getattr(self, 'master_volume', 1.0))
         if IS_ANDROID and intensity > 0.1:
             now = pygame.time.get_ticks()
