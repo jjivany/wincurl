@@ -1,6 +1,6 @@
 # 🥌 WINCURL 3.0
 
-WinCurl 3 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and multiplayer capabilities.
+WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and multiplayer capabilities.
 
 ## 📋 Overview
 
@@ -39,9 +39,9 @@ WinCurl 3 is a Python-based curling simulation built with Pygame. It offers a ph
 
 ## 📱 Android Deployment
 
-This project is configured for Android deployment. 
+This project is configured for Android deployment (BUILD 75). 
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
-- **Developers**: The repository includes automated GitHub Actions that build the APK and various other system binaries natively in the cloud.
+- **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
 
 ## 🤝 Contributing
 
@@ -51,6 +51,3 @@ Contributions are welcome. Feel free to open an issue or submit a pull request i
 
 *WinCurl 3.0 is a spiritual successor and derives inspiration from the original WinCurl 2.0:*
 [View the original on Archive.org](https://archive.org/details/WCURLD)
-
-~Linux, Mac, HTML5 and Windows binary builds are now hosted on itch.io:
-[https://jayjayivanygmailcom.itch.io/wincurl](https://jayjayivanygmailcom.itch.io/wincurl)

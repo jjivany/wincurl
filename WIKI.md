@@ -1,13 +1,14 @@
-# WinCurl 3.0 Wiki (Build 71)
+# WinCurl 3.1 Wiki (Build 75)
 
 Welcome to the WinCurl 3.0 Wiki! This is the documentation hub for WinCurl, the premier curling simulation game.
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Game Modes](#game-modes)
-3. [Save & Resume System](#save--resume-system)
-4. [Settings & Optimization](#settings--optimization)
-5. [Story Mode](#story-mode)
+3. [Gameplay Mechanics](#gameplay-mechanics)
+4. [Save & Resume System](#save--resume-system)
+5. [Settings & Optimization](#settings--optimization)
+6. [Story Mode](#story-mode)
 
 ## Introduction
 WinCurl 3.0 introduces a massive overhaul, featuring a 3D isometric view, advanced physics (including true-to-life sweeping mechanics and curl dynamics), and a fully playable story mode. 
@@ -19,6 +20,10 @@ WinCurl 3.0 introduces a massive overhaul, featuring a 3D isometric view, advanc
 - **Story Mode**: A sprawling single-player campaign where you must defeat the tech-bro villains of the Curling Club circuit.
 - **Challenge Mode**: Sharpen your skills with various target-based minigames and sweeping challenges.
 
+## Gameplay Mechanics
+- **Flick-to-Throw**: Throw stones intuitively using a natural forward drag or "flick" motion on the screen. The harder and further you flick forward, the more momentum the stone gains.
+- **WYSIWYG Trajectory**: The trajectory preview line simulates the exact path of the stone up to maximum power and curl, dynamically caching for maximum performance.
+
 ## Save & Resume System
 WinCurl 3.0 now supports a fully-featured **Save & Resume System** for both 1v1 Bot matches and Story Mode.
 - You can save your game directly from the Pause Menu in supported modes.
@@ -27,12 +32,8 @@ WinCurl 3.0 now supports a fully-featured **Save & Resume System** for both 1v1 
 
 ## Settings & Optimization
 - **Hi-Res Mode (Android Only)**: For high-end devices, enabling this will use your device's native resolution and enable GPU bilinear filtering for crisp graphics! It's off by default to save battery and boost performance on older devices.
-- **Optimization**: The game uses intelligent UI caching, surface reusing, and event filtering to maintain a buttery smooth 120 FPS across modern displays!
+- **Optimization**: The game uses intelligent UI caching, trajectory caching, and event filtering to maintain a buttery smooth 120 FPS across modern displays!
 
 ## Story Mode
 The curling world is under threat! An evil tech-bro conglomerate (led by the nefarious Baron Von Crude) is attempting to buy out every curling club to build massive data centres. You must defeat all 8 rinks and reclaim the clubs!
 Each rink features unique dialogue, customized boss opponents, and specialized ice conditions. Good luck!
-
-### Build 65
-* Fully synced WASM `main-pygbag.py` with the latest fixes.
-* Deployed clean `wincurl_web_build65.zip` for itch.io web release.

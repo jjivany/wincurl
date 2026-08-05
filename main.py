@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 72"
+VERSION = "3.0 Build 75"
 
 
 class CachedFont:
@@ -28,8 +28,8 @@ class CachedFont:
     def render(self, text, antialias, color, background=None):
         key = (text, antialias, str(color), str(background))
         if key not in self.cache:
-            if len(self.cache) > 256:
-                self.cache.clear()
+            if len(self.cache) > 2000:
+                del self.cache[next(iter(self.cache))]
             if background:
                 self.cache[key] = self.font.render(text, antialias, color, background)
             else:
@@ -562,8 +562,9 @@ class WinCurlAudioEngine:
         if not self.sfx_on:
             return
         vol = max(0.1, min(1.0, intensity / 20.0))
-        self.snd_clack.set_volume(vol)
-        self.ch_sfx.play(self.snd_clack)
+        if isinstance(getattr(self, "snd_clack", None), pygame.mixer.Sound):
+            self.snd_clack.set_volume(vol)
+            self.ch_sfx.play(self.snd_clack)
         if IS_ANDROID and vol > 0.3:
             vibrate_android(int(vol * 150))
 
@@ -1392,7 +1393,7 @@ class WinCurlAudioEngine:
         now = pygame.time.get_ticks()
         if intensity > 8.0 and (now - self.last_call) > 2500:
             self.last_call = now
-            if self.snd_hurry and self.snd_hard:
+            if isinstance(getattr(self, "snd_hurry", None), pygame.mixer.Sound) and isinstance(getattr(self, "snd_hard", None), pygame.mixer.Sound):
                 if not self.ch_voice.get_busy():
                     if random.random() > 0.5:
                         self.ch_voice.play(self.snd_hurry)
@@ -1406,7 +1407,7 @@ class WinCurlAudioEngine:
         self.ch_crowd.stop()
 
     def play_cheer(self):
-        if not self.ch_crowd.get_busy() and getattr(self, "snd_cheer", None):
+        if not self.ch_crowd.get_busy() and isinstance(getattr(self, "snd_cheer", None), pygame.mixer.Sound):
             self.ch_crowd.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_crowd.play(self.snd_cheer)
 
@@ -1676,6 +1677,7 @@ class Stone:
             s[6],
             s[7],
         )
+        self.vel = pygame.math.Vector2(nvx, nvy)
         if len(s) > 8:
             self.id = s[8]
         now = pygame.time.get_ticks()
@@ -1811,11 +1813,17 @@ def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
 
     bg_color = surf.get_at((0, 0))
-    for x in range(surf.get_width()):
-        for y in range(surf.get_height()):
-            c = surf.get_at((x, y))
-            if abs(c.r - bg_color.r) + abs(c.g - bg_color.g) + abs(c.b - bg_color.b) < 45:
-                surf.set_at((x, y), (c.r, c.g, c.b, 0))
+    
+    bg_mask = pygame.mask.from_threshold(surf, bg_color, (45, 45, 45, 255))
+    bg_mask.invert()
+    
+    w, h = surf.get_size()
+    result_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    mask_surf = bg_mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+    result_surf.blit(surf, (0, 0))
+    result_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    
+    surf = result_surf
 
     small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
     small_surf = pygame.transform.smoothscale(surf, small_size)
@@ -2455,15 +2463,15 @@ class WinCurl3:
         return pygame.math.Vector2(mx, my)
 
     def preload_assets(self):
-        self.font = CachedFont(CachedFont(pygame.font.Font(None, 45)))
-        self.score_font = CachedFont(CachedFont(pygame.font.Font(None, 36)))
-        self.small_font = CachedFont(CachedFont(pygame.font.Font(None, 31)))
+        self.font = CachedFont(pygame.font.Font(None, 45))
+        self.score_font = CachedFont(pygame.font.Font(None, 36))
+        self.small_font = CachedFont(pygame.font.Font(None, 31))
         self.chat_font = ChatFont(31)
         self.title_font = CachedFont(pygame.font.Font(None, 120))
-        self.large_sym_font = CachedFont(CachedFont(pygame.font.Font(None, 95)))
-        self.font_62 = CachedFont(CachedFont(pygame.font.Font(None, 60)))
-        self.font_72 = CachedFont(CachedFont(pygame.font.Font(None, 70)))
-        self.font_85 = CachedFont(CachedFont(pygame.font.Font(None, 82)))
+        self.large_sym_font = CachedFont(pygame.font.Font(None, 95))
+        self.font_62 = CachedFont(pygame.font.Font(None, 60))
+        self.font_72 = CachedFont(pygame.font.Font(None, 70))
+        self.font_85 = CachedFont(pygame.font.Font(None, 82))
 
         self.sprites = {}
 
@@ -3126,6 +3134,10 @@ class WinCurl3:
         self.audio.stop_all_match_sounds()
         self.sweep_power = 0.0
         self.particles = []
+        self.sweep_particles = []
+        self.stones = []
+        import gc
+        gc.collect()
         pygame.event.set_grab(False)
         pygame.mouse.set_visible(True)
         if self.game_mode in ["HOST", "JOIN"]:
@@ -3299,8 +3311,52 @@ class WinCurl3:
         self.active_stone.curl = random.choice([-0.55, 0.55])
         self.active_stone.is_moving = True
         self.stones_thrown[self.current_team] += 1
-        self.total_stones_played += 1
         self.turn_state = "SLIDING"
+
+    def update_trajectory_cache(self):
+        self.cached_trajectory_points = []
+        if not hasattr(self, "active_stone") or not self.active_stone or self.app_state == "PAUSED":
+            return
+            
+        vp = getattr(self, "virtual_pull", pygame.math.Vector2(0,0))
+        if getattr(self, "pull_history", []):
+            avg_x = sum(p.x for p in self.pull_history) / len(self.pull_history)
+            avg_y = sum(p.y for p in self.pull_history) / len(self.pull_history)
+            vp = pygame.math.Vector2(avg_x, avg_y)
+
+        pull = pygame.math.Vector2(vp.x / 4.0, vp.y)
+        if abs(pull.x) < 2.0:
+            pull.x = 0
+
+        if pull.length() <= 5:
+            return
+
+        max_vel = 16.0
+        if getattr(self, "game_mode", None) == "STORY":
+            max_vel += self.story.stats.get("power", 0) * 1.5
+            
+        svel = pull.normalize() * min(max_vel, pull.length() / 14.0)
+        
+        curl_factor = self.selected_curl
+        if getattr(self, "game_mode", None) == "STORY":
+            curl_factor *= 1.0 + self.story.stats.get("curl_control", 0) * 0.25
+
+        dummy_stone = Stone(self.active_stone.pos.x, self.active_stone.pos.y, 0)
+        dummy_stone.vel = svel
+        dummy_stone.curl = curl_factor
+        dummy_stone.is_moving = True
+        
+        self.cached_trajectory_points.append((int(dummy_stone.pos.x), int(dummy_stone.pos.y)))
+        
+        for i in range(2000):
+            if not dummy_stone.is_moving:
+                break
+            dummy_stone.update(0.0, FRICTION_BASE)
+            if i % 6 == 0:
+                self.cached_trajectory_points.append((int(dummy_stone.pos.x), int(dummy_stone.pos.y)))
+                
+        if (int(dummy_stone.pos.x), int(dummy_stone.pos.y)) != self.cached_trajectory_points[-1]:
+            self.cached_trajectory_points.append((int(dummy_stone.pos.x), int(dummy_stone.pos.y)))
 
     def fire_stone(self):
         if getattr(self, "pull_history", []):
@@ -3308,7 +3364,7 @@ class WinCurl3:
             avg_y = sum(p.y for p in self.pull_history) / len(self.pull_history)
             self.virtual_pull = pygame.math.Vector2(avg_x, avg_y)
 
-        pull = pygame.math.Vector2(-self.virtual_pull.x / 4.0, -self.virtual_pull.y)
+        pull = pygame.math.Vector2(self.virtual_pull.x / 4.0, self.virtual_pull.y)
         if abs(pull.x) < 2.0:
             pull.x = 0
 
@@ -3787,9 +3843,11 @@ class WinCurl3:
             if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
                 if self.btn_curl_l.collidepoint(mouse_pos.x, mouse_pos.y):
                     self.selected_curl = max(-1.0, self.selected_curl - 0.2)
+                    self.update_trajectory_cache()
                     self.audio.play_hover()
                 elif self.btn_curl_r.collidepoint(mouse_pos.x, mouse_pos.y):
                     self.selected_curl = min(1.0, self.selected_curl + 0.2)
+                    self.update_trajectory_cache()
                     self.audio.play_hover()
                 elif (mouse_pos - self.active_stone.pos).length() < 90 and not self.is_dragging:
                     self.is_dragging = True
@@ -3797,18 +3855,22 @@ class WinCurl3:
                     self.drag_finger_id = getattr(self, "last_finger_id", f_id) if IS_ANDROID else f_id
                     self.pull_history = []
                     self.virtual_pull = pygame.math.Vector2(0, 0)
+                    self.update_trajectory_cache()
                     pygame.event.set_grab(True)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, "drag_start_pos", None):
                 if f_id == getattr(self, "drag_finger_id", None) or (IS_ANDROID and f_id == "mouse"):
-                    self.virtual_pull = self.drag_start_pos - mouse_pos
+                    self.virtual_pull = mouse_pos - self.drag_start_pos
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5:
                         self.pull_history.pop(0)
+                    self.update_trajectory_cache()
             elif event.type == MOUSEWHEEL:
                 self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.y * 0.2))
+                self.update_trajectory_cache()
             elif event.type == getattr(pygame, "FINGERMOTION", 1792):
                 if self.is_dragging and getattr(event, "finger_id", None) != getattr(self, "drag_finger_id", None):
                     self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.dx * 3.0))
+                    self.update_trajectory_cache()
 
     def update_physics(self):
         for p in self.particles[:]:
@@ -5221,51 +5283,17 @@ class WinCurl3:
             self.canvas.blit(img_p, (bx2, self.btn_curl_r.centery - img_p.get_height() // 2))
             self.canvas.blit(img_cr, (bx2 + img_p.get_width(), self.btn_curl_r.centery - img_cr.get_height() // 2))
 
-            if self.is_dragging:
-                vp = self.virtual_pull
-                if getattr(self, "pull_history", []):
-                    avg_x = sum(p.x for p in self.pull_history) / len(self.pull_history)
-                    avg_y = sum(p.y for p in self.pull_history) / len(self.pull_history)
-                    vp = pygame.math.Vector2(avg_x, avg_y)
+            if self.is_dragging and getattr(self, "cached_trajectory_points", []):
+                t_points = self.cached_trajectory_points
+                t_col = HOUSE_RED if self.current_team == 0 else HOUSE_BLUE
+                if len(t_points) > 1:
+                    pygame.draw.lines(self.canvas, t_col, False, t_points, 6)
+                
+                if len(t_points) > 0:
+                    ex, ey = t_points[-1]
+                    pygame.draw.circle(self.canvas, t_col, (ex, ey), 10)
+                    pygame.draw.circle(self.canvas, WHITE, (ex, ey), 10, 2)
 
-                pull = pygame.math.Vector2(-vp.x / 4.0, -vp.y)
-                if abs(pull.x) < 2.0:
-                    pull.x = 0
-
-                if pull.length() > 5:
-                    max_vel = 16.0
-                    if getattr(self, "game_mode", None) == "STORY":
-                        max_vel += self.story.stats.get("power", 0) * 1.5
-                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(max_vel, pull.length() / 14.0)
-                    svel_len = svel.length()
-
-                    curl_factor = self.selected_curl * 0.05
-                    if getattr(self, "game_mode", None) == "STORY":
-                        curl_factor *= 1.0 + self.story.stats.get("curl_control", 0) * 0.25
-
-                    sx, sy, px, py = svel.x, svel.y, spos.x, spos.y
-                    rad_conv = math.pi / 180.0
-                    num_steps = 140
-                    if getattr(self, "game_mode", None) == "STORY":
-                        num_steps += self.story.stats.get("trajectory_preview", 0) * 40
-
-                    for i in range(num_steps):
-                        if svel_len <= FRICTION_BASE:
-                            break
-                        r = (svel_len - FRICTION_BASE) / svel_len
-                        sx *= r
-                        sy *= r
-                        svel_len -= FRICTION_BASE
-                        if svel_len > 0.4:
-                            a = (1.4 / svel_len) * curl_factor * rad_conv
-                            cos_a, sin_a = math.cos(a), math.sin(a)
-                            sx, sy = sx * cos_a - sy * sin_a, sx * sin_a + sy * cos_a
-                        px += sx
-                        py += sy
-                        if i % 5 == 0:
-                            pygame.draw.circle(
-                                self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(px), int(py)), 6
-                            )
             shadow_col = (255, 255, 255)
             if self.selected_curl < 0:
                 c = int(255 * (1.0 + self.selected_curl))
@@ -5595,12 +5623,18 @@ class WinCurl3:
 
     async def run(self):
         self.accumulator = 0.0
+        FPS = 60.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
-        while True:
+        while getattr(self, "running", True):
             if getattr(self, "dragging_slider", False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
-            ms_passed = self.clock.tick(FPS)
+            
+            if IS_ANDROID:
+                ms_passed = self.clock.tick_busy_loop(FPS)
+            else:
+                ms_passed = self.clock.tick(FPS)
+            
             self.time_mult = ms_passed / (1000.0 / PHYSICS_FPS)
             self.accumulator += ms_passed
             if self.accumulator > 200:
@@ -5799,7 +5833,6 @@ class WinCurl3:
                 [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
                 is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
-                self.draw_ui()
                 self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER":
                 self.draw_match_over_screen()
