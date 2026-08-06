@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 83"
+VERSION = "3.0 Build 85"
 
 
 class CachedFont:
@@ -2741,7 +2741,6 @@ class WinCurl3:
             {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
             {"id": "hi_res_mode", "y": 750, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "smoothscale", "y": 840, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "fast_portrait", "y": 930, "text": "Fast Portrait:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "update", "y": 1020, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
             {"id": "back", "y": 1110, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
         ]
@@ -4496,8 +4495,6 @@ class WinCurl3:
                 IS_ANDROID and not getattr(self, "hi_res_mode", False) and btn["id"] == "smoothscale"
             ):
                 continue
-            elif IS_ANDROID and not getattr(self, "hi_res_mode", False) and btn["id"] == "fast_portrait":
-                continue
 
             if btn["id"] == "name":
                 text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
@@ -4512,9 +4509,6 @@ class WinCurl3:
             elif btn["id"] == "smoothscale":
                 text = "Smoothscale:" + (" On" if getattr(self, "fxaa_on", False) else " Off")
                 btn["color"] = (40, 120, 60) if getattr(self, "fxaa_on", False) else TEAM_YELLOW
-            elif btn["id"] == "fast_portrait":
-                text = "Fast Portrait:" + (" On" if getattr(self, "fast_portrait_on", False) else " Off")
-                btn["color"] = (40, 120, 60) if getattr(self, "fast_portrait_on", False) else TEAM_YELLOW
             elif btn["id"] == "update":
                 text = getattr(self, "update_status", "Check for update")
             else:
@@ -4591,7 +4585,7 @@ class WinCurl3:
         curr_hov = None
         for b in self.options_buttons:
             if (not IS_ANDROID and b["id"] == "hi_res_mode") or (
-                IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] in ("smoothscale", "fast_portrait")
+                IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"
             ):
                 continue
             if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
@@ -4616,7 +4610,7 @@ class WinCurl3:
             if 300 < mx < 900:
                 for b in self.options_buttons:
                     if (not IS_ANDROID and b["id"] == "hi_res_mode") or (
-                        IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] in ("smoothscale", "fast_portrait")
+                        IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"
                     ):
                         continue
                     if b["y"] < menu_my < b["y"] + 90 * b["scale"]:
@@ -4634,9 +4628,6 @@ class WinCurl3:
                             self.save_progress()
                         elif b["id"] == "smoothscale":
                             self.fxaa_on = not getattr(self, "fxaa_on", False)
-                            self.save_progress()
-                        elif b["id"] == "fast_portrait":
-                            self.fast_portrait_on = not getattr(self, "fast_portrait_on", False)
                             self.save_progress()
 
                         elif b["id"] == "update":
@@ -4812,7 +4803,8 @@ class WinCurl3:
                     self._port_small_cache[rink["boss"]] = pygame.transform.smoothscale(self.img_portraits[rink["boss"]], (trophy_w, trophy_w))
                 self.canvas.blit(self._port_small_cache[rink["boss"]], (start_x + i * (trophy_w + spacing), 185 - trophy_w // 2))
             else:
-                draw_trophy(self.canvas, start_x + i * (trophy_w + spacing), 185, size=trophy_w)
+                draw_trophy(self.canvas, start_x + i * (trophy_w + spacing), 185 - trophy_w // 2, size=trophy_w)
+
 
         xp_needed = getattr(self.story, "level", 1) * 100
         xp_rect = pygame.Rect(cx - 300, 220, 600, 30)
