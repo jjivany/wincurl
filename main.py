@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 80"
+VERSION = "3.0 Build 81"
 
 
 class CachedFont:
@@ -764,10 +764,10 @@ class WinCurlAudioEngine:
             f3_env = [(0.0, 2400), (0.5, 2200), (0.8, 2500), (1.0, 2000)]
             chord = [261.63, 311.13]
         elif phrase == "YOU_WIN":
-            f1_env = [(0.0, 300), (0.2, 300), (0.5, 300), (0.7, 400), (1.0, 300)]
-            f2_env = [(0.0, 2200), (0.2, 870), (0.5, 600), (0.7, 2000), (1.0, 1500)]
-            f3_env = [(0.0, 3000), (0.2, 2240), (0.5, 2200), (0.7, 2550), (1.0, 2500)]
-            chord = [293.66, 392.00] # D4, G4 (more upbeat)
+            f1_env = [(0.0, 250), (0.2, 300), (0.4, 250), (0.6, 400), (0.8, 300), (1.0, 250)]
+            f2_env = [(0.0, 2200), (0.2, 800), (0.4, 600), (0.6, 2000), (0.8, 1500), (1.0, 1200)]
+            f3_env = [(0.0, 3000), (0.2, 2200), (0.4, 2200), (0.6, 2500), (0.8, 2500), (1.0, 2500)]
+            chord = [250.00] # Single male-ish voice
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -807,12 +807,19 @@ class WinCurlAudioEngine:
                 env += random.uniform(-0.5, 0.5) * (0.1 - t_norm) * 15
             val = 0.0
             for f0 in chord:
-                phase = ((i / SR) * f0) % 1.0
-                decay = math.exp(-phase * 2.2)
+                inst_f0 = f0
+                phase_val = ((i / SR) * f0) % 1.0
+                
+                if phrase == "YOU_WIN":
+                    # Add a pitch glide (prosody) to make it sound human and excited
+                    phase_val = ((i / SR) * f0 * (1.0 - 0.2 * t_norm)) % 1.0
+                    inst_f0 = f0 * (1.0 - 0.4 * t_norm)
+                    
+                decay = math.exp(-phase_val * 2.2)
                 val += (
-                    math.sin(2 * math.pi * get_val(t_norm, f1_env) * phase / f0)
-                    + math.sin(2 * math.pi * get_val(t_norm, f2_env) * phase / f0) * 0.6
-                    + math.sin(2 * math.pi * get_val(t_norm, f3_env) * phase / f0) * 0.3
+                    math.sin(2 * math.pi * get_val(t_norm, f1_env) * phase_val / inst_f0)
+                    + math.sin(2 * math.pi * get_val(t_norm, f2_env) * phase_val / inst_f0) * 0.6
+                    + math.sin(2 * math.pi * get_val(t_norm, f3_env) * phase_val / inst_f0) * 0.3
                 ) * decay
             sample = int(max(-1.0, min(1.0, (val / len(chord)) * env * 2.0)) * 24000)
             struct.pack_into("<hh", buf, i * 4, sample, sample)
