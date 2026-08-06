@@ -43,6 +43,9 @@ This project is configured for Android deployment (BUILD 76).
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
 - **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
 
+
+~Binary builds for various platforms can be found here: [https://jayjayivanygmailcom.itch.io/wincurl](https://jayjayivanygmailcom.itch.io/wincurl)
+
 ## 🤝 Contributing
 
 Contributions are welcome. Feel free to open an issue or submit a pull request if you'd like to help improve the game.
