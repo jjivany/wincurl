@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 81"
+VERSION = "3.0 Build 83"
 
 
 class CachedFont:
@@ -3267,7 +3267,7 @@ class WinCurl3:
                 rink_idx = min(rink_idx, len(STORY_RINKS) - 1)
                 self.match_ai_difficulty = STORY_RINKS[rink_idx]["difficulty"]
                 if is_replay:
-                    self.match_ai_difficulty = min(10, self.match_ai_difficulty + 2)
+                    self.match_ai_difficulty = min(10, self.match_ai_difficulty + 3)
             else:
                 self.match_ai_difficulty = self.ai_difficulty
             self.app_state = "COIN_TOSS"
