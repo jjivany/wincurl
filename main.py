@@ -2269,7 +2269,7 @@ STORY_RINKS = [
     },
     {
         "name": "The Grand Arena",
-        "boss": "The FourElite",
+        "boss": "EliteFour",
         "color": (200, 200, 255),
         "intro_dialog": [
             "You have made it further than anyone expected, challenger.",
@@ -3549,6 +3549,10 @@ class WinCurl3:
                             self.app_state = "SAVE_SLOTS"
                         elif b["id"] == "chal":
                             self.app_state = "CHALLENGE_MENU"
+                        elif b["id"] in ["resume", "res_chal", "res_local", "res_bot"]:
+                            if getattr(self, "saved_match_state", None):
+                                self.audio.stop_music()
+                                self.restore_match()
                         elif b["id"] == "story":
                             self.game_mode = "STORY"
                             self.slot_intention = "story"
@@ -3621,6 +3625,14 @@ class WinCurl3:
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             m = getattr(event, "pos", self.get_pointer_pos())
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode", "") == "CHALLENGE":
+                start_btn = pygame.Rect(BASE_WIDTH // 2 - 250, 190, 500, 100)
+                if start_btn.collidepoint(mx, my):
+                    self.audio.play_click()
+                    self.audio.stop_music()
+                    self.restore_match()
+                    return
+
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 self.app_state = "MENU"
