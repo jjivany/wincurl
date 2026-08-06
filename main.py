@@ -154,26 +154,25 @@ def vibrate_android(ms):
     if not _vibrator_init:
         _vibrator_init = True
         try:
-            from plyer import vibrator
-            # Test if it actually works without throwing
-            vibrator.vibrate(time=0.001)
-            _vibrator_impl = ('plyer', vibrator)
+            from jnius import autoclass
+            Context = autoclass("android.content.Context")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            sys_vibrator = PythonActivity.mActivity.getSystemService(Context.VIBRATOR_SERVICE)
+            if sys_vibrator and sys_vibrator.hasVibrator():
+                VERSION = autoclass("android.os.Build$VERSION")
+                if VERSION.SDK_INT >= 26:
+                    VibrationEffect = autoclass("android.os.VibrationEffect")
+                    _vibrator_impl = ('jnius_26', (sys_vibrator, VibrationEffect))
+                else:
+                    _vibrator_impl = ('jnius_old', sys_vibrator)
         except Exception as e:
-            print("Plyer vibration init failed:", e)
+            print("Pyjnius vibration init failed:", e)
             try:
-                from jnius import autoclass
-                Context = autoclass("android.content.Context")
-                PythonActivity = autoclass("org.kivy.android.PythonActivity")
-                sys_vibrator = PythonActivity.mActivity.getSystemService(Context.VIBRATOR_SERVICE)
-                if sys_vibrator and sys_vibrator.hasVibrator():
-                    VERSION = autoclass("android.os.Build$VERSION")
-                    if VERSION.SDK_INT >= 26:
-                        VibrationEffect = autoclass("android.os.VibrationEffect")
-                        _vibrator_impl = ('jnius_26', (sys_vibrator, VibrationEffect))
-                    else:
-                        _vibrator_impl = ('jnius_old', sys_vibrator)
-            except Exception as e:
-                print("Pyjnius vibration init failed:", e)
+                from plyer import vibrator
+                vibrator.vibrate(time=0.001)
+                _vibrator_impl = ('plyer', vibrator)
+            except Exception as e2:
+                print("Plyer vibration init failed:", e2)
 
     if _vibrator_impl:
         try:
@@ -181,13 +180,16 @@ def vibrate_android(ms):
             if kind == 'plyer':
                 impl.vibrate(time=ms / 1000.0)
             elif kind == 'jnius_26':
-                impl[0].vibrate(impl[1].createOneShot(int(ms), impl[1].DEFAULT_AMPLITUDE))
+                if not hasattr(vibrate_android, "cache"):
+                    vibrate_android.cache = {}
+                if ms not in vibrate_android.cache:
+                    vibrate_android.cache[ms] = impl[1].createOneShot(int(ms), impl[1].DEFAULT_AMPLITUDE)
+                impl[0].vibrate(vibrate_android.cache[ms])
             elif kind == 'jnius_old':
                 impl.vibrate(int(ms))
             return
         except Exception as e:
             print("Vibration failed during use:", e)
-            _vibrator_impl = None
 
     try:
         if pygame.joystick.get_count() > 0:
