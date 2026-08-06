@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 85"
+VERSION = "3.0 Build 86"
 
 
 class CachedFont:
@@ -3627,6 +3627,10 @@ class WinCurl3:
 
     def handle_save_slots_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            now = pygame.time.get_ticks()
+            if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
+                return
+            self.last_click_time = now
             mx, my = self.get_pointer_pos()
             cx = BASE_WIDTH // 2
 
@@ -3647,6 +3651,10 @@ class WinCurl3:
 
     def handle_bot_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            now = pygame.time.get_ticks()
+            if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
+                return
+            self.last_click_time = now
             mx, my = self.get_pointer_pos()
             cx = BASE_WIDTH // 2
 
@@ -3680,10 +3688,17 @@ class WinCurl3:
 
     def handle_story_map_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            now = pygame.time.get_ticks()
+            if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
+                return
+            self.last_click_time = now
             m = getattr(event, "pos", self.get_pointer_pos())
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            print(f'STORY CLICK mx={mx} my={my}')
 
             if self.app_state == "STORY_DIALOG":
+                if pygame.time.get_ticks() - getattr(self, "dialog_time", 0) < 300:
+                    return
                 self.audio.play_click()
                 idx = getattr(self.story, "replay_rink_idx", self.story.current_rink)
                 rink = STORY_RINKS[min(idx, len(STORY_RINKS) - 1)]
@@ -3716,7 +3731,7 @@ class WinCurl3:
                         return
 
             if getattr(self, "saved_match_state", None):
-                cont_btn = pygame.Rect(BASE_WIDTH // 2 - 200, 750, 400, 80)
+                cont_btn = pygame.Rect(BASE_WIDTH // 2 - 300, 780, 600, 140)
                 new_btn = pygame.Rect(BASE_WIDTH // 2 - 200, 1000, 400, 80)
                 if cont_btn.collidepoint(mx, my):
                     self.audio.play_click()
@@ -4803,7 +4818,7 @@ class WinCurl3:
                     self._port_small_cache[rink["boss"]] = pygame.transform.smoothscale(self.img_portraits[rink["boss"]], (trophy_w, trophy_w))
                 self.canvas.blit(self._port_small_cache[rink["boss"]], (start_x + i * (trophy_w + spacing), 185 - trophy_w // 2))
             else:
-                draw_trophy(self.canvas, start_x + i * (trophy_w + spacing), 185 - trophy_w // 2, size=trophy_w)
+                draw_trophy(self.canvas, start_x + i * (trophy_w + spacing), 185, size=trophy_w)
 
 
         xp_needed = getattr(self.story, "level", 1) * 100
@@ -4859,7 +4874,7 @@ class WinCurl3:
                 rink_txt = self.font.render(f"Next: {rink['name']} ({rink['boss']})", True, rink["color"])
                 self.canvas.blit(rink_txt, (cx - rink_txt.get_width() // 2, 640))
 
-                if getattr(self.story, "saved_match_state", None):
+                if getattr(self, "saved_match_state", None):
                     start_btn = pygame.Rect(cx - 300, 780, 600, 140)
                     draw_glass_rect(
                         self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos())
