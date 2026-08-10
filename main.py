@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 85"
+VERSION = "3.0 Build 87"
 
 
 class CachedFont:
@@ -28,7 +28,7 @@ class CachedFont:
     def render(self, text, antialias, color, background=None):
         key = (text, antialias, str(color), str(background))
         if key not in self.cache:
-            if len(self.cache) > 2000:
+            if len(self.cache) > 50:
                 del self.cache[next(iter(self.cache))]
             if background:
                 self.cache[key] = self.font.render(text, antialias, color, background)
@@ -5529,7 +5529,9 @@ class WinCurl3:
         # 2. Draw global UI / scoreboard so it is visible as requested
         self.draw_ui()
 
-        self.pause_anim += (1.0 - self.pause_anim) * 0.15
+        # Delta-time independent exponential decay for animation
+        mult = getattr(self, "time_mult", 1.0)
+        self.pause_anim += (1.0 - self.pause_anim) * (1.0 - math.pow(0.85, mult))
         m_pos = self.get_pointer_pos()
 
         lbl_p = self.font_85.render("PAUSED", True, WHITE)
