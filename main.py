@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 88"
+VERSION = "3.0 Build 89"
 
 
 class CachedFont:
@@ -3162,8 +3162,6 @@ class WinCurl3:
         self.particles = []
         self.sweep_particles = []
         self.stones = []
-        import gc
-        gc.collect()
         pygame.event.set_grab(False)
         pygame.mouse.set_visible(True)
         if self.game_mode in ["HOST", "JOIN"]:
@@ -3176,8 +3174,6 @@ class WinCurl3:
         self.score = {0: [0] * 8, 1: [0] * 8}
         self.current_end = 1
         self.total_stones_played = 0
-        import gc
-        gc.collect()
         self.stones_per_team = 8
         self.stones = []
         self.stones_thrown = {0: 0, 1: 0}
@@ -3268,8 +3264,6 @@ class WinCurl3:
         self.stones_thrown = {0: 0, 1: 0}
         self.particles = []
         self.sweep_particles = []
-        import gc
-        gc.collect()
         self.current_team = 1 if getattr(self, "hammer_team", 0) == 0 else 0
         self.reset_turn_vars()
 
@@ -3561,7 +3555,7 @@ class WinCurl3:
                 self.save_match()
 
     def handle_menu_events(self, event):
-        mouse_pos = getattr(event, "pos", self.get_pointer_pos())
+        mouse_pos = self.get_pointer_pos()
         mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, (
             mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
         )
@@ -3647,7 +3641,7 @@ class WinCurl3:
 
     def handle_lobby_browser_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             
             if hasattr(self, "btn_lobby_cancel") and self.btn_lobby_cancel.collidepoint(mx, my):
@@ -3690,7 +3684,7 @@ class WinCurl3:
 
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             
             if self.prompt_rect.collidepoint(mx, my):
@@ -3738,7 +3732,7 @@ class WinCurl3:
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
 
             if self.btn_return_menu.collidepoint(mx, my):
@@ -3762,7 +3756,8 @@ class WinCurl3:
             if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
                 return
             self.last_click_time = now
-            mx, my = self.get_pointer_pos()
+            m = self.get_pointer_pos()
+            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             cx = BASE_WIDTH // 2
 
             for i in range(3):
@@ -3786,7 +3781,8 @@ class WinCurl3:
             if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
                 return
             self.last_click_time = now
-            mx, my = self.get_pointer_pos()
+            m = self.get_pointer_pos()
+            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             cx = BASE_WIDTH // 2
 
             if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode") == getattr(
@@ -3823,7 +3819,7 @@ class WinCurl3:
             if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
                 return
             self.last_click_time = now
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             print(f'STORY CLICK mx={mx} my={my}')
 
@@ -3831,7 +3827,8 @@ class WinCurl3:
                 if pygame.time.get_ticks() - getattr(self, "dialog_time", 0) < 300:
                     return
                 self.audio.play_click()
-                idx = getattr(self.story, "replay_rink_idx", self.story.current_rink)
+                r_idx = getattr(self.story, "replay_rink_idx", None)
+                idx = r_idx if r_idx is not None else getattr(self.story, "current_rink", 0)
                 rink = STORY_RINKS[min(idx, len(STORY_RINKS) - 1)]
                 self.dialog_index += 1
                 self.dialog_time = pygame.time.get_ticks()
@@ -3904,7 +3901,7 @@ class WinCurl3:
 
     def handle_pause_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_resume.collidepoint(mx, my):
                 self.audio.play_click()
@@ -3923,7 +3920,7 @@ class WinCurl3:
 
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if getattr(self, "btn_leaderboard", None) and self.btn_leaderboard.collidepoint(mx, my):
                 self.audio.play_click()
@@ -3959,14 +3956,14 @@ class WinCurl3:
 
     def handle_leaderboard_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = getattr(event, "pos", self.get_pointer_pos())
+            m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 self.app_state = "MATCH_OVER"
 
     def handle_play_events(self, event):
-        mouse_pos = getattr(event, "pos", self.get_pointer_pos())
+        mouse_pos = self.get_pointer_pos()
         if isinstance(mouse_pos, tuple):
             mouse_pos = pygame.math.Vector2(mouse_pos)
         f_id = getattr(event, "finger_id", "mouse")
@@ -4409,7 +4406,11 @@ class WinCurl3:
                     else (
                         f"STATUS: Hosting {self.net.room_display}... Waiting."
                         if getattr(self.net, "is_host", False) and self.net.running
-                        else "STATUS: Offline Ready"
+                        else (
+                            f"STATUS: Joining {self.net.room_display}... Waiting."
+                            if not getattr(self.net, "is_host", False) and self.net.running
+                            else "STATUS: Offline Ready"
+                        )
                     )
                 )
             )
@@ -4836,7 +4837,7 @@ class WinCurl3:
         self.draw_global_ui()
 
     def handle_options_events(self, event):
-        mouse_pos = getattr(event, "pos", self.get_pointer_pos())
+        mouse_pos = self.get_pointer_pos()
         mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, (
             mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
         )
@@ -5111,7 +5112,8 @@ class WinCurl3:
         ]
         self.btn_upgrades = {}
 
-        idx = getattr(self.story, "replay_rink_idx", self.story.current_rink)
+        r_idx = getattr(self.story, "replay_rink_idx", None)
+        idx = r_idx if r_idx is not None else getattr(self.story, "current_rink", 0)
         if idx < len(STORY_RINKS):
             rink = STORY_RINKS[idx]
         else:
@@ -6300,7 +6302,7 @@ class IRCNetworkManager:
         if len(self.username) == 3:
             self.username += str(random.randint(100, 999))
 
-        safe_room = "".join(c for c in room_name if c.isalnum()) or "default"
+        safe_room = "".join(c for c in room_name if c.isalnum()).lower() or "default"
         self.channel = f"#wc3_{safe_room}"
         self.room_display = f"{safe_room}"
 
@@ -6308,6 +6310,7 @@ class IRCNetworkManager:
         self.connection_error = ""
         self.is_host = is_host
         self.room_passcode = passcode
+        self.scanning_lobby = False
         self.connecting = True
         self.running = True
         import sys
@@ -6337,57 +6340,71 @@ class IRCNetworkManager:
         def enc_msg(msg_dict):
             return "Z" + base64.b64encode(zlib.compress(json.dumps(msg_dict).encode("utf-8"))).decode("utf-8")
 
+        sock = None
         try:
-            # create_connection handles both IPv4 and IPv6 automatically and safely.
-            # Using EFNet to avoid connection restrictions, Rizon/DALnet often block VMs.
-            self.sock = socket.create_connection(("irc.efnet.org", 6667), timeout=5.0)
-            self.sock.settimeout(None)
-            self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5.0)
+            try:
+                sock.connect(("irc.dal.net", 6667))
+            except Exception as e:
+                print("DNS/IPv6 Failed, trying IPv4 fallback:", e)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5.0)
+                sock.connect(("irc.dal.net", 6667))
+            
+            self.sock = sock
+            sock.settimeout(None)
+            sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
             buffer = ""
             last_hello_time = 0
-            while self.running:
+            while self.running and getattr(self, 'sock', None) is sock:
                 if self.scanning_lobby:
                     pass
                 elif not self.is_host and not self.connecting and not self.matched:
                     if time.time() - last_hello_time > 3.0:
-                        self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
+                        sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
                         last_hello_time = time.time()
-                elif self.is_host and not self.matched:
+                elif self.is_host and not self.connecting and not self.matched:
                     if time.time() - self.last_ad_time > 5.0:
                         locked = bool(self.room_passcode)
-                        self.sock.send(f"PRIVMSG #wc3_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked})}\r\n".encode())
+                        sock.send(f"PRIVMSG #wc3_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked})}\r\n".encode())
                         self.last_ad_time = time.time()
 
-                while not self.tx_queue.empty():
-                    msg = self.tx_queue.get()
-                    if self.matched and self.opponent:
-                        self.sock.send(f"PRIVMSG {self.opponent} :{enc_msg(msg)}\r\n".encode())
-
-                self.sock.settimeout(0.1)
                 try:
-                    data = self.sock.recv(4096).decode("utf-8", errors="ignore")
+                    if not self.tx_queue.empty():
+                        sock.settimeout(5.0)
+                        while not self.tx_queue.empty():
+                            msg = self.tx_queue.get()
+                            if self.matched and self.opponent:
+                                sock.send(f"PRIVMSG {self.channel} :{enc_msg(msg)}\r\n".encode())
+                                
+                    sock.settimeout(0.1)
+                    data = sock.recv(4096).decode("utf-8", errors="ignore")
                     if not data:
+                        self.connection_error = "Server closed connection"
                         break
                     buffer += data
                     while "\r\n" in buffer:
                         line, buffer = buffer.split("\r\n", 1)
+                        if line.startswith("ERROR :"):
+                            self.connection_error = line[7:]
                         parts = line.split(" ")
                         if parts[0] == "PING":
-                            self.sock.send(f"PONG {parts[1]}\r\n".encode())
+                            sock.send(f"PONG {parts[1] if len(parts) > 1 else ''}\r\n".encode())
                         elif len(parts) > 1 and parts[1] == "433":
                             self.username += "too"
-                            self.sock.send(f"NICK {self.username}\r\n".encode())
+                            sock.send(f"NICK {self.username}\r\n".encode())
                         elif len(parts) > 1 and parts[1] in ("001", "376", "422"):
                             if self.scanning_lobby:
-                                self.sock.send("JOIN #wc3_lobby\r\n".encode())
+                                sock.send("JOIN #wc3_lobby\r\n".encode())
                                 self.connecting = False
                             else:
-                                self.sock.send(f"JOIN {self.channel}\r\n".encode())
+                                sock.send(f"JOIN {self.channel}\r\n".encode())
                                 if self.is_host:
-                                    self.sock.send("JOIN #wc3_lobby\r\n".encode())
+                                    sock.send("JOIN #wc3_lobby\r\n".encode())
                                     self.connecting = False
                                 else:
-                                    self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
+                                    sock.send("JOIN #wc3_lobby\r\n".encode())
                                     self.connecting = False
                         elif len(parts) > 2 and parts[1] in ("PART", "QUIT"):
                             sender = parts[0].split("!")[0][1:]
@@ -6397,6 +6414,11 @@ class IRCNetworkManager:
                             sender = parts[0].split("!")[0][1:]
                             target = parts[2]
                             msg_content = line.split(" :", 1)[1]
+                            
+                            if "VERSION" in msg_content:
+                                sock.send(f"NOTICE {sender} :\x01VERSION WinCurl 1.0\x01\r\n".encode())
+                                continue
+
                             try:
                                 if msg_content.startswith("Z"):
                                     raw = zlib.decompress(base64.b64decode(msg_content[1:])).decode("utf-8")
@@ -6410,15 +6432,15 @@ class IRCNetworkManager:
                                         self.lobby_rooms[room_id] = {"locked": msg_data.get("locked", False), "last_seen": time.time()}
                                         # Cleanup old
                                         self.lobby_rooms = {k: v for k, v in self.lobby_rooms.items() if time.time() - v["last_seen"] < 15.0}
-                                elif self.is_host and target == self.channel and msg_data.get("cmd") == "hello":
+                                elif self.is_host and target.lower() == self.channel.lower() and msg_data.get("cmd") == "hello":
                                     client_pass = msg_data.get("passcode", "")
                                     if self.room_passcode and client_pass != self.room_passcode:
                                         continue  # Ignore incorrect passcode
                                     self.opponent = sender
                                     self.matched = True
-                                    self.sock.send(f"PART #wc3_lobby\r\n".encode())
-                                    self.sock.send(
-                                        f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode()
+                                    sock.send(f"PART #wc3_lobby\r\n".encode())
+                                    sock.send(
+                                        f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode()
                                     )
                                 elif not self.is_host and not self.matched and msg_data.get("cmd") == "hello_ack":
                                     self.opponent = sender
@@ -6431,10 +6453,15 @@ class IRCNetworkManager:
                 except socket.timeout:
                     pass
         except Exception as e:
-            self.connection_error = str(e)
-            print("NETWORK ERROR:", e)
+            self.connection_error = str(e) if str(e) else repr(e)
+            import traceback
+            print("NETWORK ERROR:", traceback.format_exc())
         finally:
-            self.close()
+            if sock:
+                if getattr(self, 'sock', None) is sock:
+                    self.sock = None
+                try: sock.close()
+                except: pass
 
     def send_action(self, data_dict):
         if self.matched:
@@ -6448,11 +6475,6 @@ class IRCNetworkManager:
 
     def close(self):
         self.running, self.matched, self.connecting = False, False, False
-        if self.sock:
-            try:
-                self.sock.close()
-            except:
-                pass
 
 
 async def main():
