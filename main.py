@@ -6294,15 +6294,13 @@ class IRCNetworkManager:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.settimeout(5.0)
             try:
-                if getattr(sys, "getandroidapilevel", None) is not None or "IS_ANDROID" in globals() and IS_ANDROID:
-                    self.sock.connect(("194.14.236.50", 6667))
-                else:
-                    self.sock.connect(("irc.dal.net", 6667))
+                # Use a specific server to avoid splits and DNS failures across all platforms
+                self.sock.connect(("194.14.236.50", 6667))
             except Exception as e:
-                print("DNS/IPv6 Failed, trying IPv4 fallback:", e)
+                print("Primary IP Failed, trying DNS fallback:", e)
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.settimeout(5.0)
-                self.sock.connect(("194.14.236.50", 6667))  # Dal.net fallback IP
+                self.sock.connect(("irc.dal.net", 6667))
             self.sock.settimeout(None)
             self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
             buffer = ""
