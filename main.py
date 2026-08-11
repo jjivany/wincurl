@@ -1959,7 +1959,7 @@ class AnimatedCurler:
                 pygame.draw.rect(surf, color, (x + 14, y + 6, w // 2 - 12, h - 12), border_radius=max(0, border_radius - 6))
 
         def head(ix, iy, is_evil=False):
-            cache_key = (self.tc, override_color, is_evil, getattr(self, "skin_tone", (240, 200, 180)), getattr(self, "hair_style", "short"))
+            cache_key = (self.tc, override_color, is_evil, getattr(self, "skin_tone", (240, 200, 180)), getattr(self, "hair_style", "short"), getattr(self, "hair_color", (40, 40, 40)))
             if cache_key not in AnimatedCurler._head_cache:
                 surf = pygame.Surface((60, 80), pygame.SRCALPHA)
                 cx, cy = 30, 40
@@ -1988,7 +1988,7 @@ class AnimatedCurler:
                     rng = random.Random(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
                     hair_poly = []
                     shade = max(0, self.tc[0] - 100)
-                    hair_color = (shade, int(shade * 0.75), int(shade * 0.55))
+                    hair_color = getattr(self, "hair_color", (shade, int(shade * 0.75), int(shade * 0.55)))
 
                     # Draw spiky procedural hair
                     for angle in range(0, 361, 15):
@@ -2756,7 +2756,7 @@ class WinCurl3:
             {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
             {"id": "skin_tone", "y": 750, "text": "Skin Tone", "color": (240, 200, 180), "scale": 1.0},
             {"id": "hair_style", "y": 840, "text": "Hair: Short", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "hair_color", "y": 930, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
+            {"id": "hair_color", "y": 930, "text": "Hair Colour", "color": (100, 50, 20), "scale": 1.0},
             {"id": "hi_res_mode", "y": 1020, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "update", "y": 1200, "text": "Check for Update", "color": (130, 140, 155), "scale": 1.0},
@@ -2893,6 +2893,7 @@ class WinCurl3:
         self.preferred_color = 0
         self.skin_tone = (240, 200, 180)
         self.hair_style = "short"
+        self.hair_color = (100, 50, 20)
         self.room_text = ""
         self.passcode_text = ""
         self.ai_difficulty = 5
@@ -2917,6 +2918,7 @@ class WinCurl3:
                 self.preferred_color = data.get("color", 0)
                 self.skin_tone = tuple(data.get("skin_tone", [240, 200, 180]))
                 self.hair_style = data.get("hair_style", "short")
+                self.hair_color = tuple(data.get("hair_color", [100, 50, 20]))
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
@@ -3022,6 +3024,7 @@ class WinCurl3:
                 "color": self.preferred_color,
                 "skin_tone": list(self.skin_tone),
                 "hair_style": self.hair_style,
+                "hair_color": list(getattr(self, "hair_color", (100, 50, 20))),
                 "room": self.room_text,
                 "bot_skill": self.ai_difficulty,
                 "challenge_completed_seen": getattr(self, "challenge_completed_seen", False),
@@ -3655,7 +3658,7 @@ class WinCurl3:
                 self.audio.play_click()
                 self.net.close()
                 self.app_state = "ROOM_PROMPT"
-                self.typing_target = "room"
+                self.set_typing_target("room")
                 self.net_action = "host"
                 return
                 
@@ -3668,7 +3671,7 @@ class WinCurl3:
                         self.net_action = "join"
                         if b["locked"]:
                             self.app_state = "LOBBY_PASSCODE_PROMPT"
-                            self.typing_target = "passcode"
+                            self.set_typing_target("passcode")
                             self.passcode_text = ""
                         else:
                             self.game_mode = "JOIN"
@@ -3681,9 +3684,9 @@ class WinCurl3:
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             
             if self.prompt_rect.collidepoint(mx, my):
-                self.typing_target = "room"
+                self.set_typing_target("room")
             elif hasattr(self, "passcode_rect") and self.passcode_rect.collidepoint(mx, my):
-                self.typing_target = "passcode"
+                self.set_typing_target("passcode")
             else:
                 self.app_state = "LOBBY_BROWSER" if getattr(self, "app_state", "") == "LOBBY_PASSCODE_PROMPT" else "MENU"
                 self.set_typing_target(None)
@@ -4317,6 +4320,7 @@ class WinCurl3:
             elif data.get("cmd") == "sync_char":
                 self.opponent_skin_tone = tuple(data["skin"])
                 self.opponent_hair_style = data["hair"]
+                self.opponent_hair_color = tuple(data.get("hair_col", (40, 40, 40)))
             elif data.get("cmd") == "opponent_left":
                 self.app_state = "MATCH_OVER"
                 self.winner_text = "Opponent Disconnected"
@@ -4324,10 +4328,10 @@ class WinCurl3:
 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 25:
             self.net.send_action({"cmd": "coin", "result": self.coin_flip_result})
-            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style})
+            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
         
         if self.app_state == "MENU" and self.net.matched and getattr(self, "sent_sync_char", False) == False:
-            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style})
+            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
             self.sent_sync_char = True
 
     def draw_menu(self):
@@ -4699,7 +4703,7 @@ class WinCurl3:
                 text = f"Hair: {self.hair_style.capitalize()}"
             elif btn["id"] == "hair_color":
                 btn["color"] = getattr(self, "hair_color", (100, 50, 20))
-                text = "Hair Color"
+                text = "Hair Colour"
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -4769,8 +4773,18 @@ class WinCurl3:
                     scale = (rect.w - 40) / img.get_width()
                     img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
                 self.canvas.blit(img, img.get_rect(center=rect.center))
-                if btn["id"] == "back":
-                    self.draw_back_icon(self.canvas, rect.x + 30, rect.centery - 10)
+                
+            if btn["id"] == "back":
+                self.draw_back_icon(self.canvas, rect.x + 30, rect.centery - 10)
+
+        # Draw the character so they can see customization
+        old_pos = getattr(self.curler_anim, "base_pos", pygame.math.Vector2(self.hack_pos))
+        self.curler_anim.base_pos = pygame.math.Vector2(cx + 350, 600 + getattr(self, "menu_dy", 0))
+        self.curler_anim.skin_tone = self.skin_tone
+        self.curler_anim.hair_style = getattr(self, "hair_style", "short")
+        self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
+        self.curler_anim.draw(self.canvas, TEAM_YELLOW if self.preferred_color else HOUSE_RED, is_evil=False)
+        self.curler_anim.base_pos = old_pos
 
         self.draw_global_ui()
 
@@ -6191,9 +6205,11 @@ class WinCurl3:
                     if self.current_team == getattr(self, "preferred_color", 0):
                         self.curler_anim.skin_tone = self.skin_tone
                         self.curler_anim.hair_style = self.hair_style
+                        self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
                     else:
                         self.curler_anim.skin_tone = getattr(self, "opponent_skin_tone", (240, 200, 180))
                         self.curler_anim.hair_style = getattr(self, "opponent_hair_style", "short")
+                        self.curler_anim.hair_color = getattr(self, "opponent_hair_color", (40, 40, 40))
                 
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
                 if self.app_state == "PLAY":
@@ -6278,7 +6294,10 @@ class IRCNetworkManager:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.settimeout(5.0)
             try:
-                self.sock.connect(("irc.dal.net", 6667))
+                if getattr(sys, "getandroidapilevel", None) is not None or "IS_ANDROID" in globals() and IS_ANDROID:
+                    self.sock.connect(("194.14.236.50", 6667))
+                else:
+                    self.sock.connect(("irc.dal.net", 6667))
             except Exception as e:
                 print("DNS/IPv6 Failed, trying IPv4 fallback:", e)
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
