@@ -3664,6 +3664,14 @@ class WinCurl3:
                 self.net_action = "host"
                 return
                 
+            if hasattr(self, "btn_join_name") and self.btn_join_name.collidepoint(mx, my):
+                self.audio.play_click()
+                self.net.close()
+                self.app_state = "ROOM_PROMPT"
+                self.set_typing_target("room")
+                self.net_action = "join"
+                return
+                
             if hasattr(self, "lobby_buttons"):
                 for b in self.lobby_buttons:
                     if b["rect"].collidepoint(mx, my):
@@ -4629,6 +4637,12 @@ class WinCurl3:
             self.lobby_buttons.append({"rect": r_rect, "room_id": room_id, "locked": data["locked"]})
             y += 100
             
+        # Join by name button
+        self.btn_join_name = pygame.Rect(cx - 300, cy + 450, 600, 80)
+        draw_glass_rect(self.canvas, self.btn_join_name, PURPLE_SUIT, 10, animate_sheen=True)
+        txt = self.font.render("Join by Name", True, WHITE)
+        self.canvas.blit(txt, (self.btn_join_name.centerx - txt.get_width() // 2, self.btn_join_name.centery - txt.get_height() // 2))
+
         # Host button
         self.btn_host_room = pygame.Rect(cx - 300, cy + 550, 280, 80)
         draw_glass_rect(self.canvas, self.btn_host_room, HOUSE_BLUE, 10, animate_sheen=True)
