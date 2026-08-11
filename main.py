@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 87"
+VERSION = "3.0 Build 88"
 
 
 class CachedFont:
@@ -738,7 +738,7 @@ class WinCurlAudioEngine:
         return self._create_wav_sound(buf, 44100, cache_key="sega_speech", return_bytes=return_bytes)
 
     def _synthesize_you_win(self, return_bytes=False):
-        cached = self._get_cached_sound("vosim_YOU_WIN_v10_robot", return_bytes=return_bytes)
+        cached = self._get_cached_sound("vosim_YOU_WIN_v11_robot", return_bytes=return_bytes)
         if cached:
             return cached
         SR = 44100
@@ -749,8 +749,8 @@ class WinCurlAudioEngine:
         f1_env = [(0.0, 300), (0.15, 300), (0.45, 300), (0.5, 300), (0.6, 300), (0.8, 450), (1.0, 250)]
         f2_env = [(0.0, 2200), (0.15, 800), (0.45, 800), (0.5, 600), (0.6, 600), (0.8, 2000), (1.0, 1200)]
         f3_env = [(0.0, 3000), (0.15, 2200), (0.45, 2200), (0.5, 2200), (0.6, 2200), (0.8, 2600), (1.0, 2500)]
-        f0_env = [(0.0, 150), (0.3, 200), (0.45, 180), (0.5, 220), (0.8, 200), (1.0, 120)]
-        amp_env = [(0.0, 0.0), (0.05, 1.0), (0.4, 0.8), (0.45, 0.1), (0.5, 0.0), (0.55, 1.0), (0.8, 1.0), (1.0, 0.0)]
+        f0_env = [(0.0, 250), (0.3, 200), (0.4, 180), (0.5, 260), (0.8, 220), (1.0, 150)]
+        amp_env = [(0.0, 0.0), (0.05, 1.0), (0.35, 1.0), (0.4, 0.0), (0.5, 0.0), (0.55, 1.0), (0.8, 1.0), (0.9, 0.5), (1.0, 0.0)]
         
         def get_val(t, pts):
             for i in range(len(pts) - 1):
@@ -1634,6 +1634,8 @@ class WinCurlAudioEngine:
 # --- Visual Effects & Geometry ---
 class Starfield:
     def __init__(self, count=150, max_w=None, max_h=None):
+        if IS_ANDROID:
+            count = 40
         self.max_h = max_h or BASE_HEIGHT
         self.stars = [
             (random.randint(0, max_w or BASE_WIDTH), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)
@@ -1957,14 +1959,14 @@ class AnimatedCurler:
                 pygame.draw.rect(surf, color, (x + 14, y + 6, w // 2 - 12, h - 12), border_radius=max(0, border_radius - 6))
 
         def head(ix, iy, is_evil=False):
-            cache_key = (self.tc, override_color, is_evil)
+            cache_key = (self.tc, override_color, is_evil, getattr(self, "skin_tone", (240, 200, 180)), getattr(self, "hair_style", "short"))
             if cache_key not in AnimatedCurler._head_cache:
                 surf = pygame.Surface((60, 80), pygame.SRCALPHA)
                 cx, cy = 30, 40
 
                 head_rw, head_rh = 15, 12
                 # Base skin tone
-                pygame.draw.ellipse(surf, c((240, 200, 180)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
+                pygame.draw.ellipse(surf, c(getattr(self, "skin_tone", (240, 200, 180))), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
                 if is_evil and not override_color:
                     # Jagged Wario mustache sticking out the sides
@@ -1994,7 +1996,10 @@ class AnimatedCurler:
                         base_r = head_rw * 1.1
                         # Hair is longer at the bottom/back of the head
                         if 0 <= angle <= 180:
-                            spike = rng.uniform(0, 8)
+                            if getattr(self, "hair_style", "short") == "long":
+                                spike = rng.uniform(5, 22)
+                            else:
+                                spike = rng.uniform(0, 8)
                             r = base_r + spike
                         else:
                             r = base_r
@@ -2215,6 +2220,7 @@ STORY_RINKS = [
             "Synergistic destruction!",
         ],
         "difficulty": 3,
+        "ai_type": "aggressive",
     },
     {
         "name": "Crypto Mine Rink",
@@ -2241,6 +2247,7 @@ STORY_RINKS = [
             "Rug pull!",
         ],
         "difficulty": 5,
+        "ai_type": "defensive",
     },
     {
         "name": "Social Media Hub",
@@ -2266,6 +2273,7 @@ STORY_RINKS = [
             "You didn't pass the vibe check!",
         ],
         "difficulty": 6,
+        "ai_type": "chaotic",
     },
     {
         "name": "The Grand Arena",
@@ -2287,6 +2295,7 @@ STORY_RINKS = [
             "Bow before the Elite!",
         ],
         "difficulty": 7,
+        "ai_type": "balanced",
     },
     {
         "name": "AI Startup Arena",
@@ -2312,6 +2321,7 @@ STORY_RINKS = [
             "Garbage in, garbage out!",
         ],
         "difficulty": 7,
+        "ai_type": "aggressive",
     },
     {
         "name": "Metaverse Dome",
@@ -2337,6 +2347,7 @@ STORY_RINKS = [
             "Your graphics card is too weak!",
         ],
         "difficulty": 8,
+        "ai_type": "defensive",
     },
     {
         "name": "Big Data Complex",
@@ -2362,6 +2373,7 @@ STORY_RINKS = [
             "Ransomware activated!",
         ],
         "difficulty": 9,
+        "ai_type": "chaotic",
     },
     {
         "name": "Cloud Host Club",
@@ -2388,6 +2400,7 @@ STORY_RINKS = [
             "Blue screen of death!",
         ],
         "difficulty": 10,
+        "ai_type": "balanced",
     },
 ]
 
@@ -2715,7 +2728,8 @@ class WinCurl3:
         self.pause_anim = 0.0
         self.typing_target = None
         self.net_action = None
-        self.prompt_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 - 50, 700, 120)
+        self.prompt_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 - 120, 700, 120)
+        self.passcode_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 + 50, 700, 120)
 
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT - 260, 200, 90), pygame.Rect(
             BASE_WIDTH - 320, BASE_HEIGHT - 260, 200, 90
@@ -2740,10 +2754,13 @@ class WinCurl3:
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
             {"id": "name", "y": 570, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
             {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "hi_res_mode", "y": 750, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "smoothscale", "y": 840, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1020, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1110, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "skin_tone", "y": 750, "text": "Skin Tone", "color": (240, 200, 180), "scale": 1.0},
+            {"id": "hair_style", "y": 840, "text": "Hair: Short", "color": (130, 140, 155), "scale": 1.0},
+            {"id": "hair_color", "y": 930, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 1020, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1200, "text": "Check for Update", "color": (130, 140, 155), "scale": 1.0},
+            {"id": "back", "y": 1290, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
         ]
         self.last_hovered = None
 
@@ -2874,7 +2891,10 @@ class WinCurl3:
         self.challenge_progress = [False] * 25
         self.username = ""
         self.preferred_color = 0
+        self.skin_tone = (240, 200, 180)
+        self.hair_style = "short"
         self.room_text = ""
+        self.passcode_text = ""
         self.ai_difficulty = 5
         self.challenge_completed_seen = False
         self.is_music_muted = False
@@ -2895,6 +2915,8 @@ class WinCurl3:
                 data = json.load(f)
                 self.username = data.get("username", "")
                 self.preferred_color = data.get("color", 0)
+                self.skin_tone = tuple(data.get("skin_tone", [240, 200, 180]))
+                self.hair_style = data.get("hair_style", "short")
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
@@ -2998,6 +3020,8 @@ class WinCurl3:
                 "local_slots": self.local_slots_data,
                 "username": self.username,
                 "color": self.preferred_color,
+                "skin_tone": list(self.skin_tone),
+                "hair_style": self.hair_style,
                 "room": self.room_text,
                 "bot_skill": self.ai_difficulty,
                 "challenge_completed_seen": getattr(self, "challenge_completed_seen", False),
@@ -3015,29 +3039,20 @@ class WinCurl3:
             print(f"Game Progress Save Failed: {e}")
 
     def update_menu_buttons(self):
-        self.menu_buttons = []
-        mode = getattr(self, "game_mode", "")
-        if self.saved_match_state:
-            if mode == "LOCAL":
-                self.menu_buttons.insert(1, {"id": "res_local", "y": 600, "text": "Resume Local", "color": (150, 200, 255), "scale": 1.0})
-            elif mode == "BOT":
-                self.menu_buttons.insert(2, {"id": "res_bot", "y": 720, "text": "Resume vs Bot", "color": (150, 200, 255), "scale": 1.0})
-            elif mode == "STORY":
-                self.menu_buttons.insert(0, {"id": "resume", "y": 360, "text": "Resume Story", "color": (150, 200, 255), "scale": 1.0})
-            elif mode == "CHALLENGE":
-                self.menu_buttons.insert(0, {"id": "res_chal", "y": 360, "text": "Resume Challenge", "color": (150, 200, 255), "scale": 1.0})
-        self.menu_buttons.extend(
-            [
-                {"id": "story", "y": 480, "text": "Story Mode", "color": (100, 200, 100), "scale": 1.0},
-                {"id": "local", "y": 600, "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
-                {"id": "bot", "y": 720, "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
-                {"id": "chal", "y": 840, "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
-                {"id": "options", "y": 960, "text": "Options", "color": HOUSE_RED, "scale": 1.0},
-                {"id": "host", "y": 1080, "text": "Host IRC", "color": HOUSE_BLUE, "scale": 1.0},
-                {"id": "join", "y": 1200, "text": "Join IRC", "color": HOUSE_BLUE, "scale": 1.0},
-                {"id": "exit", "y": 1320, "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0},
-            ]
-        )
+        self.menu_buttons = [
+            {"id": "story", "text": "Story Mode", "color": (100, 200, 100), "scale": 1.0},
+            {"id": "local", "text": "Local 1v1", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "bot", "text": "Local vs Bot", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "chal", "text": "Challenge Mode", "color": PURPLE_SUIT, "scale": 1.0},
+            {"id": "options", "text": "Options", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "multiplayer", "text": "Multiplayer (IRC)", "color": HOUSE_BLUE, "scale": 1.0},
+            {"id": "exit", "text": "Exit Game", "color": HOUSE_RED, "scale": 1.0},
+        ]
+        
+        current_y = 480
+        for btn in self.menu_buttons:
+            btn["y"] = current_y
+            current_y += 120
 
     def save_match(self):
         state = {
@@ -3183,6 +3198,8 @@ class WinCurl3:
                     self.match_ai_difficulty = min(10, self.match_ai_difficulty + 1)
             else:
                 self.match_ai_difficulty = self.ai_difficulty
+                if getattr(self, "game_mode", None) == "BOT":
+                    self.match_ai_type = random.choice(["aggressive", "defensive", "chaotic", "balanced"])
             self.app_state = "COIN_TOSS"
             self.coin_timer = 30
             self.coin_flip_result = random.choice([0, 1])
@@ -3300,12 +3317,32 @@ class WinCurl3:
 
     def execute_ai(self):
         diff = int(getattr(self, "match_ai_difficulty", 5))
+        ai_type = getattr(self, "match_ai_type", "balanced")
+        if getattr(self, "game_mode", None) == "STORY":
+            rink_idx = min(getattr(self.story, "current_rink", 0), len(STORY_RINKS) - 1) if getattr(self, "story", None) else 0
+            ai_type = STORY_RINKS[rink_idx].get("ai_type", "balanced")
+
         err_mult = max(0.1, 3.0 - ((diff - 1) * 0.32))
         takeout_chance = min(0.9, (diff - 1) * 0.1)
         guard_chance = min(0.8, 0.1 + (diff - 1) * 0.08)
+
+        if ai_type == "aggressive":
+            takeout_chance = min(0.95, takeout_chance + 0.3)
+            guard_chance = max(0.05, guard_chance - 0.2)
+            err_mult *= 1.15
+        elif ai_type == "defensive":
+            takeout_chance = max(0.05, takeout_chance - 0.2)
+            guard_chance = min(0.95, guard_chance + 0.3)
+            err_mult *= 0.85
+        elif ai_type == "chaotic":
+            takeout_chance = random.uniform(0.1, 0.9)
+            guard_chance = random.uniform(0.1, 0.9)
+            err_mult *= random.uniform(0.5, 2.0)
+
         params = {"error_multiplier": err_mult, "takeout_chance": takeout_chance, "guard_chance": guard_chance}
 
         if not hasattr(self, "ai_wait_start"):
+            print(f"[AI] Type: {ai_type} | Diff: {diff} | ErrMult: {err_mult:.2f} | Takeout: {takeout_chance:.2f} | Guard: {guard_chance:.2f}")
             self.ai_wait_start = pygame.time.get_ticks()
             return
 
@@ -3320,7 +3357,20 @@ class WinCurl3:
         p_stones = sorted(
             [s for s in self.stones if s.team == 0 and s != self.active_stone], key=lambda s: (s.pos - self.house_pos).length()
         )
-        if p_stones and (p_stones[0].pos - self.house_pos).length() < 170 and random.random() < params["takeout_chance"]:
+        
+        my_stones = sorted(
+            [s for s in self.stones if s.team == 1 and s != self.active_stone], key=lambda s: (s.pos - self.house_pos).length()
+        )
+        has_shot_stone = False
+        if my_stones and p_stones:
+            if (my_stones[0].pos - self.house_pos).length() < (p_stones[0].pos - self.house_pos).length():
+                has_shot_stone = True
+                
+        if has_shot_stone and random.random() < params["guard_chance"]:
+            # Throw a guard
+            guard_dist = random.uniform(200, 350)
+            target = self.house_pos + pygame.math.Vector2(random.uniform(-10, 10), guard_dist)
+        elif p_stones and (p_stones[0].pos - self.house_pos).length() < 170 and random.random() < params["takeout_chance"]:
             target = p_stones[0].pos + pygame.math.Vector2(random.uniform(-2, 2) * err, 12)
 
         req_spd = max(
@@ -3560,10 +3610,9 @@ class WinCurl3:
                         elif b["id"] == "options":
                             self.app_state = "OPTIONS_MENU"
                             self.prev_state = "MENU"
-                        elif b["id"] in ["host", "join"]:
-                            self.app_state = "ROOM_PROMPT"
-                            new_target = "room"
-                            self.net_action = b["id"]
+                        elif b["id"] == "multiplayer":
+                            self.app_state = "LOBBY_BROWSER"
+                            self.net.scan_lobby()
                         elif b["id"] == "exit":
                             self.net.close()
                             pygame.quit()
@@ -3591,47 +3640,85 @@ class WinCurl3:
                     self.username += event.unicode
                     self.save_progress()
 
+    def handle_lobby_browser_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            m = getattr(event, "pos", self.get_pointer_pos())
+            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            
+            if hasattr(self, "btn_lobby_cancel") and self.btn_lobby_cancel.collidepoint(mx, my):
+                self.audio.play_click()
+                self.net.close()
+                self.app_state = "MENU"
+                return
+                
+            if hasattr(self, "btn_host_room") and self.btn_host_room.collidepoint(mx, my):
+                self.audio.play_click()
+                self.net.close()
+                self.app_state = "ROOM_PROMPT"
+                self.typing_target = "room"
+                self.net_action = "host"
+                return
+                
+            if hasattr(self, "lobby_buttons"):
+                for b in self.lobby_buttons:
+                    if b["rect"].collidepoint(mx, my):
+                        self.audio.play_click()
+                        self.room_text = b["room_id"]
+                        self.net.close()
+                        self.net_action = "join"
+                        if b["locked"]:
+                            self.app_state = "LOBBY_PASSCODE_PROMPT"
+                            self.typing_target = "passcode"
+                            self.passcode_text = ""
+                        else:
+                            self.game_mode = "JOIN"
+                            self.net.connect(self.username, False, self.room_text, getattr(self, "preferred_color", 0), "")
+                        return
+
     def handle_room_prompt_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             m = getattr(event, "pos", self.get_pointer_pos())
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            if not self.prompt_rect.collidepoint(mx, my):
-                self.app_state = "MENU"
+            
+            if self.prompt_rect.collidepoint(mx, my):
+                self.typing_target = "room"
+            elif hasattr(self, "passcode_rect") and self.passcode_rect.collidepoint(mx, my):
+                self.typing_target = "passcode"
+            else:
+                self.app_state = "LOBBY_BROWSER" if getattr(self, "app_state", "") == "LOBBY_PASSCODE_PROMPT" else "MENU"
                 self.set_typing_target(None)
-            elif IS_ANDROID:
-                self.audio.play_click()
-                self.save_progress()
-                self.app_state = "MENU"
-                self.set_typing_target(None)
-                self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
-                self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0))
+                if self.app_state == "LOBBY_BROWSER":
+                    self.net.scan_lobby()
 
-        if event.type == KEYDOWN and self.typing_target == "room":
-            if event.key in (K_RETURN, K_KP_ENTER) and len(self.room_text) > 0:
+        if event.type == KEYDOWN:
+            if event.key in (K_RETURN, K_KP_ENTER):
+                if self.typing_target == "room" and len(self.room_text) == 0:
+                    return
                 self.audio.play_click()
                 self.save_progress()
+                prev = self.app_state
                 self.app_state = "MENU"
                 self.set_typing_target(None)
                 self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
-                self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0))
+                if prev == "LOBBY_PASSCODE_PROMPT":
+                    self.game_mode = "JOIN"
+                self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0), self.passcode_text)
             elif event.key == K_ESCAPE:
-                self.app_state = "MENU"
+                self.app_state = "LOBBY_BROWSER" if getattr(self, "app_state", "") == "LOBBY_PASSCODE_PROMPT" else "MENU"
                 self.set_typing_target(None)
+                if self.app_state == "LOBBY_BROWSER":
+                    self.net.scan_lobby()
             elif event.key == K_BACKSPACE:
-                self.room_text = self.room_text[:-1]
+                if self.typing_target == "room":
+                    self.room_text = self.room_text[:-1]
+                elif self.typing_target == "passcode":
+                    self.passcode_text = self.passcode_text[:-1]
                 self.save_progress()
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             m = getattr(event, "pos", self.get_pointer_pos())
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode", "") == "CHALLENGE":
-                start_btn = pygame.Rect(BASE_WIDTH // 2 - 250, 190, 500, 100)
-                if start_btn.collidepoint(mx, my):
-                    self.audio.play_click()
-                    self.audio.stop_music()
-                    self.restore_match()
-                    return
 
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
@@ -3684,13 +3771,13 @@ class WinCurl3:
             if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode") == getattr(
                 self, "game_mode", ""
             ):
-                start_btn = pygame.Rect(cx - 200, 450, 400, 100)
+                start_btn = pygame.Rect(cx - 250, 420, 500, 120)
                 if start_btn.collidepoint(mx, my):
                     self.audio.play_click()
                     self.audio.stop_music()
                     self.restore_match()
                     return
-                new_btn = pygame.Rect(cx - 200, 600, 400, 100)
+                new_btn = pygame.Rect(cx - 200, 580, 400, 80)
                 if new_btn.collidepoint(mx, my):
                     self.audio.play_click()
                     self.saved_match_state = None
@@ -3698,7 +3785,7 @@ class WinCurl3:
                     self.start_match()
                     return
             else:
-                start_btn = pygame.Rect(cx - 200, 500, 400, 100)
+                start_btn = pygame.Rect(cx - 250, 420, 500, 120)
                 if start_btn.collidepoint(mx, my):
                     self.audio.play_click()
                     self.audio.stop_music()
@@ -3943,7 +4030,7 @@ class WinCurl3:
                     pygame.event.set_grab(True)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, "drag_start_pos", None):
                 if f_id == getattr(self, "drag_finger_id", None) or (IS_ANDROID and f_id == "mouse"):
-                    self.virtual_pull = mouse_pos - self.drag_start_pos
+                    self.virtual_pull = (mouse_pos - self.drag_start_pos) * 0.70
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5:
                         self.pull_history.pop(0)
@@ -4227,6 +4314,9 @@ class WinCurl3:
                 self.stones = new_stones
             elif data.get("cmd") == "set_color":
                 self.preferred_color = 1 - data["color"]
+            elif data.get("cmd") == "sync_char":
+                self.opponent_skin_tone = tuple(data["skin"])
+                self.opponent_hair_style = data["hair"]
             elif data.get("cmd") == "opponent_left":
                 self.app_state = "MATCH_OVER"
                 self.winner_text = "Opponent Disconnected"
@@ -4234,6 +4324,11 @@ class WinCurl3:
 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 25:
             self.net.send_action({"cmd": "coin", "result": self.coin_flip_result})
+            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style})
+        
+        if self.app_state == "MENU" and self.net.matched and getattr(self, "sent_sync_char", False) == False:
+            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style})
+            self.sent_sync_char = True
 
     def draw_menu(self):
         self.frames_since_start = getattr(self, "frames_since_start", 0) + 1
@@ -4250,13 +4345,15 @@ class WinCurl3:
 
         if (
             not getattr(self, "is_music_muted", False)
-            and self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU"]
+            and self.app_state in ["MENU", "ROOM_PROMPT", "LOBBY_BROWSER", "LOBBY_PASSCODE_PROMPT", "CHALLENGE_MENU", "OPTIONS_MENU"]
             and self.frames_since_start >= 210
         ):
             self.audio.play_music()
         elif getattr(self, "is_music_muted", False) or self.app_state not in [
             "MENU",
             "ROOM_PROMPT",
+            "LOBBY_BROWSER",
+            "LOBBY_PASSCODE_PROMPT",
             "CHALLENGE_MENU",
             "OPTIONS_MENU",
         ]:
@@ -4487,24 +4584,80 @@ class WinCurl3:
             return
         threading.Thread(target=_fetch, daemon=True).start()
 
+    def draw_lobby_browser(self):
+        self.draw_menu()
+        self.canvas.blit(self.dark_overlay_200, (0, 0))
+        cx, cy = BASE_WIDTH // 2, BASE_HEIGHT // 2
+        
+        lbl_v = self.font_62.render("MULTIPLAYER LOBBY", True, WHITE)
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, cy - 600))
+        
+        y = cy - 400
+        rooms = list(self.net.lobby_rooms.items())
+        
+        if not rooms:
+            empty_txt = self.font.render("Scanning for rooms...", True, (150, 160, 180))
+            self.canvas.blit(empty_txt, (cx - empty_txt.get_width() // 2, y))
+        
+        self.lobby_buttons = []
+        for i, (room_id, data) in enumerate(rooms):
+            if i > 8: break # Max 9 rooms displayed
+            r_rect = pygame.Rect(cx - 300, y, 600, 80)
+            draw_glass_rect(self.canvas, r_rect, (30, 40, 60), 10, animate_sheen=False)
+            txt_color = WHITE
+            rtxt = self.font.render(room_id, True, txt_color)
+            self.canvas.blit(rtxt, (r_rect.x + 20, r_rect.centery - rtxt.get_height() // 2))
+            
+            if data["locked"]:
+                lock_txt = self.small_font.render("[LOCKED]", True, TEAM_YELLOW)
+                self.canvas.blit(lock_txt, (r_rect.right - lock_txt.get_width() - 20, r_rect.centery - lock_txt.get_height() // 2))
+            
+            self.lobby_buttons.append({"rect": r_rect, "room_id": room_id, "locked": data["locked"]})
+            y += 100
+            
+        # Host button
+        self.btn_host_room = pygame.Rect(cx - 300, cy + 550, 280, 80)
+        draw_glass_rect(self.canvas, self.btn_host_room, HOUSE_BLUE, 10, animate_sheen=True)
+        txt = self.font.render("Host Game", True, WHITE)
+        self.canvas.blit(txt, (self.btn_host_room.centerx - txt.get_width() // 2, self.btn_host_room.centery - txt.get_height() // 2))
+
+        # Cancel button
+        self.btn_lobby_cancel = pygame.Rect(cx + 20, cy + 550, 280, 80)
+        draw_glass_rect(self.canvas, self.btn_lobby_cancel, HOUSE_RED, 10, animate_sheen=True)
+        txt = self.font.render("Back", True, WHITE)
+        self.canvas.blit(txt, (self.btn_lobby_cancel.centerx - txt.get_width() // 2, self.btn_lobby_cancel.centery - txt.get_height() // 2))
+        
+        self.draw_global_ui()
+
     def draw_room_prompt(self):
         self.draw_menu()
         self.canvas.blit(self.dark_overlay_200, (0, 0))
         cx, cy = BASE_WIDTH // 2, BASE_HEIGHT // 2
 
         lbl_v = self.font_62.render("ENTER MATCHMAKING ROOM NAME", True, WHITE)
-        self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, cy - 150))
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, cy - 200))
 
         draw_glass_rect(self.canvas, self.prompt_rect, HOUSE_BLUE, self.prompt_rect.h // 2, animate_sheen=False)
-        txt = f"{self.room_text}_"
-        img = self.font.render(txt, True, WHITE)
-        self.canvas.blit(img, img.get_rect(center=(cx, cy + 10)))
+        txt = f"{self.room_text}_" if self.typing_target == "room" else self.room_text
+        if not txt: txt = "Tap to enter room name"
+        img = self.font.render(txt, True, WHITE if self.room_text else (150, 160, 180))
+        self.canvas.blit(img, img.get_rect(center=self.prompt_rect.center))
+
+        if getattr(self, "net_action", None) == "host" or getattr(self, "app_state", None) == "LOBBY_PASSCODE_PROMPT":
+            lbl_p = self.font_62.render("PASSCODE (OPTIONAL)", True, WHITE)
+            self.canvas.blit(lbl_p, (cx - lbl_p.get_width() // 2, self.passcode_rect.top - 50))
+            
+            draw_glass_rect(self.canvas, self.passcode_rect, PURPLE_SUIT, self.passcode_rect.h // 2, animate_sheen=False)
+            ptxt = f"{self.passcode_text}_" if self.typing_target == "passcode" else self.passcode_text
+            if not ptxt: ptxt = "Tap to enter passcode"
+            pimg = self.font.render(ptxt, True, WHITE if self.passcode_text else (150, 160, 180))
+            self.canvas.blit(pimg, pimg.get_rect(center=self.passcode_rect.center))
 
         if IS_ANDROID:
             sub = self.small_font.render("Tap here to connect | Tap outside to cancel", True, (150, 160, 180))
         else:
             sub = self.small_font.render("Press ENTER to connect | ESC to cancel", True, (150, 160, 180))
-        self.canvas.blit(sub, (cx - sub.get_width() // 2, cy + 120))
+        self.canvas.blit(sub, (cx - sub.get_width() // 2, self.passcode_rect.bottom + 50))
         self.draw_global_ui()
 
     def draw_options_menu(self):
@@ -4539,6 +4692,14 @@ class WinCurl3:
             elif btn["id"] == "color":
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
+            elif btn["id"] == "skin_tone":
+                btn["color"] = self.skin_tone
+                text = "Skin Tone"
+            elif btn["id"] == "hair_style":
+                text = f"Hair: {self.hair_style.capitalize()}"
+            elif btn["id"] == "hair_color":
+                btn["color"] = getattr(self, "hair_color", (100, 50, 20))
+                text = "Hair Color"
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -4661,6 +4822,26 @@ class WinCurl3:
                         elif b["id"] == "color":
                             self.preferred_color = 1 if self.preferred_color == 0 else 0
                             self.save_progress()
+                        elif b["id"] == "skin_tone":
+                            tones = [(240, 200, 180), (220, 170, 130), (180, 120, 80), (110, 70, 40), (60, 40, 20), (255, 230, 210), (140, 90, 60)]
+                            try:
+                                idx = tones.index(self.skin_tone)
+                            except ValueError:
+                                idx = -1
+                            self.skin_tone = tones[(idx + 1) % len(tones)]
+                            self.save_progress()
+                        elif b["id"] == "hair_color":
+                            colors = [(100, 50, 20), (200, 180, 100), (30, 30, 30), (180, 80, 40), (220, 220, 220), (80, 100, 200)]
+                            curr = getattr(self, "hair_color", (100, 50, 20))
+                            try:
+                                idx = colors.index(curr)
+                            except ValueError:
+                                idx = -1
+                            self.hair_color = colors[(idx + 1) % len(colors)]
+                            self.save_progress()
+                        elif b["id"] == "hair_style":
+                            self.hair_style = "long" if getattr(self, "hair_style", "short") == "short" else "short"
+                            self.save_progress()
                         elif b["id"] == "hi_res_mode":
                             self.hi_res_mode = not getattr(self, "hi_res_mode", False)
                             self.save_progress()
@@ -4706,12 +4887,6 @@ class WinCurl3:
         cx = BASE_WIDTH // 2
         lbl_v = self.font_72.render("SELECT CHALLENGE", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, 120))
-
-        if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode", "") == "CHALLENGE":
-            start_btn = pygame.Rect(cx - 250, 190, 500, 100)
-            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
-            lbl_btn2 = self.font_72.render("RESUME MATCH", True, WHITE)
-            self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
 
         for i in range(25):
             row, col = i // 5, i % 5
@@ -4794,7 +4969,7 @@ class WinCurl3:
                 elif getattr(self, "game_mode", "") == "LOCAL":
                     txt_main = self.font.render(f"1V1 SLOT {i+1}", True, WHITE)
                 else:
-                    prog = slot_data.get("story", {}).get("current_rink", 0) + 1
+                    prog = min(8, slot_data.get("story", {}).get("current_rink", 0) + 1)
                     txt_main = self.font.render(f"SLOT {i+1} - STORY RINK {prog}", True, WHITE)
                 has_save = slot_data.get("saved_match_state") is not None
                 if has_save:
@@ -4875,8 +5050,9 @@ class WinCurl3:
         ]
         self.btn_upgrades = {}
 
-        if self.story.current_rink < len(STORY_RINKS):
-            rink = STORY_RINKS[self.story.current_rink]
+        idx = getattr(self.story, "replay_rink_idx", self.story.current_rink)
+        if idx < len(STORY_RINKS):
+            rink = STORY_RINKS[idx]
         else:
             rink = {"color": WHITE, "boss": "None", "intro_dialog": []}
 
@@ -4986,17 +5162,17 @@ class WinCurl3:
             self.canvas.blit(self.dark_overlay_200, (0, 0))
 
             grid_color = (rink["color"][0] // 4 + 20, rink["color"][1] // 4 + 20, rink["color"][2] // 4 + 20)
+            if not hasattr(self, "story_grid_surf") or getattr(self, "story_grid_color", None) != grid_color:
+                surf = pygame.Surface((BASE_WIDTH + 400, BASE_HEIGHT + 400), pygame.SRCALPHA)
+                for x in range(0, BASE_WIDTH + 400, 100):
+                    pygame.draw.line(surf, grid_color, (x, 0), (x - 400, BASE_HEIGHT + 400), 2)
+                for y in range(0, BASE_HEIGHT + 400, 100):
+                    pygame.draw.line(surf, grid_color, (0, y), (BASE_WIDTH + 400, y - 400), 2)
+                self.story_grid_surf = surf
+                self.story_grid_color = grid_color
+            
             offset = (pygame.time.get_ticks() // 20) % 100
-            start_x = offset - 200
-            start_y = offset - 200
-            for x in range(0, BASE_WIDTH + 400, 100):
-                pygame.draw.line(
-                    self.canvas, grid_color, (start_x + x, start_y), (start_x + x - 400, start_y + BASE_HEIGHT + 400), 2
-                )
-            for y in range(0, BASE_HEIGHT + 400, 100):
-                pygame.draw.line(
-                    self.canvas, grid_color, (start_x, start_y + y), (start_x + BASE_WIDTH + 400, start_y + y - 400), 2
-                )
+            self.canvas.blit(self.story_grid_surf, (offset - 200, offset - 200))
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5038,18 +5214,22 @@ class WinCurl3:
 
             full_text = rink["intro_dialog"][self.dialog_index]
             chars_to_show = dt_ticks // 5
-            typed_text = full_text[:chars_to_show]
 
-            if not hasattr(self, "dialog_text_cache_index") or self.dialog_text_cache_index != self.dialog_index:
-                self.dialog_text_cache = {}
+            if not hasattr(self, "dialog_text_lines") or getattr(self, "dialog_text_cache_index", -1) != self.dialog_index:
+                self.dialog_text_lines = textwrap.wrap(full_text, width=50)
                 self.dialog_text_cache_index = self.dialog_index
+                self.dialog_line_surfs = {}
 
-            if typed_text not in self.dialog_text_cache:
-                lines = textwrap.wrap(typed_text, width=50)
-                self.dialog_text_cache[typed_text] = [self.font.render(line, True, (220, 220, 220)) for line in lines]
-
-            for j, line_lbl in enumerate(self.dialog_text_cache[typed_text]):
-                self.canvas.blit(line_lbl, (dialog_rect.x + 40, dialog_rect.y + 80 + j * 45))
+            chars_left = chars_to_show
+            for j, line in enumerate(self.dialog_text_lines):
+                if chars_left <= 0:
+                    break
+                show_len = min(len(line), chars_left)
+                sub_line = line[:show_len]
+                if sub_line not in self.dialog_line_surfs:
+                    self.dialog_line_surfs[sub_line] = self.font.render(sub_line, True, (220, 220, 220))
+                self.canvas.blit(self.dialog_line_surfs[sub_line], (dialog_rect.x + 40, dialog_rect.y + 80 + j * 45))
+                chars_left -= (len(line) + 1)
 
             if chars_to_show >= len(full_text) and (pygame.time.get_ticks() % 1000 > 500):
                 tap_lbl = self.small_font.render(f"Tap anywhere...", True, (150, 150, 150))
@@ -5594,9 +5774,10 @@ class WinCurl3:
             "WINCURL",
             "",
             "A game by",
-            "Jason Ivany",
-            "&",
-            "Antigravity (Google)",
+            "Jason Ivany & Antigravity (Google)",
+            "",
+            "Audio & Netcode",
+            "Jason Ivany & Antigravity",
             "",
             "Game Design & Art Direction",
             "Jason Ivany",
@@ -5862,6 +6043,10 @@ class WinCurl3:
                         if len(self.room_text) + len(event.text) <= 15:
                             self.room_text += event.text
                             self.save_progress()
+                    elif self.app_state in ("ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT") and self.typing_target == "passcode":
+                        if len(self.passcode_text) + len(event.text) <= 4:
+                            self.passcode_text += event.text
+                            self.save_progress()
 
                 if event.type == KEYDOWN:
                     if not IS_ANDROID and getattr(event, "key", None) == K_f:
@@ -5915,7 +6100,9 @@ class WinCurl3:
 
                 if self.app_state == "MENU":
                     self.handle_menu_events(event)
-                elif self.app_state == "ROOM_PROMPT":
+                elif self.app_state == "LOBBY_BROWSER":
+                    self.handle_lobby_browser_events(event)
+                elif self.app_state in ("ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT"):
                     self.handle_room_prompt_events(event)
                 elif self.app_state == "CHALLENGE_MENU":
                     self.handle_challenge_menu_events(event)
@@ -5940,7 +6127,7 @@ class WinCurl3:
                 elif self.app_state == "LEADERBOARD":
                     self.handle_leaderboard_events(event)
 
-            if self.app_state in ["MENU", "ROOM_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS", "STORY_WIN", "CREDITS"]:
+            if self.app_state in ["MENU", "ROOM_PROMPT", "LOBBY_BROWSER", "LOBBY_PASSCODE_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS", "STORY_WIN", "CREDITS"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_elapsed', 0) >= 210: 
                     self.audio.play_music()
                 else: 
@@ -5964,7 +6151,9 @@ class WinCurl3:
                 
             if self.app_state == "MENU":
                 self.draw_menu()
-            elif self.app_state == "ROOM_PROMPT":
+            elif self.app_state == "LOBBY_BROWSER":
+                self.draw_lobby_browser()
+            elif self.app_state in ("ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT"):
                 self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU":
                 self.draw_challenge_menu()
@@ -5990,18 +6179,27 @@ class WinCurl3:
                         self.app_state = "PLAY"
                         self.reset_end()
                 self.draw_coin_toss_screen()
-            elif self.app_state == "PLAY":
+            elif self.app_state in ["PLAY", "PAUSED"]:
                 self.draw_ice()
                 [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
                 is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
+                
+                if self.game_mode == "STORY":
+                    self.curler_anim.skin_tone = (240, 200, 180)
+                    self.curler_anim.hair_style = "short"
+                else:
+                    if self.current_team == getattr(self, "preferred_color", 0):
+                        self.curler_anim.skin_tone = self.skin_tone
+                        self.curler_anim.hair_style = self.hair_style
+                    else:
+                        self.curler_anim.skin_tone = getattr(self, "opponent_skin_tone", (240, 200, 180))
+                        self.curler_anim.hair_style = getattr(self, "opponent_hair_style", "short")
+                
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
-                self.draw_ui()
-            elif self.app_state == "PAUSED":
-                self.draw_ice()
-                [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
-                is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
-                self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
-                self.draw_pause_screen()
+                if self.app_state == "PLAY":
+                    self.draw_ui()
+                else:
+                    self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER":
                 self.draw_match_over_screen()
             elif self.app_state == "STORY_WIN":
@@ -6029,23 +6227,42 @@ class IRCNetworkManager:
         self.tx_queue = queue.Queue()
         self.rx_queue = queue.Queue()
         self.is_host = False
+        self.scanning_lobby = False
+        self.lobby_rooms = {}  # {room_name: {"locked": bool, "last_seen": time}}
+        self.last_ad_time = 0
+        self.room_passcode = ""
 
-    def connect(self, username, is_host, room_name="", preferred_color=0):
+    def connect(self, username, is_host, room_name="", preferred_color=0, passcode=""):
         self.username = "WC_" + "".join(c for c in username if c.isalnum())[:10]
         if len(self.username) == 3:
             self.username += str(random.randint(100, 999))
 
         safe_room = "".join(c for c in room_name if c.isalnum()) or "default"
         self.channel = f"#wc3_{safe_room}"
-        self.room_display = f"'{safe_room}'"
+        self.room_display = f"{safe_room}"
 
         self.preferred_color = preferred_color
         self.connection_error = ""
         self.is_host = is_host
+        self.room_passcode = passcode
         self.connecting = True
         self.running = True
         import sys
 
+        if hasattr(sys, "platform") and sys.platform == "emscripten":
+            self.connecting = False
+            self.running = False
+            self.connection_error = "Multiplayer unsupported on Web"
+            return
+        threading.Thread(target=self._irc_thread, daemon=True).start()
+
+    def scan_lobby(self):
+        self.scanning_lobby = True
+        self.lobby_rooms = {}
+        self.connecting = True
+        self.running = True
+        self.username = "WCS_" + str(random.randint(1000, 9999))
+        import sys
         if hasattr(sys, "platform") and sys.platform == "emscripten":
             self.connecting = False
             self.running = False
@@ -6072,10 +6289,17 @@ class IRCNetworkManager:
             buffer = ""
             last_hello_time = 0
             while self.running:
-                if not self.is_host and not self.connecting and not self.matched:
+                if self.scanning_lobby:
+                    pass
+                elif not self.is_host and not self.connecting and not self.matched:
                     if time.time() - last_hello_time > 3.0:
-                        self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
+                        self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
                         last_hello_time = time.time()
+                elif self.is_host and not self.matched:
+                    if time.time() - self.last_ad_time > 5.0:
+                        locked = bool(self.room_passcode)
+                        self.sock.send(f"PRIVMSG #wc3_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked})}\r\n".encode())
+                        self.last_ad_time = time.time()
 
                 while not self.tx_queue.empty():
                     msg = self.tx_queue.get()
@@ -6097,12 +6321,17 @@ class IRCNetworkManager:
                             self.username += "too"
                             self.sock.send(f"NICK {self.username}\r\n".encode())
                         elif len(parts) > 1 and parts[1] in ("001", "376", "422"):
-                            self.sock.send(f"JOIN {self.channel}\r\n".encode())
-                            if self.is_host:
+                            if self.scanning_lobby:
+                                self.sock.send("JOIN #wc3_lobby\r\n".encode())
                                 self.connecting = False
                             else:
-                                self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
-                                self.connecting = False
+                                self.sock.send(f"JOIN {self.channel}\r\n".encode())
+                                if self.is_host:
+                                    self.sock.send("JOIN #wc3_lobby\r\n".encode())
+                                    self.connecting = False
+                                else:
+                                    self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
+                                    self.connecting = False
                         elif len(parts) > 2 and parts[1] in ("PART", "QUIT"):
                             sender = parts[0].split("!")[0][1:]
                             if sender == getattr(self, "opponent", ""):
@@ -6118,9 +6347,19 @@ class IRCNetworkManager:
                                 else:
                                     msg_data = json.loads(msg_content)
 
-                                if self.is_host and target == self.channel and msg_data.get("cmd") == "hello":
+                                if self.scanning_lobby and target == "#wc3_lobby" and msg_data.get("cmd") == "lobby_ad":
+                                    room_id = msg_data.get("room")
+                                    if room_id:
+                                        self.lobby_rooms[room_id] = {"locked": msg_data.get("locked", False), "last_seen": time.time()}
+                                        # Cleanup old
+                                        self.lobby_rooms = {k: v for k, v in self.lobby_rooms.items() if time.time() - v["last_seen"] < 15.0}
+                                elif self.is_host and target == self.channel and msg_data.get("cmd") == "hello":
+                                    client_pass = msg_data.get("passcode", "")
+                                    if self.room_passcode and client_pass != self.room_passcode:
+                                        continue  # Ignore incorrect passcode
                                     self.opponent = sender
                                     self.matched = True
+                                    self.sock.send(f"PART #wc3_lobby\r\n".encode())
                                     self.sock.send(
                                         f"PRIVMSG {self.opponent} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode()
                                     )
