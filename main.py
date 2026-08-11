@@ -2730,6 +2730,8 @@ class WinCurl3:
         self.net_action = None
         self.prompt_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 - 120, 700, 120)
         self.passcode_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 + 50, 700, 120)
+        self.passcode_lock_rect = pygame.Rect(BASE_WIDTH // 2 + 370, BASE_HEIGHT // 2 - 100, 80, 80)
+        self.show_passcode = False
 
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT - 260, 200, 90), pygame.Rect(
             BASE_WIDTH - 320, BASE_HEIGHT - 260, 200, 90
@@ -3685,8 +3687,16 @@ class WinCurl3:
             
             if self.prompt_rect.collidepoint(mx, my):
                 self.set_typing_target("room")
+            elif hasattr(self, "passcode_lock_rect") and getattr(self, "net_action", None) == "host" and self.passcode_lock_rect.collidepoint(mx, my):
+                self.audio.play_click()
+                self.show_passcode = not getattr(self, "show_passcode", False)
+                if not self.show_passcode:
+                    self.passcode_text = ""
+                    if self.typing_target == "passcode":
+                        self.set_typing_target("room")
             elif hasattr(self, "passcode_rect") and self.passcode_rect.collidepoint(mx, my):
-                self.set_typing_target("passcode")
+                if getattr(self, "app_state", None) == "LOBBY_PASSCODE_PROMPT" or getattr(self, "show_passcode", False):
+                    self.set_typing_target("passcode")
             else:
                 self.app_state = "LOBBY_BROWSER" if getattr(self, "app_state", "") == "LOBBY_PASSCODE_PROMPT" else "MENU"
                 self.set_typing_target(None)
@@ -4033,7 +4043,7 @@ class WinCurl3:
                     pygame.event.set_grab(True)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, "drag_start_pos", None):
                 if f_id == getattr(self, "drag_finger_id", None) or (IS_ANDROID and f_id == "mouse"):
-                    self.virtual_pull = (mouse_pos - self.drag_start_pos) * 0.70
+                    self.virtual_pull = pygame.math.Vector2((mouse_pos.x - self.drag_start_pos.x) * 0.70, (mouse_pos.y - self.drag_start_pos.y) * 0.70)
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5:
                         self.pull_history.pop(0)
@@ -4648,14 +4658,32 @@ class WinCurl3:
         self.canvas.blit(img, img.get_rect(center=self.prompt_rect.center))
 
         if getattr(self, "net_action", None) == "host" or getattr(self, "app_state", None) == "LOBBY_PASSCODE_PROMPT":
-            lbl_p = self.font_62.render("PASSCODE (OPTIONAL)", True, WHITE)
-            self.canvas.blit(lbl_p, (cx - lbl_p.get_width() // 2, self.passcode_rect.top - 50))
-            
-            draw_glass_rect(self.canvas, self.passcode_rect, PURPLE_SUIT, self.passcode_rect.h // 2, animate_sheen=False)
-            ptxt = f"{self.passcode_text}_" if self.typing_target == "passcode" else self.passcode_text
-            if not ptxt: ptxt = "Tap to enter passcode"
-            pimg = self.font.render(ptxt, True, WHITE if self.passcode_text else (150, 160, 180))
-            self.canvas.blit(pimg, pimg.get_rect(center=self.passcode_rect.center))
+            if getattr(self, "net_action", None) == "host":
+                # Draw lock icon safely to prevent Android Pygame crash with arc/border_radius
+                is_hovered = hasattr(self, "passcode_lock_rect") and self.passcode_lock_rect.collidepoint(self.get_pointer_pos())
+                lock_bg = (180, 190, 200) if getattr(self, "show_passcode", False) else ((120, 130, 140) if not is_hovered else (150, 160, 170))
+                pygame.draw.rect(self.canvas, lock_bg, self.passcode_lock_rect)
+                pygame.draw.rect(self.canvas, WHITE, self.passcode_lock_rect, 3)
+                
+                lx, ly = self.passcode_lock_rect.center
+                # Base of the lock
+                pygame.draw.rect(self.canvas, (50, 50, 50), (lx - 12, ly - 2, 24, 20))
+                # Shackle of the lock
+                if getattr(self, "show_passcode", False):
+                    pygame.draw.rect(self.canvas, (50, 50, 50), (lx - 12, ly - 20, 24, 18), 4)
+                    pygame.draw.rect(self.canvas, lock_bg, (lx - 12, ly - 10, 24, 12)) # Erase bottom part of shackle to make it look open
+                else:
+                    pygame.draw.rect(self.canvas, (50, 50, 50), (lx - 12, ly - 18, 24, 16), 4)
+
+            if getattr(self, "app_state", None) == "LOBBY_PASSCODE_PROMPT" or getattr(self, "show_passcode", False):
+                lbl_p = self.font_62.render("PASSCODE (OPTIONAL)", True, WHITE)
+                self.canvas.blit(lbl_p, (cx - lbl_p.get_width() // 2, self.passcode_rect.top - 50))
+                
+                draw_glass_rect(self.canvas, self.passcode_rect, PURPLE_SUIT, self.passcode_rect.h // 2, animate_sheen=False)
+                ptxt = f"{self.passcode_text}_" if self.typing_target == "passcode" else self.passcode_text
+                if not ptxt: ptxt = "Tap to enter passcode"
+                pimg = self.font.render(ptxt, True, WHITE if self.passcode_text else (150, 160, 180))
+                self.canvas.blit(pimg, pimg.get_rect(center=self.passcode_rect.center))
 
         if IS_ANDROID:
             sub = self.small_font.render("Tap here to connect | Tap outside to cancel", True, (150, 160, 180))
@@ -4697,13 +4725,11 @@ class WinCurl3:
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
             elif btn["id"] == "skin_tone":
-                btn["color"] = self.skin_tone
-                text = "Skin Tone"
+                text = "Skin Tone:"
             elif btn["id"] == "hair_style":
                 text = f"Hair: {self.hair_style.capitalize()}"
             elif btn["id"] == "hair_color":
-                btn["color"] = getattr(self, "hair_color", (100, 50, 20))
-                text = "Hair Colour"
+                text = "Hair Colour:"
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -4732,31 +4758,38 @@ class WinCurl3:
             )
             draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
 
-            if btn["id"] == "color":
+            if btn["id"] in ["color", "skin_tone", "hair_color"]:
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
                 self.canvas.blit(img, txt_rect)
 
-                rock_x = txt_rect.right + 40
-                rock_y = rect.centery
-                stone_c = TEAM_YELLOW if self.preferred_color else HOUSE_RED
-                rock_r = 26
-                pygame.draw.circle(self.canvas, (160, 165, 170), (rock_x, rock_y), rock_r)
-                pygame.draw.circle(self.canvas, (100, 105, 110), (rock_x, rock_y), rock_r, 2)
-                pygame.draw.circle(self.canvas, stone_c, (rock_x, rock_y), 16)
-                pygame.draw.circle(
-                    self.canvas,
-                    (max(0, stone_c[0] - 50), max(0, stone_c[1] - 50), max(0, stone_c[2] - 50)),
-                    (rock_x, rock_y),
-                    16,
-                    2,
-                )
-                pygame.draw.line(self.canvas, BLACK, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 10)
-                pygame.draw.circle(self.canvas, BLACK, (rock_x - 12, rock_y), 5)
-                pygame.draw.circle(self.canvas, BLACK, (rock_x + 12, rock_y), 5)
-                pygame.draw.line(self.canvas, stone_c, (rock_x - 12, rock_y), (rock_x + 12, rock_y), 6)
-                pygame.draw.circle(self.canvas, stone_c, (rock_x - 12, rock_y), 3)
-                pygame.draw.circle(self.canvas, stone_c, (rock_x + 12, rock_y), 3)
+                swatch_x = txt_rect.right + 40
+                swatch_y = rect.centery
+                
+                if btn["id"] == "color":
+                    rock_r = 26
+                    stone_c = TEAM_YELLOW if self.preferred_color else HOUSE_RED
+                    pygame.draw.circle(self.canvas, (160, 165, 170), (swatch_x, swatch_y), rock_r)
+                    pygame.draw.circle(self.canvas, (100, 105, 110), (swatch_x, swatch_y), rock_r, 2)
+                    pygame.draw.circle(self.canvas, stone_c, (swatch_x, swatch_y), 16)
+                    pygame.draw.circle(
+                        self.canvas,
+                        (max(0, stone_c[0] - 50), max(0, stone_c[1] - 50), max(0, stone_c[2] - 50)),
+                        (swatch_x, swatch_y),
+                        16,
+                        2,
+                    )
+                    pygame.draw.line(self.canvas, BLACK, (swatch_x - 12, swatch_y), (swatch_x + 12, swatch_y), 10)
+                    pygame.draw.circle(self.canvas, BLACK, (swatch_x - 12, swatch_y), 5)
+                    pygame.draw.circle(self.canvas, BLACK, (swatch_x + 12, swatch_y), 5)
+                    pygame.draw.line(self.canvas, stone_c, (swatch_x - 12, swatch_y), (swatch_x + 12, swatch_y), 6)
+                    pygame.draw.circle(self.canvas, stone_c, (swatch_x - 12, swatch_y), 3)
+                    pygame.draw.circle(self.canvas, stone_c, (swatch_x + 12, swatch_y), 3)
+                else:
+                    swatch_c = self.skin_tone if btn["id"] == "skin_tone" else getattr(self, "hair_color", (100, 50, 20))
+                    pygame.draw.circle(self.canvas, WHITE, (swatch_x, swatch_y), 24)
+                    pygame.draw.circle(self.canvas, swatch_c, (swatch_x, swatch_y), 21)
+
             elif btn["id"] == "master_vol":
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.left + 160, rect.centery))
@@ -6291,16 +6324,9 @@ class IRCNetworkManager:
             return "Z" + base64.b64encode(zlib.compress(json.dumps(msg_dict).encode("utf-8"))).decode("utf-8")
 
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.settimeout(5.0)
-            try:
-                # Use a specific server to avoid splits and DNS failures across all platforms
-                self.sock.connect(("194.14.236.50", 6667))
-            except Exception as e:
-                print("Primary IP Failed, trying DNS fallback:", e)
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.settimeout(5.0)
-                self.sock.connect(("irc.dal.net", 6667))
+            # create_connection handles both IPv4 and IPv6 automatically and safely.
+            # Using EFNet to avoid connection restrictions, Rizon/DALnet often block VMs.
+            self.sock = socket.create_connection(("irc.efnet.org", 6667), timeout=5.0)
             self.sock.settimeout(None)
             self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
             buffer = ""
