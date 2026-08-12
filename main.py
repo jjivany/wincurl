@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 89"
+VERSION = "3.0 Build 90"
 
 
 class CachedFont:
@@ -3669,6 +3669,8 @@ class WinCurl3:
             if hasattr(self, "lobby_buttons"):
                 for b in self.lobby_buttons:
                     if b["rect"].collidepoint(mx, my):
+                        if b.get("in_progress"):
+                            continue
                         self.audio.play_click()
                         self.room_text = b["room_id"]
                         self.net.close()
@@ -4349,7 +4351,15 @@ class WinCurl3:
             self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
             self.sent_sync_char = True
 
+    def draw_cached_menu_bg(self):
+        if not hasattr(self, "cached_menu_bg") or self.cached_menu_bg is None:
+            self.draw_menu()
+            self.canvas.blit(self.dark_overlay_200, (0, 0))
+            self.cached_menu_bg = self.canvas.copy()
+        self.canvas.blit(self.cached_menu_bg, (0, 0))
+
     def draw_menu(self):
+        self.cached_menu_bg = None
         self.frames_since_start = getattr(self, "frames_since_start", 0) + 1
 
         if not getattr(self, "played_intro", False) and self.frames_since_start >= 30:
@@ -4608,8 +4618,7 @@ class WinCurl3:
         threading.Thread(target=_fetch, daemon=True).start()
 
     def draw_lobby_browser(self):
-        self.draw_menu()
-        self.canvas.blit(self.dark_overlay_200, (0, 0))
+        self.draw_cached_menu_bg()
         cx, cy = BASE_WIDTH // 2, BASE_HEIGHT // 2
         
         lbl_v = self.font_62.render("MULTIPLAYER LOBBY", True, WHITE)
@@ -4631,11 +4640,15 @@ class WinCurl3:
             rtxt = self.font.render(room_id, True, txt_color)
             self.canvas.blit(rtxt, (r_rect.x + 20, r_rect.centery - rtxt.get_height() // 2))
             
-            if data["locked"]:
+            in_progress = data.get("in_progress", False)
+            if in_progress:
+                ip_txt = self.small_font.render("[IN PROGRESS]", True, (150, 150, 150))
+                self.canvas.blit(ip_txt, (r_rect.right - ip_txt.get_width() - 20, r_rect.centery - ip_txt.get_height() // 2))
+            elif data["locked"]:
                 lock_txt = self.small_font.render("[LOCKED]", True, TEAM_YELLOW)
                 self.canvas.blit(lock_txt, (r_rect.right - lock_txt.get_width() - 20, r_rect.centery - lock_txt.get_height() // 2))
             
-            self.lobby_buttons.append({"rect": r_rect, "room_id": room_id, "locked": data["locked"]})
+            self.lobby_buttons.append({"rect": r_rect, "room_id": room_id, "locked": data["locked"], "in_progress": in_progress})
             y += 100
             
         # Join by name button
@@ -4659,8 +4672,7 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_room_prompt(self):
-        self.draw_menu()
-        self.canvas.blit(self.dark_overlay_200, (0, 0))
+        self.draw_cached_menu_bg()
         cx, cy = BASE_WIDTH // 2, BASE_HEIGHT // 2
 
         lbl_v = self.font_62.render("ENTER MATCHMAKING ROOM NAME", True, WHITE)
@@ -5763,11 +5775,7 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_pause_screen(self):
-        # 1. Light translucent grey background
-        if not hasattr(self, "pause_grey_overlay"):
-            self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-            self.pause_grey_overlay.fill((50, 55, 60, 180))
-        self.canvas.blit(self.pause_grey_overlay, (0, 0))
+        # 1. Background caching handles the dark overlay
 
         # 2. Draw global UI / scoreboard so it is visible as requested
         self.draw_ui()
@@ -6243,24 +6251,40 @@ class WinCurl3:
                         self.reset_end()
                 self.draw_coin_toss_screen()
             elif self.app_state in ["PLAY", "PAUSED"]:
-                self.draw_ice()
-                [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
-                is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
-                
-                if self.game_mode == "STORY":
-                    self.curler_anim.skin_tone = (240, 200, 180)
-                    self.curler_anim.hair_style = "short"
+                if self.app_state == "PLAY":
+                    if hasattr(self, "cached_pause_bg") and self.cached_pause_bg is not None:
+                        self.cached_pause_bg = None
+
+                if self.app_state == "PAUSED" and hasattr(self, "cached_pause_bg") and self.cached_pause_bg is not None:
+                    self.canvas.blit(self.cached_pause_bg, (0, 0))
                 else:
-                    if self.current_team == getattr(self, "preferred_color", 0):
-                        self.curler_anim.skin_tone = self.skin_tone
-                        self.curler_anim.hair_style = self.hair_style
-                        self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
+                    self.draw_ice()
+                    [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
+                    is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
+                    
+                    if self.game_mode == "STORY":
+                        self.curler_anim.skin_tone = (240, 200, 180)
+                        self.curler_anim.hair_style = "short"
                     else:
-                        self.curler_anim.skin_tone = getattr(self, "opponent_skin_tone", (240, 200, 180))
-                        self.curler_anim.hair_style = getattr(self, "opponent_hair_style", "short")
-                        self.curler_anim.hair_color = getattr(self, "opponent_hair_color", (40, 40, 40))
-                
-                self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
+                        if self.current_team == getattr(self, "preferred_color", 0):
+                            self.curler_anim.skin_tone = self.skin_tone
+                            self.curler_anim.hair_style = self.hair_style
+                            self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
+                        else:
+                            self.curler_anim.skin_tone = getattr(self, "opponent_skin_tone", (240, 200, 180))
+                            self.curler_anim.hair_style = getattr(self, "opponent_hair_style", "short")
+                            self.curler_anim.hair_color = getattr(self, "opponent_hair_color", (40, 40, 40))
+                    
+                    self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
+                    
+                    if self.app_state == "PAUSED":
+                        if not hasattr(self, "pause_grey_overlay"):
+                            self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+                            self.pause_grey_overlay.fill((50, 55, 60, 180))
+                        self.cached_pause_bg = self.canvas.copy()
+                        self.cached_pause_bg.blit(self.pause_grey_overlay, (0, 0))
+                        self.canvas.blit(self.cached_pause_bg, (0, 0))
+
                 if self.app_state == "PLAY":
                     self.draw_ui()
                 else:
@@ -6364,10 +6388,10 @@ class IRCNetworkManager:
                     if time.time() - last_hello_time > 3.0:
                         sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
                         last_hello_time = time.time()
-                elif self.is_host and not self.connecting and not self.matched:
+                elif self.is_host and not self.connecting:
                     if time.time() - self.last_ad_time > 5.0:
                         locked = bool(self.room_passcode)
-                        sock.send(f"PRIVMSG #wc3_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked})}\r\n".encode())
+                        sock.send(f"PRIVMSG #wc3_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked, 'in_progress': self.matched})}\r\n".encode())
                         self.last_ad_time = time.time()
 
                 try:
@@ -6429,7 +6453,7 @@ class IRCNetworkManager:
                                 if self.scanning_lobby and target == "#wc3_lobby" and msg_data.get("cmd") == "lobby_ad":
                                     room_id = msg_data.get("room")
                                     if room_id:
-                                        self.lobby_rooms[room_id] = {"locked": msg_data.get("locked", False), "last_seen": time.time()}
+                                        self.lobby_rooms[room_id] = {"locked": msg_data.get("locked", False), "in_progress": msg_data.get("in_progress", False), "last_seen": time.time()}
                                         # Cleanup old
                                         self.lobby_rooms = {k: v for k, v in self.lobby_rooms.items() if time.time() - v["last_seen"] < 15.0}
                                 elif self.is_host and target.lower() == self.channel.lower() and msg_data.get("cmd") == "hello":
@@ -6438,7 +6462,6 @@ class IRCNetworkManager:
                                         continue  # Ignore incorrect passcode
                                     self.opponent = sender
                                     self.matched = True
-                                    sock.send(f"PART #wc3_lobby\r\n".encode())
                                     sock.send(
                                         f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode()
                                     )
