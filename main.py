@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 92"
+VERSION = "3.0 Build 91"
 
 
 class CachedFont:
