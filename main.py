@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 90"
+VERSION = "3.0 Build 92"
 
 
 class CachedFont:
@@ -569,6 +569,8 @@ class WinCurlAudioEngine:
                     elif attr == "snd_sweep":
                         self.ch_sweep.play(snd, loops=-1)
                         self.ch_sweep.set_volume(0.0)
+                    elif attr == "snd_speech":
+                        self.ch_voice.play(snd)
                 except Exception as e:
                     print("Sound load error:", e)
                     setattr(self, attr, None)
@@ -1934,14 +1936,30 @@ class AnimatedCurler:
         def draw_cylinder_line(surf, color, start, end, width):
             if override_color:
                 pygame.draw.line(surf, override_color, start, end, width)
+                pygame.draw.circle(surf, override_color, start, width // 2)
+                pygame.draw.circle(surf, override_color, end, width // 2)
                 return
             shadow_col = (max(0, color[0] - 70), max(0, color[1] - 70), max(0, color[2] - 70))
             mid_col = (max(0, color[0] - 20), max(0, color[1] - 20), max(0, color[2] - 20))
             hl_col = (min(255, color[0] + 80), min(255, color[1] + 80), min(255, color[2] + 80))
             pygame.draw.line(surf, shadow_col, start, end, width)
-            pygame.draw.line(surf, mid_col, start, end, max(2, width - 4))
-            pygame.draw.line(surf, color, start, end, max(1, width - 8))
-            pygame.draw.line(surf, hl_col, (start[0] - 2, start[1]), (end[0] - 2, end[1]), max(1, width - 12))
+            pygame.draw.circle(surf, shadow_col, start, width // 2)
+            pygame.draw.circle(surf, shadow_col, end, width // 2)
+            
+            w2 = max(2, width - 4)
+            pygame.draw.line(surf, mid_col, start, end, w2)
+            pygame.draw.circle(surf, mid_col, start, w2 // 2)
+            pygame.draw.circle(surf, mid_col, end, w2 // 2)
+            
+            w3 = max(1, width - 8)
+            pygame.draw.line(surf, color, start, end, w3)
+            pygame.draw.circle(surf, color, start, w3 // 2)
+            pygame.draw.circle(surf, color, end, w3 // 2)
+            
+            w4 = max(1, width - 12)
+            pygame.draw.line(surf, hl_col, (start[0] - 2, start[1]), (end[0] - 2, end[1]), w4)
+            pygame.draw.circle(surf, hl_col, (start[0] - 2, start[1]), w4 // 2)
+            pygame.draw.circle(surf, hl_col, (end[0] - 2, end[1]), w4 // 2)
 
         def draw_cylinder_rect(surf, color, rect, border_radius=0):
             if override_color:
@@ -2206,8 +2224,6 @@ STORY_RINKS = [
             "We're paving over this rink to build a parking garage for my parking garages.",
             "You think you can stop me? My suit costs more than your entire life's GDP!",
             "I'm going to eradicate the sport of curling from the face of the earth!",
-            "Never again will anyone throw a stone! Free Palestine! ❤️ 🇵🇸",
-            "Let's get this over with. I have to go lay off 10,000 people at 4.",
         ],
         "win_dialog": ["My golden parachute... it has a hole in it!", "I'm calling HR!"],
         "taunts": [
@@ -2754,12 +2770,10 @@ class WinCurl3:
 
         self.options_buttons = [
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "name", "y": 570, "text": "Name:", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
-            {"id": "skin_tone", "y": 750, "text": "Skin Tone", "color": (240, 200, 180), "scale": 1.0},
-            {"id": "hair_style", "y": 840, "text": "Hair: Short", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "hair_color", "y": 930, "text": "Hair Colour", "color": (100, 50, 20), "scale": 1.0},
-            {"id": "hi_res_mode", "y": 1020, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "name", "y": 570, "text": "Name: ", "color": WHITE, "scale": 1.0},
+            {"id": "color", "y": 640, "text": "Team Color", "color": (150, 150, 255), "scale": 1.0},
+            {"id": "hair_color", "y": 750, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 860, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "update", "y": 1200, "text": "Check for Update", "color": (130, 140, 155), "scale": 1.0},
             {"id": "back", "y": 1290, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
@@ -2893,7 +2907,6 @@ class WinCurl3:
         self.challenge_progress = [False] * 25
         self.username = ""
         self.preferred_color = 0
-        self.skin_tone = (240, 200, 180)
         self.hair_style = "short"
         self.hair_color = (100, 50, 20)
         self.room_text = ""
@@ -2918,7 +2931,6 @@ class WinCurl3:
                 data = json.load(f)
                 self.username = data.get("username", "")
                 self.preferred_color = data.get("color", 0)
-                self.skin_tone = tuple(data.get("skin_tone", [240, 200, 180]))
                 self.hair_style = data.get("hair_style", "short")
                 self.hair_color = tuple(data.get("hair_color", [100, 50, 20]))
                 self.room_text = data.get("room", "")
@@ -2982,9 +2994,12 @@ class WinCurl3:
             slots = self.slots_data
         slot = slots[slot_idx] if slot_idx < len(slots) else {}
         self.challenge_progress = slot.get("challenge", [False] * 25)
+        
         self.story = StoryManager()
-        if slot.get("story"):
-            self.story.from_dict(slot["story"])
+        story_slot = self.slots_data[slot_idx] if slot_idx < len(self.slots_data) else {}
+        if story_slot.get("story"):
+            self.story.from_dict(story_slot["story"])
+            
         self.saved_match_state = slot.get("saved_match_state", None)
 
     def save_progress(self):
@@ -3011,11 +3026,10 @@ class WinCurl3:
             sm_state = getattr(self, "saved_match_state", None)
             if sm_state and sm_state.get("game_mode", "") != getattr(self, "game_mode", ""):
                 sm_state = None
-
-            story_dict = self.story.to_dict() if getattr(self, "story", None) else {}
+            
             slots[self.active_slot] = {
                 "challenge": self.challenge_progress[:25],
-                "story": story_dict,
+                "story": self.story.to_dict() if getattr(self, "story", None) else self.slots_data[self.active_slot].get("story", None),
                 "saved_match_state": sm_state,
             }
             data = {
@@ -3024,7 +3038,6 @@ class WinCurl3:
                 "local_slots": self.local_slots_data,
                 "username": self.username,
                 "color": self.preferred_color,
-                "skin_tone": list(self.skin_tone),
                 "hair_style": self.hair_style,
                 "hair_color": list(getattr(self, "hair_color", (100, 50, 20))),
                 "room": self.room_text,
@@ -3814,6 +3827,7 @@ class WinCurl3:
             if self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
                 self.app_state = "MENU"
+                self.game_mode = "LOCAL"
 
     def handle_story_map_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
@@ -3829,15 +3843,9 @@ class WinCurl3:
                 if pygame.time.get_ticks() - getattr(self, "dialog_time", 0) < 300:
                     return
                 self.audio.play_click()
-                r_idx = getattr(self.story, "replay_rink_idx", None)
-                idx = r_idx if r_idx is not None else getattr(self.story, "current_rink", 0)
-                rink = STORY_RINKS[min(idx, len(STORY_RINKS) - 1)]
-                self.dialog_index += 1
-                self.dialog_time = pygame.time.get_ticks()
-                if self.dialog_index >= len(rink["intro_dialog"]):
-                    self.game_mode = "STORY"
-                    self.audio.stop_music()
-                    self.start_match()
+                self.game_mode = "STORY"
+                self.audio.stop_music()
+                self.start_match()
                 return
 
             if self.btn_return_menu.collidepoint(mx, my):
@@ -3932,7 +3940,7 @@ class WinCurl3:
                 self.audio.play_click()
                 if getattr(self, "game_mode", None) == "STORY":
                     if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
-                        if getattr(self.story, "replay_rink_idx", None) is not None:
+                        if getattr(self, "story", None) and getattr(self.story, "replay_rink_idx", None) is not None:
                             self.story.replay_rink_idx = None
                             self.app_state = "STORY_MAP"
                         else:
@@ -4335,7 +4343,6 @@ class WinCurl3:
             elif data.get("cmd") == "set_color":
                 self.preferred_color = 1 - data["color"]
             elif data.get("cmd") == "sync_char":
-                self.opponent_skin_tone = tuple(data["skin"])
                 self.opponent_hair_style = data["hair"]
                 self.opponent_hair_color = tuple(data.get("hair_col", (40, 40, 40)))
             elif data.get("cmd") == "opponent_left":
@@ -4345,10 +4352,10 @@ class WinCurl3:
 
         if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 25:
             self.net.send_action({"cmd": "coin", "result": self.coin_flip_result})
-            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
+            self.net.send_action({"cmd": "sync_char", "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
         
         if self.app_state == "MENU" and self.net.matched and getattr(self, "sent_sync_char", False) == False:
-            self.net.send_action({"cmd": "sync_char", "skin": list(self.skin_tone), "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
+            self.net.send_action({"cmd": "sync_char", "hair": self.hair_style, "hair_col": list(getattr(self, "hair_color", (100, 50, 20)))})
             self.sent_sync_char = True
 
     def draw_cached_menu_bg(self):
@@ -4361,11 +4368,6 @@ class WinCurl3:
     def draw_menu(self):
         self.cached_menu_bg = None
         self.frames_since_start = getattr(self, "frames_since_start", 0) + 1
-
-        if not getattr(self, "played_intro", False) and self.frames_since_start >= 30:
-            if getattr(self.audio, "snd_speech", None):
-                self.audio.ch_sfx.play(self.audio.snd_speech)
-                self.played_intro = True
 
         self.canvas.fill((10, 12, 16))
         self.last_starfield_speed = 2.0
@@ -4741,20 +4743,13 @@ class WinCurl3:
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width() // 2, 385 + getattr(self, "menu_dy", 0)))
 
         for btn in self.options_buttons:
-            if (not IS_ANDROID and btn["id"] == "hi_res_mode") or (
-                IS_ANDROID and not getattr(self, "hi_res_mode", False) and btn["id"] == "smoothscale"
-            ):
+            if (not IS_ANDROID and btn["id"] == "hi_res_mode") or (IS_ANDROID and not getattr(self, "hi_res_mode", False) and btn["id"] == "smoothscale"):
                 continue
 
             if btn["id"] == "name":
-                text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
+                text = "Name: " + getattr(self, "player_name", "Curler")
             elif btn["id"] == "color":
-                btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
-                text = "My Team:"
-            elif btn["id"] == "skin_tone":
-                text = "Skin Tone:"
-            elif btn["id"] == "hair_style":
-                text = f"Hair: {self.hair_style.capitalize()}"
+                text = "Team Color"
             elif btn["id"] == "hair_color":
                 text = "Hair Colour:"
             elif btn["id"] == "master_vol":
@@ -4785,7 +4780,7 @@ class WinCurl3:
             )
             draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
 
-            if btn["id"] in ["color", "skin_tone", "hair_color"]:
+            if btn["id"] in ["color", "hair_color"]:
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
                 self.canvas.blit(img, txt_rect)
@@ -4813,7 +4808,7 @@ class WinCurl3:
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x - 12, swatch_y), 3)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x + 12, swatch_y), 3)
                 else:
-                    swatch_c = self.skin_tone if btn["id"] == "skin_tone" else getattr(self, "hair_color", (100, 50, 20))
+                    swatch_c = getattr(self, "hair_color", (100, 50, 20))
                     pygame.draw.circle(self.canvas, WHITE, (swatch_x, swatch_y), 24)
                     pygame.draw.circle(self.canvas, swatch_c, (swatch_x, swatch_y), 21)
 
@@ -4840,7 +4835,6 @@ class WinCurl3:
         # Draw the character so they can see customization
         old_pos = getattr(self.curler_anim, "base_pos", pygame.math.Vector2(self.hack_pos))
         self.curler_anim.base_pos = pygame.math.Vector2(cx + 350, 600 + getattr(self, "menu_dy", 0))
-        self.curler_anim.skin_tone = self.skin_tone
         self.curler_anim.hair_style = getattr(self, "hair_style", "short")
         self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
         self.curler_anim.draw(self.canvas, TEAM_YELLOW if self.preferred_color else HOUSE_RED, is_evil=False)
@@ -4895,14 +4889,6 @@ class WinCurl3:
                             pass  # Handled by drag
                         elif b["id"] == "color":
                             self.preferred_color = 1 if self.preferred_color == 0 else 0
-                            self.save_progress()
-                        elif b["id"] == "skin_tone":
-                            tones = [(240, 200, 180), (220, 170, 130), (180, 120, 80), (110, 70, 40), (60, 40, 20), (255, 230, 210), (140, 90, 60)]
-                            try:
-                                idx = tones.index(self.skin_tone)
-                            except ValueError:
-                                idx = -1
-                            self.skin_tone = tones[(idx + 1) % len(tones)]
                             self.save_progress()
                         elif b["id"] == "hair_color":
                             colors = [(100, 50, 20), (200, 180, 100), (30, 30, 30), (180, 80, 40), (220, 220, 220), (80, 100, 200)]
@@ -5237,17 +5223,15 @@ class WinCurl3:
             self.canvas.blit(self.dark_overlay_200, (0, 0))
 
             grid_color = (rink["color"][0] // 4 + 20, rink["color"][1] // 4 + 20, rink["color"][2] // 4 + 20)
-            if not hasattr(self, "story_grid_surf") or getattr(self, "story_grid_color", None) != grid_color:
-                surf = pygame.Surface((BASE_WIDTH + 400, BASE_HEIGHT + 400), pygame.SRCALPHA)
-                for x in range(0, BASE_WIDTH + 400, 100):
-                    pygame.draw.line(surf, grid_color, (x, 0), (x - 400, BASE_HEIGHT + 400), 2)
-                for y in range(0, BASE_HEIGHT + 400, 100):
-                    pygame.draw.line(surf, grid_color, (0, y), (BASE_WIDTH + 400, y - 400), 2)
-                self.story_grid_surf = surf
-                self.story_grid_color = grid_color
+            if not hasattr(self, "story_grid_offset"):
+                self.story_grid_offset = 0.0
+            self.story_grid_offset = (self.story_grid_offset + 1.0 * getattr(self, "time_mult", 1.0)) % 100.0
+            offset = int(self.story_grid_offset) - 200
             
-            offset = (pygame.time.get_ticks() // 20) % 100
-            self.canvas.blit(self.story_grid_surf, (offset - 200, offset - 200))
+            for x in range(0, BASE_WIDTH + 400, 100):
+                pygame.draw.line(self.canvas, grid_color, (x + offset, offset), (x - 400 + offset, BASE_HEIGHT + 400 + offset), 2)
+            for y in range(0, BASE_HEIGHT + 400, 100):
+                pygame.draw.line(self.canvas, grid_color, (offset, y + offset), (BASE_WIDTH + 400 + offset, y - 400 + offset), 2)
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -6263,15 +6247,12 @@ class WinCurl3:
                     is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
                     
                     if self.game_mode == "STORY":
-                        self.curler_anim.skin_tone = (240, 200, 180)
                         self.curler_anim.hair_style = "short"
                     else:
                         if self.current_team == getattr(self, "preferred_color", 0):
-                            self.curler_anim.skin_tone = self.skin_tone
                             self.curler_anim.hair_style = self.hair_style
                             self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
                         else:
-                            self.curler_anim.skin_tone = getattr(self, "opponent_skin_tone", (240, 200, 180))
                             self.curler_anim.hair_style = getattr(self, "opponent_hair_style", "short")
                             self.curler_anim.hair_color = getattr(self, "opponent_hair_color", (40, 40, 40))
                     
