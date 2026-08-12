@@ -2770,10 +2770,10 @@ class WinCurl3:
 
         self.options_buttons = [
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "name", "y": 570, "text": "Name: ", "color": WHITE, "scale": 1.0},
-            {"id": "color", "y": 640, "text": "Team Color", "color": (150, 150, 255), "scale": 1.0},
-            {"id": "hair_color", "y": 750, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
-            {"id": "hi_res_mode", "y": 860, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "name", "y": 580, "text": "Name: ", "color": WHITE, "scale": 1.0},
+            {"id": "color", "y": 680, "text": "Team Color", "color": (150, 150, 255), "scale": 1.0},
+            {"id": "hair_color", "y": 780, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 880, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
             {"id": "update", "y": 1200, "text": "Check for Update", "color": (130, 140, 155), "scale": 1.0},
             {"id": "back", "y": 1290, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
@@ -4747,7 +4747,7 @@ class WinCurl3:
                 continue
 
             if btn["id"] == "name":
-                text = "Name: " + getattr(self, "player_name", "Curler")
+                text = "Name: " + getattr(self, "username", "Curler")
             elif btn["id"] == "color":
                 text = "Team Color"
             elif btn["id"] == "hair_color":
@@ -4930,7 +4930,7 @@ class WinCurl3:
                 self.save_progress()
         if self.is_pointer_pressed:
             for b in self.options_buttons:
-                if b["id"] == "master_vol" and 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
+                if b["id"] == "master_vol" and 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
                     text_str = "Volume"
                     img = self.font.render(text_str, True, (255, 255, 255))
                     txt_rect = img.get_rect(center=(BASE_WIDTH // 2 - 300 * b["scale"] + 160, b["y"] + 55 * b["scale"]))
