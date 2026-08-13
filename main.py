@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 91"
+VERSION = "3.0 Build 92"
 
 
 class CachedFont:
@@ -509,7 +509,7 @@ class WinCurlAudioEngine:
         load_sound(
             "snd_you_win",
             "snd_you_win.wav",
-            self._synthesize_you_win,
+            None,
         )
         load_sound("snd_chal_comp", "snd_chal_comp.wav", None)
         load_sound("snd_red_wins", "snd_red_wins.wav", None)
@@ -739,63 +739,7 @@ class WinCurlAudioEngine:
             struct.pack_into("<hh", buf, i * 4, sample, sample)
         return self._create_wav_sound(buf, 44100, cache_key="sega_speech", return_bytes=return_bytes)
 
-    def _synthesize_you_win(self, return_bytes=False):
-        cached = self._get_cached_sound("vosim_YOU_WIN_v11_robot", return_bytes=return_bytes)
-        if cached:
-            return cached
-        SR = 44100
-        duration = 1.2
-        steps = int(SR * duration)
-        buf = bytearray(steps * 4)
-        
-        f1_env = [(0.0, 300), (0.15, 300), (0.45, 300), (0.5, 300), (0.6, 300), (0.8, 450), (1.0, 250)]
-        f2_env = [(0.0, 2200), (0.15, 800), (0.45, 800), (0.5, 600), (0.6, 600), (0.8, 2000), (1.0, 1200)]
-        f3_env = [(0.0, 3000), (0.15, 2200), (0.45, 2200), (0.5, 2200), (0.6, 2200), (0.8, 2600), (1.0, 2500)]
-        f0_env = [(0.0, 250), (0.3, 200), (0.4, 180), (0.5, 260), (0.8, 220), (1.0, 150)]
-        amp_env = [(0.0, 0.0), (0.05, 1.0), (0.35, 1.0), (0.4, 0.0), (0.5, 0.0), (0.55, 1.0), (0.8, 1.0), (0.9, 0.5), (1.0, 0.0)]
-        
-        def get_val(t, pts):
-            for i in range(len(pts) - 1):
-                if pts[i][0] <= t <= pts[i + 1][0]:
-                    return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * (t - pts[i][0]) / (pts[i + 1][0] - pts[i][0])
-            return pts[-1][1]
 
-        voices = 4
-        phase_integrals = [0.0] * voices
-        detunes = [1.0, 1.02, 0.98, 1.05]
-        
-        for i in range(steps):
-            if i % 4000 == 0:
-                import time
-                time.sleep(0.001)
-                
-            t_norm = i / steps
-            env = get_val(t_norm, amp_env)
-            base_f0 = get_val(t_norm, f0_env)
-            base_f0 += math.sin(2 * math.pi * 5.0 * (i / SR)) * 3.0 * t_norm
-            
-            f1 = get_val(t_norm, f1_env)
-            f2 = get_val(t_norm, f2_env)
-            f3 = get_val(t_norm, f3_env)
-            
-            val = 0
-            for v in range(voices):
-                f0 = base_f0 * detunes[v]
-                phase_integrals[v] += (f0 / SR)
-                phase_val = phase_integrals[v] % 1.0
-                decay = math.exp(-phase_val * 2.5)
-                
-                v_val = (math.sin(2 * math.pi * f1 * phase_val / f0) + 
-                         math.sin(2 * math.pi * f2 * phase_val / f0) * 0.6 + 
-                         math.sin(2 * math.pi * f3 * phase_val / f0) * 0.3) * decay
-                val += v_val
-                
-            val = val / voices
-            val += random.uniform(-0.02, 0.02)
-            sample = int(max(-1.0, min(1.0, val * env * 1.5)) * 24000)
-            struct.pack_into("<hh", buf, i * 4, sample, sample)
-            
-        return self._create_wav_sound(buf, SR, cache_key="vosim_YOU_WIN_v10_robot", return_bytes=return_bytes)
 
     def _synthesize_vosim_phrase(self, phrase, duration, return_bytes=False):
         cached = self._get_cached_sound(f"vosim_{phrase}_v2", return_bytes=return_bytes)
@@ -1638,19 +1582,48 @@ class Starfield:
     def __init__(self, count=150, max_w=None, max_h=None):
         if IS_ANDROID:
             count = 40
+        self.max_w = max_w or BASE_WIDTH
         self.max_h = max_h or BASE_HEIGHT
-        self.stars = [
-            (random.randint(0, max_w or BASE_WIDTH), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)
-        ]
-        self.colors = {s: (int(min(255, 30 + s * 60)),) * 3 for _, _, s in self.stars}
-
+        
+        self.is_web = (sys.platform == "emscripten")
+        
+        if self.is_web:
+            self.layers = [
+                {"surf": pygame.Surface((self.max_w, self.max_h), pygame.SRCALPHA), "speed": 1.0, "y": 0.0},
+                {"surf": pygame.Surface((self.max_w, self.max_h), pygame.SRCALPHA), "speed": 2.0, "y": 0.0},
+                {"surf": pygame.Surface((self.max_w, self.max_h), pygame.SRCALPHA), "speed": 3.0, "y": 0.0},
+            ]
+            
+            for layer in self.layers:
+                layer["surf"].fill((0, 0, 0, 0))
+                
+            for _ in range(count):
+                layer = random.choice(self.layers)
+                x, y = random.randint(0, self.max_w - 1), random.randint(0, self.max_h - 1)
+                s = layer["speed"]
+                size = max(1, int(s))
+                color = (int(min(255, 30 + s * 60)),) * 3
+                layer["surf"].fill(color, (x, y, size, size))
+        else:
+            self.stars = [
+                (random.randint(0, self.max_w), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)
+            ]
+            self.colors = {s: (int(min(255, 30 + s * 60)),) * 3 for _, _, s in self.stars}
+            
     def draw(self, surface, speed_mult=1.0, time_mult=1.0):
-        for i in range(len(self.stars)):
-            x, y, s = self.stars[i]
-            y = (y + s * speed_mult * time_mult) % self.max_h
-            self.stars[i] = (x, y, s)
-            size = max(1, int(s))
-            surface.fill(self.colors[s], (int(x), int(y), size, size))
+        if self.is_web:
+            for layer in self.layers:
+                layer["y"] = (layer["y"] + layer["speed"] * speed_mult * time_mult) % self.max_h
+                dy = int(layer["y"])
+                surface.blit(layer["surf"], (0, dy))
+                surface.blit(layer["surf"], (0, dy - self.max_h))
+        else:
+            for i in range(len(self.stars)):
+                x, y, s = self.stars[i]
+                y = (y + s * speed_mult * time_mult) % self.max_h
+                self.stars[i] = (x, y, s)
+                size = max(1, int(s))
+                surface.fill(self.colors[s], (int(x), int(y), size, size))
 
 
 # OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
@@ -1902,7 +1875,7 @@ def get_retro_portrait(name, size=(300, 300), pixelation_factor=4):
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
 
     small_size = (size[0] // pixelation_factor, size[1] // pixelation_factor)
-    small_surf = pygame.transform.smoothscale(surf, small_size)
+    small_surf = pygame.transform.scale(surf, small_size)
     pixelated = pygame.transform.scale(small_surf, size)
 
     RETRO_PORTRAIT_CACHE[key] = pixelated
@@ -2636,7 +2609,7 @@ class WinCurl3:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             desk_h = info.current_h
-            if desk_h > 0 and 1800 > desk_h * 0.85:
+            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
                 target_h = int(desk_h * 0.85)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                 self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
@@ -2770,13 +2743,14 @@ class WinCurl3:
 
         self.options_buttons = [
             {"id": "master_vol", "y": 480, "text": "Volume", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "name", "y": 580, "text": "Name: ", "color": WHITE, "scale": 1.0},
-            {"id": "color", "y": 680, "text": "Team Color", "color": (150, 150, 255), "scale": 1.0},
-            {"id": "hair_color", "y": 780, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
-            {"id": "hi_res_mode", "y": 880, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1200, "text": "Check for Update", "color": (130, 140, 155), "scale": 1.0},
-            {"id": "back", "y": 1290, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "name", "y": 570, "text": "Name: ", "color": WHITE, "scale": 1.0},
+            {"id": "color", "y": 660, "text": "Team Color", "color": (150, 150, 255), "scale": 1.0},
+            {"id": "hair_color", "y": 750, "text": "Hair Color", "color": (100, 50, 20), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 840, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "hair_style", "y": 930, "text": "Hair Length:", "color": (200, 150, 200), "scale": 1.0},
+            {"id": "smoothscale", "y": 1020, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1110, "text": "Check for Update", "color": (130, 140, 155), "scale": 1.0},
+            {"id": "back", "y": 1200, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
         ]
         self.last_hovered = None
 
@@ -2894,7 +2868,7 @@ class WinCurl3:
             else:
                 info = pygame.display.Info()
                 desk_h = info.current_h
-                if desk_h > 0 and 1800 > desk_h * 0.85:
+                if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
                     target_h = int(desk_h * 0.85)
                     target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                     self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
@@ -3177,7 +3151,7 @@ class WinCurl3:
         self.stones = []
         pygame.event.set_grab(False)
         pygame.mouse.set_visible(True)
-        if self.game_mode in ["HOST", "JOIN"]:
+        if self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
             self.net.close()
             self.net = IRCNetworkManager()
         self.app_state = "CHALLENGE_MENU" if getattr(self, "game_mode", "") == "CHALLENGE" else "MENU"
@@ -3665,7 +3639,6 @@ class WinCurl3:
                 
             if hasattr(self, "btn_host_room") and self.btn_host_room.collidepoint(mx, my):
                 self.audio.play_click()
-                self.net.close()
                 self.app_state = "ROOM_PROMPT"
                 self.set_typing_target("room")
                 self.net_action = "host"
@@ -3673,7 +3646,6 @@ class WinCurl3:
                 
             if hasattr(self, "btn_join_name") and self.btn_join_name.collidepoint(mx, my):
                 self.audio.play_click()
-                self.net.close()
                 self.app_state = "ROOM_PROMPT"
                 self.set_typing_target("room")
                 self.net_action = "join"
@@ -3682,19 +3654,19 @@ class WinCurl3:
             if hasattr(self, "lobby_buttons"):
                 for b in self.lobby_buttons:
                     if b["rect"].collidepoint(mx, my):
-                        if b.get("in_progress"):
-                            continue
                         self.audio.play_click()
                         self.room_text = b["room_id"]
-                        self.net.close()
                         self.net_action = "join"
                         if b["locked"]:
                             self.app_state = "LOBBY_PASSCODE_PROMPT"
                             self.set_typing_target("passcode")
                             self.passcode_text = ""
                         else:
-                            self.game_mode = "JOIN"
-                            self.net.connect(self.username, False, self.room_text, getattr(self, "preferred_color", 0), "")
+                            self.game_mode = "SPECTATE" if b.get("in_progress") else "JOIN"
+                            if hasattr(self.net, "sock") and self.net.sock and not getattr(self.net, "connecting", False):
+                                self.net.transition_from_scanner(self.username, False, self.room_text, getattr(self, "preferred_color", 0), "")
+                            else:
+                                self.net.connect(self.username, False, self.room_text, getattr(self, "preferred_color", 0), "")
                         return
 
     def handle_room_prompt_events(self, event):
@@ -3731,8 +3703,11 @@ class WinCurl3:
                 self.set_typing_target(None)
                 self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
                 if prev == "LOBBY_PASSCODE_PROMPT":
-                    self.game_mode = "JOIN"
-                self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0), self.passcode_text)
+                    self.game_mode = "SPECTATE" if (hasattr(self, "net") and hasattr(self.net, "lobby_rooms") and self.net.lobby_rooms.get(self.room_text, {}).get("in_progress")) else "JOIN"
+                if hasattr(self, "net") and hasattr(self.net, "sock") and self.net.sock and not getattr(self.net, "connecting", False) and getattr(self, "show_lobby", False):
+                    self.net.transition_from_scanner(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0), self.passcode_text)
+                else:
+                    self.net.connect(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0), self.passcode_text)
             elif event.key == K_ESCAPE:
                 self.app_state = "LOBBY_BROWSER" if getattr(self, "app_state", "") == "LOBBY_PASSCODE_PROMPT" else "MENU"
                 self.set_typing_target(None)
@@ -3997,7 +3972,7 @@ class WinCurl3:
             return
 
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            if self.game_mode in ["HOST", "JOIN"] and self.btn_chat.collidepoint(mouse_pos.x, mouse_pos.y):
+            if self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.btn_chat.collidepoint(mouse_pos.x, mouse_pos.y):
                 self.audio.play_click()
                 self.typing_chat = not getattr(self, "typing_chat", False)
                 if self.typing_chat:
@@ -4013,7 +3988,7 @@ class WinCurl3:
                 return
             if self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
                 self.audio.play_click()
-                if self.game_mode in ["HOST", "JOIN"]:
+                if self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
                     self.return_to_menu()
                 else:
                     self.app_state = "PAUSED"
@@ -4033,7 +4008,7 @@ class WinCurl3:
                 self.advance_end_logic()
             return
 
-        has_control = (self.game_mode in ["LOCAL", "CHALLENGE"]) or (self.current_team == getattr(self, "preferred_color", 0))
+        has_control = (self.game_mode != "SPECTATE") and ((self.game_mode in ["LOCAL", "CHALLENGE"]) or (self.current_team == getattr(self, "preferred_color", 0)))
 
         if not has_control:
             return
@@ -4058,7 +4033,7 @@ class WinCurl3:
                     pygame.event.set_grab(True)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, "drag_start_pos", None):
                 if f_id == getattr(self, "drag_finger_id", None) or (IS_ANDROID and f_id == "mouse"):
-                    self.virtual_pull = pygame.math.Vector2((mouse_pos.x - self.drag_start_pos.x) * 0.70, (mouse_pos.y - self.drag_start_pos.y) * 0.70)
+                    self.virtual_pull = pygame.math.Vector2((mouse_pos.x - self.drag_start_pos.x) * 0.70, (mouse_pos.y - self.drag_start_pos.y) * 0.30)
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5:
                         self.pull_history.pop(0)
@@ -4098,7 +4073,7 @@ class WinCurl3:
                     can_sweep_legally = True
                     break
 
-            is_sweeping = is_mouse_pressed and can_sweep_legally
+            is_sweeping = is_mouse_pressed and can_sweep_legally and self.game_mode != "SPECTATE"
             delta = (mouse_pos - self.last_mouse_pos).length()
             self.is_sweeping_now = is_sweeping
 
@@ -4262,12 +4237,17 @@ class WinCurl3:
         self.last_mouse_pos = self.get_pointer_pos()
 
     def update_network(self):
-        if self.game_mode not in ["HOST", "JOIN"]:
+        if self.game_mode not in ["HOST", "JOIN", "SPECTATE"]:
             return
-        if self.app_state == "MENU" and self.net.matched:
-            self.app_state = "COIN_TOSS"
-            self.coin_timer = 30
-            self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
+        if self.app_state in ("MENU", "LOBBY_BROWSER", "ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT") and self.net.matched:
+            if self.game_mode == "SPECTATE":
+                pass # Wait for sync_state to transition to PLAY
+            else:
+                self.app_state = "COIN_TOSS"
+                self.coin_timer = 30
+                self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
+                self.audio.stop_music()
+                self.audio.play_cheer()
             self.audio.stop_music()
             self.audio.play_cheer()
 
@@ -4312,7 +4292,10 @@ class WinCurl3:
             elif data.get("cmd") == "sweep":
                 self.sweep_power = data["p"]
                 self.remote_sweep_timer = 20
-            elif data.get("cmd") in ("sync_state", "sync") and self.game_mode == "JOIN":
+            elif data.get("cmd") in ("sync_state", "sync") and self.game_mode in ("JOIN", "SPECTATE"):
+                if self.app_state != "PLAY":
+                    self.app_state = "PLAY"
+                    self.audio.stop_music()
                 if data.get("cmd") == "sync":
                     self.turn_state = data["st"]
                     self.current_team = data["t"]
@@ -4532,7 +4515,7 @@ class WinCurl3:
                 try:
                     import subprocess
 
-                    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "wincurl"])
+                    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "wincurl3"])
                     self.update_status = "Update installed! Restarting..."
                     pygame.time.wait(1000)
                     os.execl(sys.executable, sys.executable, *sys.argv)
@@ -4637,7 +4620,7 @@ class WinCurl3:
         for i, (room_id, data) in enumerate(rooms):
             if i > 8: break # Max 9 rooms displayed
             r_rect = pygame.Rect(cx - 300, y, 600, 80)
-            draw_glass_rect(self.canvas, r_rect, (30, 40, 60), 10, animate_sheen=False)
+            draw_glass_rect(self.canvas, r_rect, (30, 40, 60), r_rect.h // 2, animate_sheen=False)
             txt_color = WHITE
             rtxt = self.font.render(room_id, True, txt_color)
             self.canvas.blit(rtxt, (r_rect.x + 20, r_rect.centery - rtxt.get_height() // 2))
@@ -4655,19 +4638,19 @@ class WinCurl3:
             
         # Join by name button
         self.btn_join_name = pygame.Rect(cx - 300, cy + 450, 600, 80)
-        draw_glass_rect(self.canvas, self.btn_join_name, PURPLE_SUIT, 10, animate_sheen=True)
+        draw_glass_rect(self.canvas, self.btn_join_name, PURPLE_SUIT, self.btn_join_name.h // 2, animate_sheen=True)
         txt = self.font.render("Join by Name", True, WHITE)
         self.canvas.blit(txt, (self.btn_join_name.centerx - txt.get_width() // 2, self.btn_join_name.centery - txt.get_height() // 2))
 
         # Host button
         self.btn_host_room = pygame.Rect(cx - 300, cy + 550, 280, 80)
-        draw_glass_rect(self.canvas, self.btn_host_room, HOUSE_BLUE, 10, animate_sheen=True)
+        draw_glass_rect(self.canvas, self.btn_host_room, HOUSE_BLUE, self.btn_host_room.h // 2, animate_sheen=True)
         txt = self.font.render("Host Game", True, WHITE)
         self.canvas.blit(txt, (self.btn_host_room.centerx - txt.get_width() // 2, self.btn_host_room.centery - txt.get_height() // 2))
 
         # Cancel button
         self.btn_lobby_cancel = pygame.Rect(cx + 20, cy + 550, 280, 80)
-        draw_glass_rect(self.canvas, self.btn_lobby_cancel, HOUSE_RED, 10, animate_sheen=True)
+        draw_glass_rect(self.canvas, self.btn_lobby_cancel, HOUSE_RED, self.btn_lobby_cancel.h // 2, animate_sheen=True)
         txt = self.font.render("Back", True, WHITE)
         self.canvas.blit(txt, (self.btn_lobby_cancel.centerx - txt.get_width() // 2, self.btn_lobby_cancel.centery - txt.get_height() // 2))
         
@@ -4754,6 +4737,8 @@ class WinCurl3:
                 text = "Hair Colour:"
             elif btn["id"] == "master_vol":
                 text = "Volume"
+            elif btn["id"] == "hair_style":
+                text = "Hair Length: " + ("Long" if getattr(self, "hair_style", "short") == "long" else "Short")
             elif btn["id"] == "hi_res_mode":
                 text = "Hi-Res Mode: " + ("ON" if getattr(self, "hi_res_mode", False) else "OFF")
                 btn["color"] = (40, 120, 60) if getattr(self, "hi_res_mode", False) else TEAM_YELLOW
@@ -4780,7 +4765,7 @@ class WinCurl3:
             )
             draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
 
-            if btn["id"] in ["color", "hair_color"]:
+            if btn["id"] in ["color", "hair_color", "hair_style"]:
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.centerx - 30, rect.centery))
                 self.canvas.blit(img, txt_rect)
@@ -4807,6 +4792,14 @@ class WinCurl3:
                     pygame.draw.line(self.canvas, stone_c, (swatch_x - 12, swatch_y), (swatch_x + 12, swatch_y), 6)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x - 12, swatch_y), 3)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x + 12, swatch_y), 3)
+                elif btn["id"] == "hair_style":
+                    pygame.draw.circle(self.canvas, (240, 210, 180), (swatch_x, swatch_y), 18)
+                    hair_color = getattr(self, "hair_color", (100, 50, 20))
+                    pygame.draw.circle(self.canvas, hair_color, (swatch_x, swatch_y - 8), 16)
+                    if getattr(self, "hair_style", "short") == "long":
+                        pygame.draw.rect(self.canvas, hair_color, (swatch_x - 16, swatch_y - 10, 32, 28))
+                    else:
+                        pygame.draw.rect(self.canvas, hair_color, (swatch_x - 16, swatch_y - 10, 32, 12))
                 else:
                     swatch_c = getattr(self, "hair_color", (100, 50, 20))
                     pygame.draw.circle(self.canvas, WHITE, (swatch_x, swatch_y), 24)
@@ -5555,9 +5548,9 @@ class WinCurl3:
             self.canvas, self.btn_pause, (50, 55, 65), self.btn_pause.h // 2, self.btn_pause.collidepoint(m_pos.x, m_pos.y)
         )
 
-        btn_text = "DISCONNECT" if self.game_mode in ("HOST", "JOIN") else "PAUSE"
+        btn_text = "DISCONNECT" if self.game_mode in ("HOST", "JOIN", "SPECTATE") else "PAUSE"
         lbl_p = self.small_font.render(btn_text, True, BLACK)
-        if self.game_mode in ("HOST", "JOIN"):
+        if self.game_mode in ("HOST", "JOIN", "SPECTATE"):
             total_w = 34 + 8 + lbl_p.get_width()
             start_x = self.btn_pause.centerx - total_w // 2
             # Disconnect Icon
@@ -5587,7 +5580,7 @@ class WinCurl3:
             self.canvas.blit(lbl_p, (start_x + 34, self.btn_pause.centery - lbl_p.get_height() // 2))
 
         # Netcode Chat Render Support
-        if self.game_mode in ["HOST", "JOIN"]:
+        if self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
             current_time = pygame.time.get_ticks()
             active_chat = [c for c in self.chat_messages[-5:] if current_time - c["time"] < 30000]
             max_alpha = 0
@@ -6087,7 +6080,7 @@ class WinCurl3:
                     self.border_starfield = Starfield(count=400, max_w=event.w, max_h=event.h)
 
                 if event.type == getattr(pygame, "TEXTINPUT", 771):
-                    if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"] and self.typing_chat:
+                    if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.typing_chat:
                         if len(self.chat_input) + len(event.text) <= 30:
                             self.chat_input += event.text
                     elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
@@ -6108,7 +6101,7 @@ class WinCurl3:
                         self.audio.play_click()
                         self.toggle_fullscreen()
                         continue
-                    if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"]:
+                    if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
                         if self.typing_chat:
                             if event.key in (K_RETURN, K_KP_ENTER):
                                 if self.chat_input.strip():
@@ -6135,7 +6128,7 @@ class WinCurl3:
                     if event.key == K_ESCAPE:
                         if self.app_state == "PLAY":
                             self.audio.play_click()
-                            if self.game_mode in ["HOST", "JOIN"]:
+                            if self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
                                 self.return_to_menu()
                             else:
                                 self.app_state = "PAUSED"
@@ -6197,7 +6190,7 @@ class WinCurl3:
                 self.frames_elapsed += 1
                 if self.app_state == "PLAY":
                     self.update_physics()
-                elif self.app_state == "PAUSED" and self.game_mode in ["HOST", "JOIN"]:
+                elif self.app_state == "PAUSED" and self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
                     self.update_physics()
                 self.accumulator -= FIXED_DT
 
@@ -6327,6 +6320,30 @@ class IRCNetworkManager:
             return
         threading.Thread(target=self._irc_thread, daemon=True).start()
 
+    def transition_from_scanner(self, username, is_host, room_name="", preferred_color=0, passcode=""):
+        self.username = "WC_" + "".join(c for c in username if c.isalnum())[:10]
+        if len(self.username) == 3:
+            self.username += str(random.randint(100, 999))
+        safe_room = "".join(c for c in room_name if c.isalnum()).lower() or "default"
+        self.channel = f"#wc3_{safe_room}"
+        self.room_display = f"{safe_room}"
+        self.preferred_color = preferred_color
+        self.connection_error = ""
+        self.is_host = is_host
+        self.room_passcode = passcode
+        self.scanning_lobby = False
+        self.matched = False
+        self.opponent = ""
+        self.last_ad_time = 0
+        if hasattr(self, "sock") and self.sock and not getattr(self, "connecting", False):
+            try:
+                if self.is_host:
+                    self.sock.send(f"JOIN {self.channel}\r\n".encode())
+                else:
+                    self.sock.send(f"PART #wincurl_lobby\r\nJOIN {self.channel}\r\n".encode())
+            except:
+                pass
+
     def scan_lobby(self):
         self.scanning_lobby = True
         self.lobby_rooms = {}
@@ -6347,15 +6364,11 @@ class IRCNetworkManager:
 
         sock = None
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5.0)
             try:
-                sock.connect(("irc.dal.net", 6667))
+                sock = socket.create_connection(("irc.rizon.net", 6667), timeout=5.0)
             except Exception as e:
-                print("DNS/IPv6 Failed, trying IPv4 fallback:", e)
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(5.0)
-                sock.connect(("irc.dal.net", 6667))
+                print("Port 6667 Failed, trying fallback:", e)
+                sock = socket.create_connection(("irc.rizon.net", 6667), timeout=5.0)
             
             self.sock = sock
             sock.settimeout(None)
@@ -6370,9 +6383,9 @@ class IRCNetworkManager:
                         sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello', 'passcode': self.room_passcode})}\r\n".encode())
                         last_hello_time = time.time()
                 elif self.is_host and not self.connecting:
-                    if time.time() - self.last_ad_time > 5.0:
+                    if time.time() - self.last_ad_time > 8.0:
                         locked = bool(self.room_passcode)
-                        sock.send(f"PRIVMSG #wc3_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked, 'in_progress': self.matched})}\r\n".encode())
+                        sock.send(f"PRIVMSG #wincurl_lobby :{json.dumps({'cmd': 'lobby_ad', 'room': self.room_display, 'locked': locked, 'in_progress': self.matched})}\r\n".encode())
                         self.last_ad_time = time.time()
 
                 try:
@@ -6399,17 +6412,17 @@ class IRCNetworkManager:
                         elif len(parts) > 1 and parts[1] == "433":
                             self.username += "too"
                             sock.send(f"NICK {self.username}\r\n".encode())
-                        elif len(parts) > 1 and parts[1] in ("001", "376", "422"):
+                        elif len(parts) > 1 and parts[1] in ("376", "422"):
                             if self.scanning_lobby:
-                                sock.send("JOIN #wc3_lobby\r\n".encode())
+                                sock.send("JOIN #wincurl_lobby\r\n".encode())
                                 self.connecting = False
                             else:
                                 sock.send(f"JOIN {self.channel}\r\n".encode())
                                 if self.is_host:
-                                    sock.send("JOIN #wc3_lobby\r\n".encode())
+                                    sock.send("JOIN #wincurl_lobby\r\n".encode())
                                     self.connecting = False
                                 else:
-                                    sock.send("JOIN #wc3_lobby\r\n".encode())
+                                    sock.send("JOIN #wincurl_lobby\r\n".encode())
                                     self.connecting = False
                         elif len(parts) > 2 and parts[1] in ("PART", "QUIT"):
                             sender = parts[0].split("!")[0][1:]
@@ -6431,7 +6444,7 @@ class IRCNetworkManager:
                                 else:
                                     msg_data = json.loads(msg_content)
 
-                                if self.scanning_lobby and target == "#wc3_lobby" and msg_data.get("cmd") == "lobby_ad":
+                                if self.scanning_lobby and target.lower() == "#wincurl_lobby" and msg_data.get("cmd") == "lobby_ad":
                                     room_id = msg_data.get("room")
                                     if room_id:
                                         self.lobby_rooms[room_id] = {"locked": msg_data.get("locked", False), "in_progress": msg_data.get("in_progress", False), "last_seen": time.time()}
@@ -6456,6 +6469,11 @@ class IRCNetworkManager:
                                 pass
                 except socket.timeout:
                     pass
+                except Exception as e:
+                    self.connection_error = str(e)
+                    break
+            if getattr(self, 'sock', None) is sock:
+                self.running = False
         except Exception as e:
             self.connection_error = str(e) if str(e) else repr(e)
             import traceback
