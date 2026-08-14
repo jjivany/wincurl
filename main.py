@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94.2"
+VERSION = "3.0 Build 94.3"
 
 
 QUAKE_COLORS = {
@@ -38,21 +38,24 @@ class CachedFont:
         self.emoji_font = None
         self.target_size = font.get_height()
         
-        try:
-            ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,notocoloremoji,symbola", self.target_size)
-            if ef:
-                self.emoji_font = ef
-        except:
-            pass
-
-        if not self.emoji_font:
-            import os
+        import sys, os
+        is_android = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ
+        
+        if is_android:
             android_emoji = "/system/fonts/NotoColorEmoji.ttf"
             if os.path.exists(android_emoji):
                 try:
                     self.emoji_font = pygame.font.Font(android_emoji, self.target_size)
                 except:
                     pass
+
+        if not self.emoji_font:
+            try:
+                ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,notocoloremoji,symbola", self.target_size)
+                if ef:
+                    self.emoji_font = ef
+            except:
+                pass
 
     def __getattr__(self, attr):
         return getattr(self.font, attr)
