@@ -42,14 +42,21 @@ class CachedFont:
         is_android = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ
         
         if is_android:
-            bundled_emoji = os.path.join(os.path.dirname(__file__), "NotoEmoji-Regular.ttf")
-            if not os.path.exists(bundled_emoji):
-                bundled_emoji = "NotoEmoji-Regular.ttf"
-            if os.path.exists(bundled_emoji):
+            system_color_emoji = "/system/fonts/NotoColorEmoji.ttf"
+            if os.path.exists(system_color_emoji):
                 try:
-                    self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
+                    self.emoji_font = pygame.font.Font(system_color_emoji, self.target_size)
                 except:
                     pass
+            if not self.emoji_font:
+                bundled_emoji = os.path.join(os.path.dirname(__file__), "NotoEmoji-Regular.ttf")
+                if not os.path.exists(bundled_emoji):
+                    bundled_emoji = "NotoEmoji-Regular.ttf"
+                if os.path.exists(bundled_emoji):
+                    try:
+                        self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
+                    except:
+                        pass
 
         if not self.emoji_font:
             try:
@@ -3632,9 +3639,7 @@ class WinCurl3:
                 self.username = self.username[:-1]
                 self.save_progress()
             else:
-                if not getattr(self, "received_text_input", False) and hasattr(event, "unicode") and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
-                    self.username += event.unicode
-                    self.save_progress()
+                pass
 
     def handle_lobby_browser_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -3730,13 +3735,7 @@ class WinCurl3:
                     self.passcode_text = self.passcode_text[:-1]
                 self.save_progress()
             else:
-                if not getattr(self, "received_text_input", False) and hasattr(event, "unicode") and event.unicode.isprintable():
-                    if self.typing_target == "room" and len(self.room_text) + len(event.unicode) <= 15:
-                        self.room_text += event.unicode
-                        self.save_progress()
-                    elif self.typing_target == "passcode" and len(self.passcode_text) + len(event.unicode) <= 4:
-                        self.passcode_text += event.unicode
-                        self.save_progress()
+                pass
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -6063,11 +6062,7 @@ class WinCurl3:
             if self.accumulator > 200:
                 self.accumulator = 200  # Prevent spiral of death
             
-            self.received_text_input = False
             events = pygame.event.get()
-            for e in events:
-                if e.type == getattr(pygame, "TEXTINPUT", 771):
-                    self.received_text_input = True
 
             for event in events:
                 if event.type == QUIT or getattr(event, "type", None) == getattr(pygame, "APP_TERMINATING", 260):
@@ -6182,9 +6177,6 @@ class WinCurl3:
                                     pass
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
-                            else:
-                                if not getattr(self, "received_text_input", False) and hasattr(event, "unicode") and event.unicode.isprintable() and len(self.chat_input) + len(event.unicode) <= 30:
-                                    self.chat_input += event.unicode
                             continue
                         else:
                             if event.key == K_t or event.key in (K_RETURN, K_KP_ENTER):
