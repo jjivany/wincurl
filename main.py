@@ -13,39 +13,33 @@ import io
 import collections
 import asyncio
 import sys
+import re
 
-VERSION = "3.0 Build 92"
+VERSION = "3.0 Build 96"
 
+
+QUAKE_COLORS = {
+    "0": (0, 0, 0),       # Black
+    "1": (255, 50, 50),   # Red
+    "2": (50, 255, 50),   # Green
+    "3": (255, 255, 50),  # Yellow
+    "4": (50, 50, 255),   # Blue
+    "5": (50, 255, 255),  # Cyan
+    "6": (255, 50, 255),  # Magenta
+    "7": (255, 255, 255), # White
+    "8": (150, 150, 150), # Gray
+    "9": (100, 100, 100)  # Dark Gray
+}
 
 class CachedFont:
     def __init__(self, font):
         self.font = font
         self.cache = {}
-
-    def __getattr__(self, attr):
-        return getattr(self.font, attr)
-
-    def render(self, text, antialias, color, background=None):
-        key = (text, antialias, str(color), str(background))
-        if key not in self.cache:
-            if len(self.cache) > 50:
-                del self.cache[next(iter(self.cache))]
-            if background:
-                self.cache[key] = self.font.render(text, antialias, color, background)
-            else:
-                self.cache[key] = self.font.render(text, antialias, color)
-        return self.cache[key]
-
-
-class ChatFont:
-    def __init__(self, size):
-        self.target_size = size
-        self.text_font = CachedFont(pygame.font.Font(None, size))
         self.emoji_font = None
-        self.cache = {}
-
+        self.target_size = font.get_height()
+        
         try:
-            ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,notocoloremoji,symbola", size)
+            ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,notocoloremoji,symbola", self.target_size)
             if ef:
                 self.emoji_font = ef
         except:
@@ -53,86 +47,102 @@ class ChatFont:
 
         if not self.emoji_font:
             import os
-
             android_emoji = "/system/fonts/NotoColorEmoji.ttf"
             if os.path.exists(android_emoji):
                 try:
-                    self.emoji_font = CachedFont(pygame.font.Font(android_emoji, size))
+                    self.emoji_font = pygame.font.Font(android_emoji, self.target_size)
                 except:
                     pass
+
+    def __getattr__(self, attr):
+        return getattr(self.font, attr)
 
     def render(self, text, antialias, color, background=None):
         key = (text, antialias, str(color), str(background))
         if key in self.cache:
             return self.cache[key]
-        if len(self.cache) > 256:
+            
+        if len(self.cache) > 200:
             self.cache.clear()
 
-        if not self.emoji_font:
+        # Parse Quake Colors
+        segments = re.split(r'(\^[0-9])', text)
+        colored_segments = []
+        current_color = color
+        
+        for seg in segments:
+            if seg.startswith('^') and len(seg) == 2 and seg[1].isdigit():
+                current_color = QUAKE_COLORS[seg[1]]
+            elif seg:
+                colored_segments.append((seg, current_color))
+
+        if not self.emoji_font and len(colored_segments) <= 1 and (not colored_segments or colored_segments[0][1] == color):
             if background:
-                surf = self.text_font.render(text, antialias, color, background)
+                surf = self.font.render(text, antialias, color, background)
             else:
-                surf = self.text_font.render(text, antialias, color)
+                surf = self.font.render(text, antialias, color)
             self.cache[key] = surf
             return surf
-
-        chunks = []
-        current_chunk = ""
-        current_font_is_text = True
-
-        for char in text:
-            m = self.text_font.metrics(char)
-            is_text = m is not None and len(m) > 0 and m[0] is not None
-
-            if is_text == current_font_is_text:
-                current_chunk += char
-            else:
-                if current_chunk:
-                    chunks.append((current_chunk, current_font_is_text))
-                current_chunk = char
-                current_font_is_text = is_text
-
-        if current_chunk:
-            chunks.append((current_chunk, current_font_is_text))
 
         surfaces = []
         total_width = 0
         max_height = 0
 
-        for chunk_text, is_text in chunks:
-            font = self.text_font if is_text else self.emoji_font
-            try:
-                if background:
-                    s = font.render(chunk_text, antialias, color, background)
+        for seg_text, seg_color in colored_segments:
+            chunks = []
+            current_chunk = ""
+            current_font_is_text = True
+            
+            for char in seg_text:
+                m = self.font.metrics(char)
+                is_text = m is not None and len(m) > 0 and m[0] is not None
+    
+                if is_text == current_font_is_text:
+                    current_chunk += char
                 else:
-                    s = font.render(chunk_text, antialias, color)
-
-                if not is_text and s.get_height() > self.target_size + 15:
-                    scale = self.target_size / float(s.get_height())
-                    new_w = max(1, int(s.get_width() * scale))
-                    s = pygame.transform.smoothscale(s, (new_w, self.target_size))
-
-                surfaces.append(s)
-                total_width += s.get_width()
-                max_height = max(max_height, s.get_height())
-            except:
-                pass
+                    if current_chunk:
+                        chunks.append((current_chunk, current_font_is_text))
+                    current_chunk = char
+                    current_font_is_text = is_text
+    
+            if current_chunk:
+                chunks.append((current_chunk, current_font_is_text))
+                
+            for chunk_text, is_text in chunks:
+                font_to_use = self.font if is_text or not self.emoji_font else self.emoji_font
+                try:
+                    if background:
+                        s = font_to_use.render(chunk_text, antialias, seg_color, background)
+                    else:
+                        s = font_to_use.render(chunk_text, antialias, seg_color)
+    
+                    if not is_text and s.get_height() > self.target_size + 15:
+                        scale_factor = (self.target_size) / float(s.get_height())
+                        new_w = max(1, int(s.get_width() * scale_factor))
+                        s = pygame.transform.smoothscale(s, (new_w, self.target_size))
+                        
+                    surfaces.append(s)
+                    total_width += s.get_width()
+                    max_height = max(max_height, s.get_height())
+                except:
+                    pass
 
         if not surfaces:
-            self.cache[key] = pygame.Surface((1, self.target_size), pygame.SRCALPHA)
-            return self.cache[key]
+            surf = pygame.Surface((1, max(1, self.target_size)), pygame.SRCALPHA)
+        elif len(surfaces) == 1:
+            surf = surfaces[0]
+        else:
+            surf = pygame.Surface((total_width, max_height), pygame.SRCALPHA)
+            if background:
+                surf.fill(background)
+            x_offset = 0
+            for s in surfaces:
+                y_offset = max_height // 2 - s.get_height() // 2
+                surf.blit(s, (x_offset, y_offset))
+                x_offset += s.get_width()
 
-        final_surf = pygame.Surface((total_width, max_height), pygame.SRCALPHA)
-        if background:
-            final_surf.fill(background)
-
-        x = 0
-        for s in surfaces:
-            final_surf.blit(s, (x, max_height // 2 - s.get_height() // 2))
-            x += s.get_width()
-
-        self.cache[key] = final_surf
-        return final_surf
+        self.cache[key] = surf
+        return surf
 
 
 # --- Global Constants & Configurations ---
@@ -611,6 +621,15 @@ class WinCurlAudioEngine:
                 from jnius import autoclass
                 PythonActivity = autoclass("org.kivy.android.PythonActivity")
                 cache_dir = os.path.join(PythonActivity.mActivity.getCacheDir().getAbsolutePath(), "wincurl_cache")
+                os.makedirs(cache_dir, exist_ok=True)
+                return cache_dir
+            except:
+                pass
+
+        if hasattr(sys, "platform") and sys.platform == "emscripten":
+            try:
+                # LocalStorage via Pygbag/Emscripten's persistent FS if possible, else just /tmp
+                cache_dir = "/tmp/wincurl_cache"
                 os.makedirs(cache_dir, exist_ok=True)
                 return cache_dir
             except:
@@ -2193,20 +2212,19 @@ STORY_RINKS = [
         "boss": "CEO Smogsworth",
         "color": (255, 50, 50),
         "intro_dialog": [
-            "I'm CEO Smogsworth. I just bought this curling club, your house, and the concept of ice.",
-            "We're paving over this rink to build a parking garage for my parking garages.",
-            "You think you can stop me? My suit costs more than your entire life's GDP!",
-            "I'm going to eradicate the sport of curling from the face of the earth!",
+            "I'm CEO Smogsworth. My factories produce 90% of the world's carbon emissions.",
+            "I just bought this curling club, your house, and the concept of ice itself.",
+            "We're paving over this rink to build a toxic waste incinerator.",
+            "You think curling can save the environment? My profit margins say otherwise!",
         ],
-        "win_dialog": ["My golden parachute... it has a hole in it!", "I'm calling HR!"],
+        "win_dialog": ["My stock options! The EPA is calling!", "I'm ruined!"],
         "taunts": [
-            "Let's circle back to my victory!",
-            "You're fired!",
-            "Hostile takeover!",
+            "Feel the greenhouse effect!",
             "Quarterly profits are up!",
-            "Downsizing your score!",
-            "Let's touch base on how bad you are!",
-            "Synergistic destruction!",
+            "I love the smell of smog in the morning!",
+            "Drill, baby, drill!",
+            "Your score is depreciating!",
+            "Hostile takeover!"
         ],
         "difficulty": 3,
         "ai_type": "aggressive",
@@ -2216,24 +2234,20 @@ STORY_RINKS = [
         "boss": "Tremor",
         "color": (200, 180, 50),
         "intro_dialog": [
-            "We're melting the ice to liquid-cool my brand new crypto rigs!",
-            "Do you have any idea how many CurlCoins I'm minting right now?",
-            "Your traditional curling club is standing in the way of decentralized finance.",
-            "Fiat currency is dead. My net worth is entirely in JPEG files.",
+            "We're melting the polar ice caps to liquid-cool my crypto rigs!",
+            "Do you have any idea how many forests I've burned for my Bitcoin farm?",
+            "Your traditional curling club is standing in the way of unregulated hyper-capitalism.",
             "I'm going to blockchain you out of existence! To the moon!",
         ],
         "win_dialog": ["My wallet got hacked! The market crashed!", "I lost my private keys! Nooooo!"],
         "taunts": [
             "To the moon!",
             "Blockchain verified!",
-            "Decentralized destruction!",
             "Liquid cooling engaged!",
             "Your hash rate is too low!",
             "Minting a victory!",
             "Diamond hands!",
-            "Yield farming!",
             "Pump and dump!",
-            "Rug pull!",
         ],
         "difficulty": 5,
         "ai_type": "defensive",
@@ -2243,45 +2257,42 @@ STORY_RINKS = [
         "boss": "Poly Mer",
         "color": (220, 100, 150),
         "intro_dialog": [
-            "Hey besties! We're turning this boomer ice rink into a giant TikTok content house!",
-            "Curling isn't viral enough. We need hype houses, drama, and apology videos on the ice!",
-            "I'm live-streaming my victory to millions of followers right now. Say hi to the chat!",
+            "Hey besties! We're tearing down the ozone layer to build a giant 5G hype house!",
+            "Privacy is dead. I'm selling your curling strategies to the highest bidder.",
+            "We run the algorithms that divide nations and spark digital wars.",
             "Make sure to smash that subscribe button while I smash your dreams.",
-            "Don't forget to like, subscribe, and watch me win! #Curling #Blessed",
         ],
         "win_dialog": ["I'm losing followers! My engagement is tanking!", "Wait, no, don't cancel me! I'll make a notes app apology!"],
         "taunts": [
             "Trending #1!",
             "Going viral!",
-            "Like and subscribe!",
+            "Data mining successful!",
+            "Algorithm optimized!",
             "You're getting cancelled!",
-            "My engagement is off the charts!",
             "Sponsored shot!",
             "Ratio'd!",
-            "Main character energy!",
-            "You didn't pass the vibe check!",
         ],
         "difficulty": 6,
         "ai_type": "chaotic",
     },
     {
-        "name": "The Grand Arena",
+        "name": "The War Room",
         "boss": "EliteFour",
         "color": (200, 200, 255),
         "intro_dialog": [
             "You have made it further than anyone expected, challenger.",
-            "But this is where your pathetic journey ends.",
-            "We are The FourElite. Masters of ice, lords of the stone, kings of the sweep.",
-            "We have trained in the frozen mountains of Tibet just for this moment.",
-            "Prepare to face true curling perfection!"
+            "But we are the military-industrial complex. We profit from endless war.",
+            "Curling is just a simulation for our drone strikes and orbital lasers.",
+            "We will wipe your entire civilization off the map if you cross this hog line.",
+            "Prepare for total annihilation."
         ],
-        "win_dialog": ["Impossible!", "Our perfect technique... shattered by a mere mortal!"],
+        "win_dialog": ["Our defenses are breached!", "The peace treaty... we have to sign it!"],
         "taunts": [
-            "Flawless execution!",
-            "You cannot match our strategy.",
-            "A futile effort.",
-            "Ice cold precision.",
-            "Bow before the Elite!",
+            "Tactical strike incoming!",
+            "Collateral damage!",
+            "We have air superiority!",
+            "Target locked.",
+            "Deploying countermeasures!",
         ],
         "difficulty": 7,
         "ai_type": "balanced",
@@ -2291,10 +2302,10 @@ STORY_RINKS = [
         "boss": "Dr. Sludge",
         "color": (150, 200, 150),
         "intro_dialog": [
-            "My predictive LLMs have solved the game of curling.",
-            "Human error is a flaw we've completely engineered out of the metaverse.",
-            "We're replacing the ice with a massive neural network cooling system.",
-            "I have simulated this match 14 million times in my head.",
+            "My predictive LLMs have decided that humanity is inefficient.",
+            "We are automating away your jobs, your art, and now... your sports.",
+            "I just raised 50 billion dollars to replace you with a curling robot.",
+            "You are nothing but training data for my genocide algorithm.",
             "Your defeat has a 99.9% probability. The math doesn't lie.",
         ],
         "win_dialog": ["Error 404: Victory not found. Recalibrating...", "Division by zero! Ahhhhh!"],
@@ -2306,8 +2317,6 @@ STORY_RINKS = [
             "My algorithms are superior!",
             "Calculating trajectory...",
             "System update: You lose!",
-            "Turing test failed!",
-            "Garbage in, garbage out!",
         ],
         "difficulty": 7,
         "ai_type": "aggressive",
@@ -2317,10 +2326,10 @@ STORY_RINKS = [
         "boss": "Timber Baroness",
         "color": (100, 50, 150),
         "intro_dialog": [
-            "Why curl in the real world when the Metaverse is so much better?",
-            "We're bulldozing this physical club to build a massive VR simulation center.",
+            "Why fight for human rights when the Metaverse is so much better?",
+            "We've enslaved millions in VR factories to mine digital resources.",
+            "The real world is burning, and we're selling the virtual water drops.",
             "Put on the headset and accept the new digital reality, peasant.",
-            "Physical friction is just a float variable in my physics engine.",
             "I'm about to unplug you from the matrix!",
         ],
         "win_dialog": ["My headset is glitching! I'm stuck in the real world!", "VR sickness kicking in! *barfs*"],
@@ -2332,8 +2341,6 @@ STORY_RINKS = [
             "Your reality is flawed!",
             "Uploading defeat!",
             "You're just an NPC!",
-            "Glitch in the system!",
-            "Your graphics card is too weak!",
         ],
         "difficulty": 8,
         "ai_type": "defensive",
@@ -2343,23 +2350,20 @@ STORY_RINKS = [
         "boss": "Baron Von Crude",
         "color": (80, 100, 80),
         "intro_dialog": [
-            "This curling rink takes up too much prime real estate.",
-            "We're installing 10,000 server racks right where the button is.",
-            "Your data belongs to us now. I know what you ate for breakfast.",
+            "I control the water, the air, and the data.",
+            "I have engineered famines just to watch the stock market fluctuate.",
+            "Your resistance is a statistical anomaly that I will soon correct.",
             "I have indexed every possible move you could make.",
             "Prepare to be formatted, analog trash!",
         ],
-        "win_dialog": ["Critical system failure! Data corrupted!", "My hard drives! The magnetic platters!"],
+        "win_dialog": ["My servers are crashing! The data is free!", "My empire... crumbling!"],
         "taunts": [
-            "Data collected!",
-            "Formatting your hopes!",
-            "Big data always wins!",
-            "Analyzing your weaknesses!",
-            "Downloading a victory!",
-            "You're out of storage!",
-            "Your firewall has been breached!",
-            "SQL injection successful!",
-            "Ransomware activated!",
+            "Data deleted!",
+            "Analytics show you're terrible!",
+            "Harvesting your despair!",
+            "You have been optimized out!",
+            "Corrupting your strategy!",
+            "My database is absolute!",
         ],
         "difficulty": 9,
         "ai_type": "chaotic",
@@ -2462,7 +2466,7 @@ class WinCurl3:
         self.font = CachedFont(pygame.font.Font(None, 45))
         self.score_font = CachedFont(pygame.font.Font(None, 36))
         self.small_font = CachedFont(pygame.font.Font(None, 31))
-        self.chat_font = ChatFont(31)
+        self.chat_font = CachedFont(pygame.font.Font(None, 31))
         self.title_font = CachedFont(pygame.font.Font(None, 120))
         self.large_sym_font = CachedFont(pygame.font.Font(None, 95))
         self.font_62 = CachedFont(pygame.font.Font(None, 60))
@@ -2905,6 +2909,7 @@ class WinCurl3:
                 data = json.load(f)
                 self.username = data.get("username", "")
                 self.preferred_color = data.get("color", 0)
+                self.actual_preferred_color = self.preferred_color
                 self.hair_style = data.get("hair_style", "short")
                 self.hair_color = tuple(data.get("hair_color", [100, 50, 20]))
                 self.room_text = data.get("room", "")
@@ -3011,7 +3016,7 @@ class WinCurl3:
                 "bot_slots": self.bot_slots_data,
                 "local_slots": self.local_slots_data,
                 "username": self.username,
-                "color": self.preferred_color,
+                "color": getattr(self, "actual_preferred_color", self.preferred_color),
                 "hair_style": self.hair_style,
                 "hair_color": list(getattr(self, "hair_color", (100, 50, 20))),
                 "room": self.room_text,
@@ -3903,6 +3908,17 @@ class WinCurl3:
                 self.audio.play_click()
                 self.return_to_menu()
 
+    def handle_confirm_disconnect_events(self, event):
+        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            m = self.get_pointer_pos()
+            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            if getattr(self, "btn_disconnect_yes", None) and self.btn_disconnect_yes.collidepoint(mx, my):
+                self.audio.play_click()
+                self.return_to_menu()
+            elif getattr(self, "btn_disconnect_no", None) and self.btn_disconnect_no.collidepoint(mx, my):
+                self.audio.play_click()
+                self.app_state = "PLAY"
+
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             m = self.get_pointer_pos()
@@ -3989,7 +4005,7 @@ class WinCurl3:
             if self.btn_pause.collidepoint(mouse_pos.x, mouse_pos.y):
                 self.audio.play_click()
                 if self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
-                    self.return_to_menu()
+                    self.app_state = "CONFIRM_DISCONNECT"
                 else:
                     self.app_state = "PAUSED"
                     self.pause_anim = 0.0
@@ -4882,6 +4898,7 @@ class WinCurl3:
                             pass  # Handled by drag
                         elif b["id"] == "color":
                             self.preferred_color = 1 if self.preferred_color == 0 else 0
+                            self.actual_preferred_color = self.preferred_color
                             self.save_progress()
                         elif b["id"] == "hair_color":
                             colors = [(100, 50, 20), (200, 180, 100), (30, 30, 30), (180, 80, 40), (220, 220, 220), (80, 100, 200)]
@@ -5635,8 +5652,6 @@ class WinCurl3:
 
             if self.net.matched and getattr(self.net, "opponent", None):
                 raw_name = self.net.opponent.split("!")[0]
-                if raw_name.startswith("WC_"):
-                    raw_name = raw_name[3:]
                 opp_surf = self.small_font.render(f"VS: {raw_name}", True, BLACK)
 
                 opp_c = TEAM_YELLOW if self.preferred_color == 0 else HOUSE_RED
@@ -6036,16 +6051,21 @@ class WinCurl3:
                 self.accumulator = 200  # Prevent spiral of death
 
             for event in pygame.event.get():
-                if event.type == QUIT or getattr(event, "type", None) in (
-                    getattr(pygame, "APP_TERMINATING", 260),
-                    getattr(pygame, "APP_WILLENTERBACKGROUND", 261),
-                ):
+                if event.type == QUIT or getattr(event, "type", None) == getattr(pygame, "APP_TERMINATING", 260):
                     if self.app_state in ["PLAY", "PAUSED"] and getattr(self, "game_mode", None) in ["STORY", "BOT"]:
                         self.save_match()
-                    if event.type == QUIT:
+                    if hasattr(self, "net"):
                         self.net.close()
-                        pygame.quit()
-                        sys.exit()
+                    pygame.quit()
+                    sys.exit()
+                elif getattr(event, "type", None) == getattr(pygame, "APP_WILLENTERBACKGROUND", 261):
+                    if self.app_state in ["PLAY", "PAUSED"] and getattr(self, "game_mode", None) in ["STORY", "BOT"]:
+                        self.save_match()
+                    self.is_background = True
+                    if hasattr(self, "audio"):
+                        self.audio.stop_music()
+                elif getattr(event, "type", None) in (getattr(pygame, "APP_WILLENTERFOREGROUND", 262), getattr(pygame, "APP_DIDENTERFOREGROUND", 263)):
+                    self.is_background = False
 
                 if event.type in (MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP):
                     self.current_mapped_pos = self.scale_mouse(event.pos)
@@ -6080,7 +6100,10 @@ class WinCurl3:
                     self.border_starfield = Starfield(count=400, max_w=event.w, max_h=event.h)
 
                 if event.type == getattr(pygame, "TEXTINPUT", 771):
-                    if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.typing_chat:
+                    mods = pygame.key.get_mods()
+                    if mods & (KMOD_CTRL | getattr(pygame, "KMOD_META", 0)):
+                        pass
+                    elif self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.typing_chat:
                         if len(self.chat_input) + len(event.text) <= 30:
                             self.chat_input += event.text
                     elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
@@ -6097,6 +6120,31 @@ class WinCurl3:
                             self.save_progress()
 
                 if event.type == KEYDOWN:
+                    mods = pygame.key.get_mods()
+                    if mods & (KMOD_CTRL | getattr(pygame, "KMOD_META", 0)) and getattr(event, "key", None) == K_v:
+                        if not pygame.scrap.get_init():
+                            try: pygame.scrap.init()
+                            except: pass
+                        if pygame.scrap.get_init():
+                            clip_bytes = pygame.scrap.get(pygame.SCRAP_TEXT)
+                            if clip_bytes:
+                                try:
+                                    clip_text = clip_bytes.decode('utf-8').strip('\x00')
+                                    if clip_text:
+                                        if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.typing_chat:
+                                            self.chat_input = (self.chat_input + clip_text)[:30]
+                                        elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
+                                            self.username = (self.username + clip_text)[:12]
+                                            self.save_progress()
+                                        elif self.app_state == "ROOM_PROMPT" and self.typing_target == "room":
+                                            self.room_text = (self.room_text + clip_text)[:15]
+                                            self.save_progress()
+                                        elif self.app_state in ("ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT") and self.typing_target == "passcode":
+                                            self.passcode_text = (self.passcode_text + clip_text)[:4]
+                                            self.save_progress()
+                                except:
+                                    pass
+
                     if not IS_ANDROID and getattr(event, "key", None) == K_f:
                         self.audio.play_click()
                         self.toggle_fullscreen()
@@ -6166,6 +6214,8 @@ class WinCurl3:
                     self.handle_play_events(event)
                 elif self.app_state == "PAUSED":
                     self.handle_pause_events(event)
+                elif self.app_state == "CONFIRM_DISCONNECT":
+                    self.handle_confirm_disconnect_events(event)
                 elif self.app_state == "MATCH_OVER":
                     self.handle_match_over_events(event)
                 elif self.app_state == "STORY_WIN":
@@ -6174,6 +6224,10 @@ class WinCurl3:
                     self.handle_credits_events(event)
                 elif self.app_state == "LEADERBOARD":
                     self.handle_leaderboard_events(event)
+
+            if getattr(self, "is_background", False):
+                pygame.time.wait(100)
+                continue
 
             if self.app_state in ["MENU", "ROOM_PROMPT", "LOBBY_BROWSER", "LOBBY_PASSCODE_PROMPT", "CHALLENGE_MENU", "STORY_MAP", "OPTIONS_MENU", "MATCH_OVER", "SAVE_SLOTS", "STORY_WIN", "CREDITS"]:
                 if not getattr(self, 'is_music_muted', False) and getattr(self, 'frames_elapsed', 0) >= 210: 
@@ -6201,6 +6255,10 @@ class WinCurl3:
                 self.draw_menu()
             elif self.app_state == "LOBBY_BROWSER":
                 self.draw_lobby_browser()
+            elif self.app_state == "LOBBY_PASSCODE_PROMPT":
+                self.draw_lobby_passcode_prompt()
+            elif self.app_state == "CONFIRM_DISCONNECT":
+                self.draw_confirm_disconnect()
             elif self.app_state in ("ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT"):
                 self.draw_room_prompt()
             elif self.app_state == "CHALLENGE_MENU":
@@ -6296,9 +6354,10 @@ class IRCNetworkManager:
         self.room_passcode = ""
 
     def connect(self, username, is_host, room_name="", preferred_color=0, passcode=""):
-        self.username = "WC_" + "".join(c for c in username if c.isalnum())[:10]
-        if len(self.username) == 3:
-            self.username += str(random.randint(100, 999))
+        clean_name = username.replace(" ", "_")[:15] or "Player"
+        if len(clean_name) < 3:
+            clean_name += str(random.randint(100, 999))
+        self.username = clean_name
 
         safe_room = "".join(c for c in room_name if c.isalnum()).lower() or "default"
         self.channel = f"#wc3_{safe_room}"
@@ -6321,8 +6380,8 @@ class IRCNetworkManager:
         threading.Thread(target=self._irc_thread, daemon=True).start()
 
     def transition_from_scanner(self, username, is_host, room_name="", preferred_color=0, passcode=""):
-        self.username = "WC_" + "".join(c for c in username if c.isalnum())[:10]
-        if len(self.username) == 3:
+        self.username = username.replace(" ", "_")[:15] or "Player"
+        if len(self.username) < 3:
             self.username += str(random.randint(100, 999))
         safe_room = "".join(c for c in room_name if c.isalnum()).lower() or "default"
         self.channel = f"#wc3_{safe_room}"
@@ -6337,6 +6396,7 @@ class IRCNetworkManager:
         self.last_ad_time = 0
         if hasattr(self, "sock") and self.sock and not getattr(self, "connecting", False):
             try:
+                self.sock.send(f"NICK {self.username}\r\n".encode())
                 if self.is_host:
                     self.sock.send(f"JOIN {self.channel}\r\n".encode())
                 else:
@@ -6349,7 +6409,7 @@ class IRCNetworkManager:
         self.lobby_rooms = {}
         self.connecting = True
         self.running = True
-        self.username = "WCS_" + str(random.randint(1000, 9999))
+        self.username = "Scanner" + str(random.randint(1000, 9999))
         import sys
         if hasattr(sys, "platform") and sys.platform == "emscripten":
             self.connecting = False
@@ -6390,13 +6450,13 @@ class IRCNetworkManager:
 
                 try:
                     if not self.tx_queue.empty():
-                        sock.settimeout(5.0)
+                        sock.settimeout(0.01)
                         while not self.tx_queue.empty():
                             msg = self.tx_queue.get()
                             if self.matched and self.opponent:
                                 sock.send(f"PRIVMSG {self.channel} :{enc_msg(msg)}\r\n".encode())
                                 
-                    sock.settimeout(0.1)
+                    sock.settimeout(0.01)
                     data = sock.recv(4096).decode("utf-8", errors="ignore")
                     if not data:
                         self.connection_error = "Server closed connection"
@@ -6454,8 +6514,10 @@ class IRCNetworkManager:
                                     client_pass = msg_data.get("passcode", "")
                                     if self.room_passcode and client_pass != self.room_passcode:
                                         continue  # Ignore incorrect passcode
-                                    self.opponent = sender
-                                    self.matched = True
+                                    if not self.matched:
+                                        self.opponent = sender
+                                        self.matched = True
+                                    # Always ACK so spectators can sync
                                     sock.send(
                                         f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello_ack', 'color': getattr(self, 'preferred_color', 0)})}\r\n".encode()
                                     )
