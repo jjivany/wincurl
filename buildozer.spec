@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
 source.exclude_patterns = setup.py, *_test.py, test_*.py, test_*.js, *.apk
 source.exclude_dirs = wincurl_web, bin, wincurl_build_clean
-version = 94.4
+version = 94.5
 # (str) Icon of the application
 icon.filename = icon.png
 

@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94.4"
+VERSION = "3.0 Build 94.5"
 
 
 QUAKE_COLORS = {
