@@ -1,4 +1,4 @@
-# WinCurl 3.1 Comprehensive User Manual (Build 94.5)
+# WinCurl 3.1 Comprehensive User Manual (Build 94.6)
 
 Welcome to the ultimate guide for WinCurl! This manual covers everything you need to know to master the ice, defeat the tech-bro villains, and climb the curling ranks.
 
