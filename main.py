@@ -2289,7 +2289,7 @@ STORY_RINKS = [
     },
     {
         "name": "The War Room",
-        "boss": "EliteFour",
+        "boss": "FourElites",
         "color": (200, 200, 255),
         "intro_dialog": [
             "You have made it further than anyone expected, challenger.",

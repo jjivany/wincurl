@@ -57,7 +57,7 @@ Here is a breakdown of the characters and their associated arenas:
    * **AI Type:** Chaotic
    * **Overview:** A chaotic, hyper-online social media influencer. She intends to tear down the ozone layer to build a giant 5G hype house and threatens to sell your curling strategies to the highest bidder to maximize her digital engagement. 
 
-4. **EliteFour (The War Room)**
+4. **FourElites (The War Room)**
    * **Difficulty:** 7
    * **AI Type:** Balanced
    * **Overview:** Represents the military-industrial complex. They view curling merely as a simulation for drone strikes and orbital lasers. To them, endless war is profit, and they threaten to wipe your civilization off the map with tactical strikes if you cross the hog line.
