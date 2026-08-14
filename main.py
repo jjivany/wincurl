@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94.7"
+VERSION = "3.0 Build 94.8"
 
 
 QUAKE_COLORS = {
@@ -42,25 +42,21 @@ class CachedFont:
         is_android = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ
         
         if is_android:
-            system_color_emoji = "/system/fonts/NotoColorEmoji.ttf"
-            if os.path.exists(system_color_emoji):
+            bundled_emoji = os.path.join(os.path.dirname(__file__), "NotoEmoji-Regular.ttf")
+            if not os.path.exists(bundled_emoji):
+                bundled_emoji = "NotoEmoji-Regular.ttf"
+            print(f"Android emoji path: {bundled_emoji}, exists: {os.path.exists(bundled_emoji)}")
+            if os.path.exists(bundled_emoji):
                 try:
-                    self.emoji_font = pygame.font.Font(system_color_emoji, self.target_size)
-                except:
-                    pass
-            if not self.emoji_font:
-                bundled_emoji = os.path.join(os.path.dirname(__file__), "NotoEmoji-Regular.ttf")
-                if not os.path.exists(bundled_emoji):
-                    bundled_emoji = "NotoEmoji-Regular.ttf"
-                if os.path.exists(bundled_emoji):
-                    try:
-                        self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
-                    except:
-                        pass
+                    self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
+                    print(f"Loaded bundled emoji font: {self.emoji_font}")
+                except Exception as e:
+                    print(f"Failed to load bundled emoji font: {e}")
 
         if not self.emoji_font:
             try:
-                ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,notocoloremoji,symbola", self.target_size)
+                # Remove notocoloremoji to prevent SDL_ttf segfault on Android
+                ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,symbola", self.target_size)
                 if ef:
                     self.emoji_font = ef
             except:
@@ -106,8 +102,11 @@ class CachedFont:
             current_font_is_text = True
             
             for char in seg_text:
-                m = self.font.metrics(char)
-                is_text = m is not None and len(m) > 0 and m[0] is not None
+                if ord(char) > 0x2000:
+                    is_text = False
+                else:
+                    m = self.font.metrics(char)
+                    is_text = m is not None and len(m) > 0 and m[0] is not None
     
                 if is_text == current_font_is_text:
                     current_chunk += char
