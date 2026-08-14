@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94"
+VERSION = "3.0 Build 94.1"
 
 
 QUAKE_COLORS = {
@@ -3724,6 +3724,14 @@ class WinCurl3:
                 elif self.typing_target == "passcode":
                     self.passcode_text = self.passcode_text[:-1]
                 self.save_progress()
+            else:
+                if hasattr(event, "unicode") and event.unicode.isprintable():
+                    if self.typing_target == "room" and len(self.room_text) + len(event.unicode) <= 15:
+                        self.room_text += event.unicode
+                        self.save_progress()
+                    elif self.typing_target == "passcode" and len(self.passcode_text) + len(event.unicode) <= 4:
+                        self.passcode_text += event.unicode
+                        self.save_progress()
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -6163,6 +6171,9 @@ class WinCurl3:
                                     pass
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
+                            else:
+                                if hasattr(event, "unicode") and event.unicode.isprintable() and len(self.chat_input) + len(event.unicode) <= 30:
+                                    self.chat_input += event.unicode
                             continue
                         else:
                             if event.key == K_t or event.key in (K_RETURN, K_KP_ENTER):
