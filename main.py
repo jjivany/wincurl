@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94.1"
+VERSION = "3.0 Build 94.2"
 
 
 QUAKE_COLORS = {
@@ -3627,7 +3627,7 @@ class WinCurl3:
                 self.username = self.username[:-1]
                 self.save_progress()
             else:
-                if hasattr(event, "unicode") and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
+                if not getattr(self, "received_text_input", False) and hasattr(event, "unicode") and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
                     self.username += event.unicode
                     self.save_progress()
 
@@ -3725,7 +3725,7 @@ class WinCurl3:
                     self.passcode_text = self.passcode_text[:-1]
                 self.save_progress()
             else:
-                if hasattr(event, "unicode") and event.unicode.isprintable():
+                if not getattr(self, "received_text_input", False) and hasattr(event, "unicode") and event.unicode.isprintable():
                     if self.typing_target == "room" and len(self.room_text) + len(event.unicode) <= 15:
                         self.room_text += event.unicode
                         self.save_progress()
@@ -6057,8 +6057,14 @@ class WinCurl3:
             self.accumulator += ms_passed
             if self.accumulator > 200:
                 self.accumulator = 200  # Prevent spiral of death
+            
+            self.received_text_input = False
+            events = pygame.event.get()
+            for e in events:
+                if e.type == getattr(pygame, "TEXTINPUT", 771):
+                    self.received_text_input = True
 
-            for event in pygame.event.get():
+            for event in events:
                 if event.type == QUIT or getattr(event, "type", None) == getattr(pygame, "APP_TERMINATING", 260):
                     if self.app_state in ["PLAY", "PAUSED"] and getattr(self, "game_mode", None) in ["STORY", "BOT"]:
                         self.save_match()
@@ -6172,7 +6178,7 @@ class WinCurl3:
                             elif event.key == K_BACKSPACE:
                                 self.chat_input = self.chat_input[:-1]
                             else:
-                                if hasattr(event, "unicode") and event.unicode.isprintable() and len(self.chat_input) + len(event.unicode) <= 30:
+                                if not getattr(self, "received_text_input", False) and hasattr(event, "unicode") and event.unicode.isprintable() and len(self.chat_input) + len(event.unicode) <= 30:
                                     self.chat_input += event.unicode
                             continue
                         else:
