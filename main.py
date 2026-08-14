@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94.3"
+VERSION = "3.0 Build 94.4"
 
 
 QUAKE_COLORS = {
@@ -42,10 +42,12 @@ class CachedFont:
         is_android = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ
         
         if is_android:
-            android_emoji = "/system/fonts/NotoColorEmoji.ttf"
-            if os.path.exists(android_emoji):
+            bundled_emoji = os.path.join(os.path.dirname(__file__), "NotoEmoji-Regular.ttf")
+            if not os.path.exists(bundled_emoji):
+                bundled_emoji = "NotoEmoji-Regular.ttf"
+            if os.path.exists(bundled_emoji):
                 try:
-                    self.emoji_font = pygame.font.Font(android_emoji, self.target_size)
+                    self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
                 except:
                     pass
 

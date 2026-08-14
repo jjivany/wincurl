@@ -1,3 +1,4 @@
 include *.wav
 include *.png
 include *.jpg
+include *.ttf
