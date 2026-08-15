@@ -83,6 +83,7 @@ Play against anyone around the world! Enter a lobby name to Host, and have your 
 
 ### Live Chat & Taunts
 During network multiplayer, you can press the **Chat** icon (or hit `T` / `Enter` on your keyboard) to send live messages to your opponent.
+You can also paste text (including emojis!) from your clipboard into the chat box using `Ctrl+V` (or `Cmd+V` on Mac).
 
 ### Quake-Style Color Formatting
 You can spice up your chat messages and your multiplayer username using Quake-style color codes! Just type `^` followed by a number from `0-9` before your text to change its color:
