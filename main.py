@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 95"
+VERSION = "3.0 Build 96"
 
 
 QUAKE_COLORS = {
@@ -40,9 +40,9 @@ class CachedFont:
         
         import sys, os
         
-        bundled_emoji = os.path.join(os.path.abspath(os.path.dirname(__file__)), "NotoEmoji-Regular.ttf")
+        bundled_emoji = os.path.join(os.path.abspath(os.path.dirname(__file__)), "TwemojiMozilla.ttf")
         if not os.path.exists(bundled_emoji):
-            bundled_emoji = "NotoEmoji-Regular.ttf"
+            bundled_emoji = "TwemojiMozilla.ttf"
         if os.path.exists(bundled_emoji):
             try:
                 self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
@@ -2475,16 +2475,12 @@ class WinCurl3:
         self.score_font = CachedFont(pygame.font.Font(None, 36))
         self.small_font = CachedFont(pygame.font.Font(None, 31))
         try:
-            if IS_ANDROID:
-                import os
-                if os.path.exists("/system/fonts/NotoColorEmoji.ttf"):
-                    chat_base_font = pygame.font.Font("/system/fonts/NotoColorEmoji.ttf", 31)
-                else:
-                    chat_base_font = pygame.font.Font(None, 31)
+            if not IS_ANDROID:
+                chat_base_font = pygame.font.SysFont("segoeuiemoji", 36)
             else:
-                chat_base_font = pygame.font.SysFont("segoeuiemoji", 24)
+                chat_base_font = pygame.font.Font(None, 48)
         except:
-            chat_base_font = pygame.font.Font(None, 31)
+            chat_base_font = pygame.font.Font(None, 48)
         self.chat_font = CachedFont(chat_base_font)
         self.title_font = CachedFont(pygame.font.Font(None, 120))
         self.large_sym_font = CachedFont(pygame.font.Font(None, 95))
@@ -3522,10 +3518,10 @@ class WinCurl3:
                 self.net.send_action(
                     {
                         "cmd": "shoot",
-                        "vx": self.active_stone.vel.x,
-                        "vy": self.active_stone.vel.y,
-                        "c": self.selected_curl,
-                        "sid": getattr(self.active_stone, "id", -1),
+                        "vx": float(self.active_stone.vel.x),
+                        "vy": float(self.active_stone.vel.y),
+                        "c": int(self.selected_curl),
+                        "sid": int(getattr(self.active_stone, "id", -1)),
                     }
                 )
         else:
@@ -4354,7 +4350,7 @@ class WinCurl3:
             elif data.get("cmd") == "coin" and self.game_mode == "JOIN":
                 self.coin_flip_result = data["result"]
             elif data.get("cmd") == "shoot":
-                if not hasattr(self, "active_stone"):
+                if getattr(self, "active_stone", None) is None:
                     self.spawn_next_stone()
                 if getattr(self, "turn_state", "NONE") == "SLIDING":
                     self.current_team = 1 if getattr(self, "current_team", 0) == 0 else 0
@@ -5707,6 +5703,7 @@ class WinCurl3:
                         line_surf.fill((100, 110, 130, max_alpha))
                         self.canvas.blit(line_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 15
+                    
                     txt_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, TEAM_YELLOW).copy()
                     shd_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, (0, 0, 0)).copy()
                     if max_alpha < 255:
