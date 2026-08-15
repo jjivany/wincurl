@@ -40,7 +40,12 @@ class CachedFont:
         
         import sys, os
         
-        bundled_emoji = os.path.join(os.path.abspath(os.path.dirname(__file__)), "TwemojiMozilla.ttf")
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.abspath(os.path.dirname(__file__))
+            
+        bundled_emoji = os.path.join(base_path, "TwemojiMozilla.ttf")
         if not os.path.exists(bundled_emoji):
             bundled_emoji = "TwemojiMozilla.ttf"
         if os.path.exists(bundled_emoji):

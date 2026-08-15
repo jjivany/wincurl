@@ -17,7 +17,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pygame pyinstaller pillow
       - name: Build with PyInstaller
-        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png;." --icon=icon.png main.py
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png;." --add-data "TwemojiMozilla.ttf;." --icon=icon.png main.py
       - name: Upload Windows Binary
         uses: actions/upload-artifact@v4
         with:
@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pygame pyinstaller pillow
       - name: Build with PyInstaller
-        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --icon=icon.png main.py
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --add-data "TwemojiMozilla.ttf:." --icon=icon.png main.py
       - name: Upload Mac Binary
         uses: actions/upload-artifact@v4
         with:
@@ -57,7 +57,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pygame pyinstaller pillow
       - name: Build with PyInstaller
-        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --icon=icon.png main.py
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --add-data "TwemojiMozilla.ttf:." --icon=icon.png main.py
       - name: Upload Linux Binary
         uses: actions/upload-artifact@v4
         with:
