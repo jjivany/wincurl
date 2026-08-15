@@ -6234,7 +6234,6 @@ class WinCurl3:
 
                 if event.type == KEYDOWN:
                     mods = pygame.key.get_mods()
-                    import sys
                     is_mac = sys.platform == 'darwin'
                     mod_pressed = bool(mods & getattr(pygame, "KMOD_META", 0)) if is_mac else bool(mods & KMOD_CTRL)
                     
