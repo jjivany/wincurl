@@ -2474,7 +2474,18 @@ class WinCurl3:
         self.font = CachedFont(pygame.font.Font(None, 45))
         self.score_font = CachedFont(pygame.font.Font(None, 36))
         self.small_font = CachedFont(pygame.font.Font(None, 31))
-        self.chat_font = CachedFont(pygame.font.Font(None, 31))
+        try:
+            if IS_ANDROID:
+                import os
+                if os.path.exists("/system/fonts/NotoColorEmoji.ttf"):
+                    chat_base_font = pygame.font.Font("/system/fonts/NotoColorEmoji.ttf", 31)
+                else:
+                    chat_base_font = pygame.font.Font(None, 31)
+            else:
+                chat_base_font = pygame.font.SysFont("segoeuiemoji", 24)
+        except:
+            chat_base_font = pygame.font.Font(None, 31)
+        self.chat_font = CachedFont(chat_base_font)
         self.title_font = CachedFont(pygame.font.Font(None, 120))
         self.large_sym_font = CachedFont(pygame.font.Font(None, 95))
         self.font_62 = CachedFont(pygame.font.Font(None, 60))
@@ -2932,6 +2943,7 @@ class WinCurl3:
         self.challenge_progress = [False] * 25
         self.username = ""
         self.preferred_color = 0
+        self.actual_preferred_color = 0
         self.hair_style = "short"
         self.hair_color = (100, 50, 20)
         self.room_text = ""
@@ -2955,7 +2967,8 @@ class WinCurl3:
             with open(self.save_file, "r") as f:
                 data = json.load(f)
                 self.username = data.get("username", "")
-                self.preferred_color = data.get("color", 0)
+                if "color" in data:
+                    self.preferred_color = data.get("color", 0)
                 self.actual_preferred_color = self.preferred_color
                 self.hair_style = data.get("hair_style", "short")
                 self.hair_color = tuple(data.get("hair_color", [100, 50, 20]))
@@ -4842,7 +4855,8 @@ class WinCurl3:
                 
                 if btn["id"] == "color":
                     rock_r = 26
-                    stone_c = TEAM_YELLOW if self.preferred_color else HOUSE_RED
+                    act_pref = getattr(self, "actual_preferred_color", self.preferred_color)
+                    stone_c = TEAM_YELLOW if act_pref else HOUSE_RED
                     pygame.draw.circle(self.canvas, (160, 165, 170), (swatch_x, swatch_y), rock_r)
                     pygame.draw.circle(self.canvas, (100, 105, 110), (swatch_x, swatch_y), rock_r, 2)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x, swatch_y), 16)
@@ -4897,7 +4911,7 @@ class WinCurl3:
         self.curler_anim.base_pos = pygame.math.Vector2(cx + 350, 600 + getattr(self, "menu_dy", 0))
         self.curler_anim.hair_style = getattr(self, "hair_style", "short")
         self.curler_anim.hair_color = getattr(self, "hair_color", (100, 50, 20))
-        self.curler_anim.draw(self.canvas, TEAM_YELLOW if self.preferred_color else HOUSE_RED, is_evil=False)
+        self.curler_anim.draw(self.canvas, TEAM_YELLOW if getattr(self, "actual_preferred_color", self.preferred_color) else HOUSE_RED, is_evil=False)
         self.curler_anim.base_pos = old_pos
 
         self.draw_global_ui()
@@ -4948,7 +4962,8 @@ class WinCurl3:
                         elif b["id"] == "master_vol":
                             pass  # Handled by drag
                         elif b["id"] == "color":
-                            self.preferred_color = 1 if self.preferred_color == 0 else 0
+                            act_pref = getattr(self, "actual_preferred_color", self.preferred_color)
+                            self.preferred_color = 1 if act_pref == 0 else 0
                             self.actual_preferred_color = self.preferred_color
                             self.save_progress()
                         elif b["id"] == "hair_color":
@@ -5664,7 +5679,7 @@ class WinCurl3:
                 chat_h = 40 + len(active_chat) * 40
                 if self.typing_chat:
                     chat_h += 60
-                chat_rect = pygame.Rect(40, BASE_HEIGHT - 250 - chat_h, 800, chat_h)
+                chat_rect = pygame.Rect(40, BASE_HEIGHT - 400 - chat_h, 800, chat_h)
 
                 glass_surf = UICache.get_glass(chat_rect.w, chat_rect.h, (25, 30, 40, 200), 16, False)[1].copy()
                 if max_alpha < 255:
@@ -6125,6 +6140,9 @@ class WinCurl3:
             if getattr(self, "dragging_slider", False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
+                
+            if self.app_state in ("MENU", "OPTIONS_MENU", "LOBBY_BROWSER", "LOBBY_PASSCODE_PROMPT", "CHALLENGE_MENU", "STORY_MENU"):
+                self.preferred_color = getattr(self, "actual_preferred_color", self.preferred_color)
             
             ms_passed = self.clock.tick(FPS)
             
