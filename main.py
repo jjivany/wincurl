@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 96"
+VERSION = "3.0 Build 97"
 
 
 QUAKE_COLORS = {
@@ -5650,8 +5650,15 @@ class WinCurl3:
                 self.btn_chat.collidepoint(m_pos.x, m_pos.y),
             )
             lbl_chat = self.small_font.render("CHAT", True, BLACK)
+            total_w = 24 + 6 + lbl_chat.get_width()
+            start_x = self.btn_chat.centerx - total_w // 2
+            
+            cx, cy = start_x + 12, self.btn_chat.centery
+            pygame.draw.ellipse(self.canvas, BLACK, (cx - 14, cy - 10, 28, 20), 3)
+            pygame.draw.polygon(self.canvas, BLACK, [(cx - 6, cy + 8), (cx - 12, cy + 16), (cx, cy + 8)])
+            
             self.canvas.blit(
-                lbl_chat, (self.btn_chat.centerx - lbl_chat.get_width() // 2, self.btn_chat.centery - lbl_chat.get_height() // 2)
+                lbl_chat, (start_x + 30, self.btn_chat.centery - lbl_chat.get_height() // 2)
             )
         else:
             total_w = 22 + 12 + lbl_p.get_width()
@@ -6227,16 +6234,26 @@ class WinCurl3:
 
                 if event.type == KEYDOWN:
                     mods = pygame.key.get_mods()
-                    if mods & (KMOD_CTRL | getattr(pygame, "KMOD_META", 0)) and getattr(event, "key", None) == K_v:
-                        if not pygame.scrap.get_init():
-                            try: pygame.scrap.init()
-                            except: pass
+                    import sys
+                    is_mac = sys.platform == 'darwin'
+                    mod_pressed = bool(mods & getattr(pygame, "KMOD_META", 0)) if is_mac else bool(mods & KMOD_CTRL)
+                    
+                    if mod_pressed and getattr(event, "key", None) == K_v:
+                        try: pygame.scrap.init()
+                        except: pass
                         if pygame.scrap.get_init():
                             clip_bytes = pygame.scrap.get(pygame.SCRAP_TEXT)
+                            if not clip_bytes:
+                                for t in pygame.scrap.get_types():
+                                    if "UTF8" in t.upper() or "UTF-8" in t.upper() or "TEXT" in t.upper():
+                                        clip_bytes = pygame.scrap.get(t)
+                                        if clip_bytes: break
                             if clip_bytes:
                                 try:
                                     clip_text = clip_bytes.decode('utf-8').strip('\x00')
                                     if clip_text:
+                                        # To avoid multi-line "history" from some managers, just take the first line
+                                        clip_text = clip_text.replace('\r\n', '\n').split('\n')[0].strip()
                                         if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.typing_chat:
                                             self.chat_input = (self.chat_input + clip_text)[:30]
                                         elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
