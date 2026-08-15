@@ -15,7 +15,7 @@ import asyncio
 import sys
 import re
 
-VERSION = "3.0 Build 94.8"
+VERSION = "3.0 Build 95"
 
 
 QUAKE_COLORS = {
@@ -39,19 +39,15 @@ class CachedFont:
         self.target_size = font.get_height()
         
         import sys, os
-        is_android = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ
         
-        if is_android:
-            bundled_emoji = os.path.join(os.path.dirname(__file__), "NotoEmoji-Regular.ttf")
-            if not os.path.exists(bundled_emoji):
-                bundled_emoji = "NotoEmoji-Regular.ttf"
-            print(f"Android emoji path: {bundled_emoji}, exists: {os.path.exists(bundled_emoji)}")
-            if os.path.exists(bundled_emoji):
-                try:
-                    self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
-                    print(f"Loaded bundled emoji font: {self.emoji_font}")
-                except Exception as e:
-                    print(f"Failed to load bundled emoji font: {e}")
+        bundled_emoji = os.path.join(os.path.abspath(os.path.dirname(__file__)), "NotoEmoji-Regular.ttf")
+        if not os.path.exists(bundled_emoji):
+            bundled_emoji = "NotoEmoji-Regular.ttf"
+        if os.path.exists(bundled_emoji):
+            try:
+                self.emoji_font = pygame.font.Font(bundled_emoji, self.target_size)
+            except Exception as e:
+                pass
 
         if not self.emoji_font:
             try:
@@ -1521,6 +1517,7 @@ class WinCurlAudioEngine:
             self.ch_ui.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_ui.play(self.snd_hover)
 
+
     def play_click(self):
         if isinstance(getattr(self, "snd_click", None), pygame.mixer.Sound):
             self.ch_ui.set_volume(getattr(self, "master_volume", 1.0))
@@ -2586,6 +2583,16 @@ class WinCurl3:
         surf.blit(glare, (cx - r_w, cy - r_h // 2))
         return surf
 
+    def update_caption(self):
+        current_caption = f"WinCurl {VERSION}"
+        curr = pygame.display.get_caption()
+        if not curr or curr[0] != current_caption:
+            pygame.display.set_caption(current_caption)
+
+    def set_game_mode(self, mode):
+        self.game_mode = mode
+        self.update_caption()
+
     def setup_display(self):
         import sys
 
@@ -2601,17 +2608,17 @@ class WinCurl3:
         os.environ["SDL_RENDER_SCALE_QUALITY"] = "1"
 
         pygame.display.init()
-        gm = getattr(self, "game_mode", "MENU")
-        pygame.display.set_caption(f"WinCurl {VERSION}{'' if gm == 'MENU' else ' - ' + gm}")
+        self.update_caption()
 
         info = pygame.display.Info()
 
         try:
-            allowed = [pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION]
-            for attr in ["FINGERDOWN", "FINGERUP", "FINGERMOTION", "WINDOWRESIZED", "WINDOWEXPOSED", "TEXTINPUT"]:
-                if hasattr(pygame, attr):
-                    allowed.append(getattr(pygame, attr))
-            pygame.event.set_allowed(allowed)
+            if not IS_ANDROID:
+                allowed = [pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION]
+                for attr in ["FINGERDOWN", "FINGERUP", "FINGERMOTION", "WINDOWRESIZED", "WINDOWEXPOSED", "TEXTINPUT"]:
+                    if hasattr(pygame, attr):
+                        allowed.append(getattr(pygame, attr))
+                pygame.event.set_allowed(allowed)
         except:
             pass
 
@@ -2702,6 +2709,7 @@ class WinCurl3:
             base_dir = os.path.expanduser("~")
 
         self.save_file = os.path.join(base_dir, ".wincurl3_save.json")
+        self.settings_file = os.path.join(base_dir, ".wincurl3_settings.json")
 
         # Fallback to pref path if it exists but home dir save doesn't
         try:
@@ -2709,9 +2717,13 @@ class WinCurl3:
             pref_save = os.path.join(pref_path, ".wincurl3_save.json")
             if os.path.exists(pref_save) and not os.path.exists(self.save_file):
                 self.save_file = pref_save
+            pref_settings = os.path.join(pref_path, ".wincurl3_settings.json")
+            if os.path.exists(pref_settings) and not os.path.exists(self.settings_file):
+                self.settings_file = pref_settings
         except:
             pass
         self.load_progress()
+        self.load_settings()
 
         self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 - 650)
         self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 + 650)
@@ -2873,24 +2885,48 @@ class WinCurl3:
             except:
                 pass
 
+    def save_settings(self):
+        settings = {
+            "fullscreen": self.is_fullscreen,
+            "smooth_scale": getattr(self, "smooth_scale", False)
+        }
+        try:
+            with open(self.settings_file, "w") as f:
+                json.dump(settings, f)
+        except:
+            pass
+
+    def load_settings(self):
+        self.smooth_scale = False
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, "r") as f:
+                    settings = json.load(f)
+                    if settings.get("fullscreen"):
+                        self.is_fullscreen = True
+                        if not IS_ANDROID and not self.is_4k:
+                            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
+                    self.smooth_scale = settings.get("smooth_scale", False)
+        except:
+            pass
+
     def toggle_fullscreen(self):
         self.is_fullscreen = not self.is_fullscreen
-        if IS_ANDROID:
-            self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
+        if self.is_fullscreen:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
         else:
-            if self.is_fullscreen:
-                self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
+            info = pygame.display.Info()
+            desk_h = info.current_h
+            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
+                target_h = int(desk_h * 0.85)
+                target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
+                self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
             else:
-                info = pygame.display.Info()
-                desk_h = info.current_h
-                if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
-                    target_h = int(desk_h * 0.85)
-                    target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
-                    self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
-                else:
-                    self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF)
-            ww, wh = self.screen.get_size()
-            self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
+                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF)
+        ww, wh = self.screen.get_size()
+        self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
+        self.update_caption()
+        self.save_settings()
 
     def load_progress(self):
         self.challenge_progress = [False] * 25
@@ -3550,7 +3586,7 @@ class WinCurl3:
                     self.audio.ch_voice.play(self.audio.snd_red_wins)
                 elif y_tot > r_tot and getattr(self.audio, "snd_ylw_wins", None):
                     self.audio.ch_voice.play(self.audio.snd_ylw_wins)
-                elif getattr(self.audio, "snd_end_match", None):
+                elif getattr(self, "audio", "snd_end_match", None):
                     self.audio.ch_voice.play(self.audio.snd_end_match)
         else:
             self.reset_end()
@@ -3617,9 +3653,11 @@ class WinCurl3:
                             self.net.scan_lobby()
                         elif b["id"] == "exit":
                             self.net.close()
+                            self.save_settings()
                             pygame.quit()
                             sys.exit()
                         self.set_typing_target(new_target)
+                        self.update_caption()
                         break
 
             if 330 < mx < 870 and 1450 < menu_my < 1650:
@@ -3717,7 +3755,7 @@ class WinCurl3:
                 self.set_typing_target(None)
                 self.game_mode = "HOST" if self.net_action == "host" else "JOIN"
                 if prev == "LOBBY_PASSCODE_PROMPT":
-                    self.game_mode = "SPECTATE" if (hasattr(self, "net") and hasattr(self.net, "lobby_rooms") and self.net.lobby_rooms.get(self.room_text, {}).get("in_progress")) else "JOIN"
+                    self.game_mode = "SPECTATE" if (hasattr(self, "net") and hasattr(self, "net", "lobby_rooms") and self.net.lobby_rooms.get(self.room_text, {}).get("in_progress")) else "JOIN"
                 if hasattr(self, "net") and hasattr(self.net, "sock") and self.net.sock and not getattr(self.net, "connecting", False) and getattr(self, "show_lobby", False):
                     self.net.transition_from_scanner(self.username, self.net_action == "host", self.room_text, getattr(self, "preferred_color", 0), self.passcode_text)
                 else:
@@ -3925,9 +3963,11 @@ class WinCurl3:
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
             if getattr(self, "btn_disconnect_yes", None) and self.btn_disconnect_yes.collidepoint(mx, my):
                 self.audio.play_click()
+                self.cached_disconnect_bg = None
                 self.return_to_menu()
             elif getattr(self, "btn_disconnect_no", None) and self.btn_disconnect_no.collidepoint(mx, my):
                 self.audio.play_click()
+                self.cached_disconnect_bg = None
                 self.app_state = "PLAY"
 
     def handle_match_over_events(self, event):
@@ -4264,19 +4304,19 @@ class WinCurl3:
         self.last_mouse_pos = self.get_pointer_pos()
 
     def update_network(self):
-        if self.game_mode not in ["HOST", "JOIN", "SPECTATE"]:
-            return
-        if self.app_state in ("MENU", "LOBBY_BROWSER", "ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT") and self.net.matched:
+        # We process network events globally, regardless of single-player game state.
+        if self.app_state in ("MENU", "LOBBY_BROWSER", "ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT", "STORY_MAP", "STORY_DIALOG", "BOT_MENU", "PLAY", "PAUSED") and self.net.matched:
             if self.game_mode == "SPECTATE":
                 pass # Wait for sync_state to transition to PLAY
+            elif self.game_mode in ("HOST", "JOIN") and self.app_state in ("PLAY", "PAUSED"):
+                pass # We are already playing the multiplayer game!
             else:
+                self.game_mode = "HOST" if getattr(self.net, "is_host", False) else "JOIN"
                 self.app_state = "COIN_TOSS"
                 self.coin_timer = 30
                 self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
                 self.audio.stop_music()
                 self.audio.play_cheer()
-            self.audio.stop_music()
-            self.audio.play_cheer()
 
         if not hasattr(self, "deferred_actions"):
             self.deferred_actions = []
@@ -4941,6 +4981,7 @@ class WinCurl3:
                         elif b["id"] == "back":
                             self.app_state = "MENU"
                         self.set_typing_target(new_target)
+                        self.update_caption()
                         break
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key in (K_RETURN, K_KP_ENTER):
@@ -5189,7 +5230,7 @@ class WinCurl3:
                     draw_glass_rect(
                         self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos())
                     )
-                    lbl_btn2 = self.font.render("BATTLE NEXT RINK", True, WHITE)
+                    lbl_btn2 = self.font.render("NEXT RINK", True, WHITE)
                     self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
             else:
                 txt_win = self.font_72.render("YOU BEAT THE GAME!", True, (100, 255, 100))
@@ -5247,12 +5288,12 @@ class WinCurl3:
             if not hasattr(self, "story_grid_offset"):
                 self.story_grid_offset = 0.0
             self.story_grid_offset = (self.story_grid_offset + 1.0 * getattr(self, "time_mult", 1.0)) % 100.0
-            offset = int(self.story_grid_offset) - 200
+            offset = int(self.story_grid_offset)
             
-            for x in range(0, BASE_WIDTH + 400, 100):
-                pygame.draw.line(self.canvas, grid_color, (x + offset, offset), (x - 400 + offset, BASE_HEIGHT + 400 + offset), 2)
-            for y in range(0, BASE_HEIGHT + 400, 100):
-                pygame.draw.line(self.canvas, grid_color, (offset, y + offset), (BASE_WIDTH + 400 + offset, y - 400 + offset), 2)
+            for x in range(-200, BASE_WIDTH + 800, 100):
+                pygame.draw.line(self.canvas, grid_color, (x + offset, -200), (x - 400 + offset, BASE_HEIGHT + 200), 2)
+            for y in range(-200, BASE_HEIGHT + 800, 100):
+                pygame.draw.line(self.canvas, grid_color, (-200, y + offset), (BASE_WIDTH + 200, y - 400 + offset), 2)
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5886,6 +5927,33 @@ class WinCurl3:
 
         self.draw_global_ui()
 
+    def draw_confirm_disconnect(self):
+        if not hasattr(self, "cached_disconnect_bg") or self.cached_disconnect_bg is None:
+            self.draw_ice()
+            [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
+            self.canvas.blit(self.dark_overlay_150, (0, 0))
+            self.cached_disconnect_bg = self.canvas.copy()
+
+        self.canvas.blit(self.cached_disconnect_bg, (0, 0))
+
+        m_pos = self.get_pointer_pos()
+        
+        lbl = self.font_85.render("DISCONNECT?", True, WHITE)
+        self.canvas.blit(lbl, (BASE_WIDTH // 2 - lbl.get_width() // 2, BASE_HEIGHT // 2 - 250))
+        
+        sub_lbl = self.font.render("Are you sure you want to leave the match?", True, WHITE)
+        self.canvas.blit(sub_lbl, (BASE_WIDTH // 2 - sub_lbl.get_width() // 2, BASE_HEIGHT // 2 - 100))
+        
+        self.btn_disconnect_yes = pygame.Rect(BASE_WIDTH // 2 - 220, BASE_HEIGHT // 2, 200, 80)
+        draw_glass_rect(self.canvas, self.btn_disconnect_yes, HOUSE_RED, 40, self.btn_disconnect_yes.collidepoint(m_pos.x, m_pos.y))
+        lbl_yes = self.font.render("YES", True, WHITE)
+        self.canvas.blit(lbl_yes, lbl_yes.get_rect(center=self.btn_disconnect_yes.center))
+        
+        self.btn_disconnect_no = pygame.Rect(BASE_WIDTH // 2 + 20, BASE_HEIGHT // 2, 200, 80)
+        draw_glass_rect(self.canvas, self.btn_disconnect_no, HOUSE_BLUE, 40, self.btn_disconnect_no.collidepoint(m_pos.x, m_pos.y))
+        lbl_no = self.font.render("NO", True, WHITE)
+        self.canvas.blit(lbl_no, lbl_no.get_rect(center=self.btn_disconnect_no.center))
+
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34))
         cx = BASE_WIDTH // 2
@@ -5943,17 +6011,6 @@ class WinCurl3:
         lbl_btn = self.font.render("MAIN MENU", True, WHITE)
         self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
-        self.btn_leaderboard = pygame.Rect(cx - 150, 750, 300, 70)
-        draw_glass_rect(
-            self.canvas,
-            self.btn_leaderboard,
-            (50, 60, 80),
-            self.btn_leaderboard.h // 2,
-            self.btn_leaderboard.collidepoint(m_pos.x, m_pos.y),
-        )
-        lbl_lb = self.font.render("LEADERBOARD", True, WHITE)
-        self.canvas.blit(lbl_lb, lbl_lb.get_rect(center=self.btn_leaderboard.center))
-
     def draw_leaderboard_screen(self):
         self.canvas.fill((16, 22, 34))
         cx = BASE_WIDTH // 2
@@ -5992,20 +6049,34 @@ class WinCurl3:
         self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
 
     def draw_global_ui(self):
-        if self.app_state not in ["MENU", "OPTIONS_MENU", "CHALLENGE_MENU"]:
+        if self.app_state not in ["MENU", "OPTIONS_MENU", "CHALLENGE_MENU", "STORY_MAP", "STORY_DIALOG", "BOT_MENU", "PLAY"]:
             return
-        m_pos = self.get_pointer_pos()
-        draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(m_pos.x, m_pos.y))
-        draw_speaker_icon(
-            self.canvas,
-            self.btn_mute.x + self.btn_mute.w // 2 - 20,
-            self.btn_mute.y + self.btn_mute.h // 2 - 13,
-            getattr(self, "is_music_muted", False),
-        )
-        if not IS_ANDROID:
-            draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), 16, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
-            fs_text = self.font.render("FULLSCREEN", True, WHITE)
-            self.canvas.blit(fs_text, fs_text.get_rect(center=self.btn_fs.center))
+            
+        if getattr(self, "net", None) and getattr(self.net, "running", False):
+            # Show "Hosting ... Waiting" in top left
+            if getattr(self.net, "connecting", False):
+                status_text = f"STATUS: Hosting {self.net.room_display}... Waiting." if getattr(self.net, "is_host", False) else f"STATUS: Joining {self.net.room_display}... Waiting."
+                if getattr(self.net, "matched", False):
+                    status_text = f"STATUS: Matched!"
+                if getattr(self.net, "connection_error", ""):
+                    status_text = f"STATUS: ERROR - {self.net.connection_error}"
+                
+                status_surf = self.small_font.render(status_text, True, TEAM_YELLOW)
+                self.canvas.blit(status_surf, (20, 20))
+
+        if self.app_state != "PLAY":
+            m_pos = self.get_pointer_pos()
+            draw_glass_rect(self.canvas, self.btn_mute, (50, 60, 80), 16, self.btn_mute.collidepoint(m_pos.x, m_pos.y))
+            draw_speaker_icon(
+                self.canvas,
+                self.btn_mute.x + self.btn_mute.w // 2 - 20,
+                self.btn_mute.y + self.btn_mute.h // 2 - 13,
+                getattr(self, "is_music_muted", False),
+            )
+            if not IS_ANDROID:
+                draw_glass_rect(self.canvas, self.btn_fs, (50, 60, 80), 16, self.btn_fs.collidepoint(m_pos.x, m_pos.y))
+                fs_text = self.font.render("FULLSCREEN", True, WHITE)
+                self.canvas.blit(fs_text, fs_text.get_rect(center=self.btn_fs.center))
 
     def render(self):
         ww, wh = self.screen.get_size()
@@ -6049,12 +6120,15 @@ class WinCurl3:
     async def run(self):
         self.accumulator = 0.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
-        while getattr(self, "running", True):
+        running = True
+        while running:
             if getattr(self, "dragging_slider", False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
             
             ms_passed = self.clock.tick(FPS)
+            
+            self.update_caption()
             
             self.time_mult = ms_passed / (1000.0 / PHYSICS_FPS)
             self.accumulator += ms_passed
@@ -6064,11 +6138,15 @@ class WinCurl3:
             events = pygame.event.get()
 
             for event in events:
-                if event.type == QUIT or getattr(event, "type", None) == getattr(pygame, "APP_TERMINATING", 260):
+                if event.type == QUIT:
+                    self.save_settings()
+                    running = False
+                elif getattr(event, "type", None) == getattr(pygame, "APP_TERMINATING", 260):
                     if self.app_state in ["PLAY", "PAUSED"] and getattr(self, "game_mode", None) in ["STORY", "BOT"]:
                         self.save_match()
                     if hasattr(self, "net"):
                         self.net.close()
+                    self.save_settings()
                     pygame.quit()
                     sys.exit()
                 elif getattr(event, "type", None) == getattr(pygame, "APP_WILLENTERBACKGROUND", 261):
@@ -6158,6 +6236,23 @@ class WinCurl3:
                                 except:
                                     pass
 
+                    if getattr(event, 'unicode', '') == '':
+                        kp_map = {K_KP0: "0", K_KP1: "1", K_KP2: "2", K_KP3: "3", K_KP4: "4", 
+                                  K_KP5: "5", K_KP6: "6", K_KP7: "7", K_KP8: "8", K_KP9: "9"}
+                        if event.key in kp_map:
+                            clip_text = kp_map[event.key]
+                            if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"] and self.typing_chat:
+                                self.chat_input = (self.chat_input + clip_text)[:30]
+                            elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
+                                self.username = (self.username + clip_text)[:12]
+                                self.save_progress()
+                            elif self.app_state == "ROOM_PROMPT" and self.typing_target == "room":
+                                self.room_text = (self.room_text + clip_text)[:15]
+                                self.save_progress()
+                            elif self.app_state in ("ROOM_PROMPT", "LOBBY_PASSCODE_PROMPT") and self.typing_target == "passcode":
+                                self.passcode_text = (self.passcode_text + clip_text)[:4]
+                                self.save_progress()
+
                     if not IS_ANDROID and getattr(event, "key", None) == K_f:
                         self.audio.play_click()
                         self.toggle_fullscreen()
@@ -6187,7 +6282,10 @@ class WinCurl3:
                                 continue
 
                     if event.key == K_ESCAPE:
-                        if self.app_state == "PLAY":
+                        if self.app_state == "MENU":
+                            self.save_settings()
+                            running = False
+                        elif self.app_state == "PLAY":
                             self.audio.play_click()
                             if self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
                                 self.return_to_menu()
