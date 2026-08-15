@@ -14,6 +14,28 @@ import collections
 import asyncio
 import sys
 import re
+import urllib.request
+
+def _ensure_assets():
+    if getattr(sys, 'frozen', False) or (hasattr(sys, 'platform') and sys.platform == 'emscripten'):
+        return
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    assets = [
+        "TwemojiMozilla.ttf",
+        "icon.png",
+        "snd_you_win.wav"
+    ]
+    for filename in assets:
+        filepath = os.path.join(base_dir, filename)
+        if not os.path.exists(filepath):
+            url = f"https://raw.githubusercontent.com/jjivany/wincurl/main/{filename}"
+            print(f"[WinCurl] Downloading missing asset: {filename}...")
+            try:
+                urllib.request.urlretrieve(url, filepath)
+            except Exception as e:
+                print(f"[WinCurl] Failed to download {filename}: {e}")
+
+_ensure_assets()
 
 VERSION = "3.0 Build 97"
 
