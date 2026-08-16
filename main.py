@@ -37,7 +37,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3.0 Build 98"
+VERSION = "Version 3.0 Build 99"
 
 
 QUAKE_COLORS = {
@@ -93,8 +93,9 @@ class CachedFont:
         if key in self.cache:
             return self.cache[key]
             
-        if len(self.cache) > 200:
-            self.cache.clear()
+        if len(self.cache) > 2000:
+            for _ in range(500):
+                self.cache.pop(next(iter(self.cache)), None)
 
         # Parse Quake Colors
         segments = re.split(r'(\^[0-9])', text)
@@ -2661,12 +2662,14 @@ class WinCurl3:
             aspect = info.current_h / info.current_w
             BASE_HEIGHT = int(BASE_WIDTH * aspect)
 
-        if IS_ANDROID:
+        is_web_platform = hasattr(sys, "platform") and sys.platform == "emscripten"
+
+        if IS_ANDROID or is_web_platform:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             desk_h = info.current_h
-            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
-                target_h = int(desk_h * 0.85)
+            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.80:
+                target_h = int(desk_h * 0.80)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                 self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
             else:
@@ -2719,7 +2722,8 @@ class WinCurl3:
             pass
 
         self.is_4k = info.current_w >= 1920 or info.current_h >= 1080
-        if IS_ANDROID:
+        is_web_platform = hasattr(sys, "platform") and sys.platform == "emscripten"
+        if IS_ANDROID or is_web_platform:
             self.canvas = self.screen
         else:
             self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
@@ -2951,8 +2955,8 @@ class WinCurl3:
         else:
             info = pygame.display.Info()
             desk_h = info.current_h
-            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
-                target_h = int(desk_h * 0.85)
+            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.80:
+                target_h = int(desk_h * 0.80)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                 self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
             else:
@@ -4477,9 +4481,9 @@ class WinCurl3:
             self.audio.stop_music()
 
         self.menu_dy = (BASE_HEIGHT - 1920) // 2
-        self.menu_stone.draw(self.canvas, cx, 300 + self.menu_dy, self.get_pointer_pos())
+        self.menu_stone.draw(self.canvas, cx, 330 + self.menu_dy, self.get_pointer_pos())
 
-        bx, by = cx - self.title_base.get_width() // 2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15)
+        bx, by = cx - self.title_base.get_width() // 2, 110 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15)
 
         # Draw pre-rendered soft outline (requires just 1 blit instead of 36)
         pad = 9  # outline_size (7) + 2
@@ -4814,7 +4818,7 @@ class WinCurl3:
 
         cx, t_ms = BASE_WIDTH // 2, pygame.time.get_ticks() * 0.001
         self.menu_dy = (BASE_HEIGHT - 1920) // 2
-        bx, by = cx - self.title_base.get_width() // 2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15)
+        bx, by = cx - self.title_base.get_width() // 2, 110 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15)
         pad = 9
         self.canvas.blit(self.title_outline, (bx - pad, by - pad))
         offset = int((pygame.time.get_ticks() * 0.15) % 150)
@@ -4825,7 +4829,7 @@ class WinCurl3:
 
         lbl_v = self.font_72.render("OPTIONS", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, 320 + getattr(self, "menu_dy", 0)))
-        lbl_build = self.font.render(f"(Build {VERSION})", True, (150, 160, 180))
+        lbl_build = self.font.render(f"(Version {VERSION})", True, (150, 160, 180))
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width() // 2, 385 + getattr(self, "menu_dy", 0)))
 
         for btn in self.options_buttons:
@@ -6145,7 +6149,7 @@ class WinCurl3:
             if getattr(self, "parallax_y", 0) < 0.1:
                 self.parallax_y = 0
 
-        if IS_ANDROID:
+        if IS_ANDROID or getattr(self, "is_web", False):
             pass
         else:
             self.screen.fill((10, 12, 16))
@@ -6619,13 +6623,13 @@ class IRCNetworkManager:
 
                 try:
                     if not self.tx_queue.empty():
-                        sock.settimeout(0.01)
+                        sock.settimeout(0.002)
                         while not self.tx_queue.empty():
                             msg = self.tx_queue.get()
                             if self.matched and self.opponent:
                                 sock.send(f"PRIVMSG {self.channel} :{enc_msg(msg)}\r\n".encode())
                                 
-                    sock.settimeout(0.01)
+                    sock.settimeout(0.002)
                     data = sock.recv(4096).decode("utf-8", errors="ignore")
                     if not data:
                         self.connection_error = "Server closed connection"

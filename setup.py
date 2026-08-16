@@ -1,7 +1,7 @@
 from setuptools import setup
 setup(
     name='wincurl3',
-    version='98',
+    version='99',
     description='WinCurl 3 - A Multiplayer Curling Simulator',
     author='Jason Ivany',
     packages=['wincurl3'],
