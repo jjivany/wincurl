@@ -6355,9 +6355,11 @@ class WinCurl3:
                                 self.save_progress()
 
                     if not IS_ANDROID and getattr(event, "key", None) == K_f:
-                        self.audio.play_click()
-                        self.toggle_fullscreen()
-                        continue
+                        is_typing = getattr(self, 'typing_chat', False) or getattr(self, 'typing_target', None) is not None
+                        if not is_typing:
+                            self.audio.play_click()
+                            self.toggle_fullscreen()
+                            continue
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN", "SPECTATE"]:
                         if self.typing_chat:
                             if event.key in (K_RETURN, K_KP_ENTER):
