@@ -52,7 +52,7 @@ pip install steamcontroller-haptics
 
 ## 📱 Android Deployment
 
-This project is configured for Android deployment (BUILD 94.5). 
+This project is configured for Android deployment. 
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
 - **Features**: Includes full color native emoji support, latency optimizations, clipboard pasting integration, and automatic background pausing during incoming calls to prevent crashes.
 - **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
