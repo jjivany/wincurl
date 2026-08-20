@@ -4016,6 +4016,10 @@ class WinCurl3:
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             m = self.get_pointer_pos()
             mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            
+            quit_y = BASE_HEIGHT // 2 + 20 if self.game_mode in ["HOST", "JOIN", "CHALLENGE"] else BASE_HEIGHT // 2 + 140
+            self.btn_quit_main.y = quit_y
+
             if self.btn_resume.collidepoint(mx, my):
                 self.audio.play_click()
                 self.app_state = "PLAY"
@@ -4023,7 +4027,7 @@ class WinCurl3:
                 self.audio.play_click()
                 self.app_state = "OPTIONS_MENU"
                 self.prev_state = "PAUSED"
-            elif self.game_mode not in ["HOST", "JOIN"] and self.btn_save_quit.collidepoint(mx, my):
+            elif self.game_mode not in ["HOST", "JOIN", "CHALLENGE"] and self.btn_save_quit.collidepoint(mx, my):
                 self.audio.play_click()
                 self.save_match()
                 self.return_to_menu()
@@ -5929,13 +5933,15 @@ class WinCurl3:
         self.canvas.blit(lbl_opt, lbl_opt.get_rect(center=opt_rect.center))
         self.draw_gear_icon(self.canvas, opt_rect.x + 30, opt_rect.centery - 10)
 
-        if self.game_mode not in ["HOST", "JOIN"]:
+        if self.game_mode not in ["HOST", "JOIN", "CHALLENGE"]:
             sq_rect = self.btn_save_quit.move(-int((1.0 - self.pause_anim) * 400), 0)
             draw_glass_rect(self.canvas, sq_rect, PURPLE_SUIT, sq_rect.h // 2, sq_rect.collidepoint(m_pos.x, m_pos.y))
             lbl_sq = self.font.render("SAVE & QUIT", True, WHITE)
             self.canvas.blit(lbl_sq, lbl_sq.get_rect(center=sq_rect.center))
             self.draw_floppy_icon(self.canvas, sq_rect.x + 30, sq_rect.centery - 10)
 
+        quit_y = BASE_HEIGHT // 2 + 20 if self.game_mode in ["HOST", "JOIN", "CHALLENGE"] else BASE_HEIGHT // 2 + 140
+        self.btn_quit_main.y = quit_y
         quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_quit = self.font.render("QUIT TO MENU", True, WHITE)
