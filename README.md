@@ -1,6 +1,6 @@
 # 🥌 WINCURL 3.0
 
-WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and online multiplayer capabilities.
+WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and multiplayer capabilities.
 
 ## 📋 Overview
 
@@ -37,14 +37,25 @@ WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a 
    python main.py
    ```
 
+### 🎮 Steam Controller Support
+
+WinCurl has **native support** for both the original Steam Controller and the new 2026 IBEX models!
+
+It uses the [steamcontroller-haptics](https://pypi.org/project/steamcontroller-haptics/) library to provide incredibly low-latency haptic feedback, including cursor clicks, UI hover effects, and physics-based collision rumbles, while allowing the controller to remain in standard OS Lizard Mode.
+
+**Linux / Arch Linux users:**
+You no longer need `python-libusb1`. Simply ensure you have the `steamcontroller-haptics` library installed:
+```bash
+pip install steamcontroller-haptics
+```
+*Note: Make sure your `udev` rules are configured to grant `/dev/hidraw` access, as detailed in the package documentation!*
+
 ## 📱 Android Deployment
 
-This project is configured for Android deployment. 
+This project is configured for Android deployment (BUILD 94.5). 
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
+- **Features**: Includes full color native emoji support, latency optimizations, clipboard pasting integration, and automatic background pausing during incoming calls to prevent crashes.
 - **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
-
-
-~Binary builds for various platforms can be found here: [https://jayjayivanygmailcom.itch.io/wincurl](https://jayjayivanygmailcom.itch.io/wincurl)
 
 ## 🤝 Contributing
 

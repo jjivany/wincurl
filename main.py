@@ -4,6 +4,7 @@ if hasattr(os, "name") and os.name == "posix" and not hasattr(sys, "getandroidap
     os.environ["SDL_VIDEO_WAYLAND_WMCLASS"] = "wincurl3"
     os.environ["SDL_VIDEO_X11_WMCLASS"] = "wincurl3"
 import pygame
+import pygame.gfxdraw
 import math, random, time, json, socket, queue, base64, zlib
 import sys
 if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
@@ -15,6 +16,9 @@ import asyncio
 import sys
 import re
 import urllib.request
+
+import sc_driver
+sc_haptics = sc_driver
 
 def _ensure_assets():
     if getattr(sys, 'frozen', False) or (hasattr(sys, 'platform') and sys.platform == 'emscripten'):
@@ -37,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "Version 3.0 Build 99"
+VERSION = "Version 3.0 Build 100"
 
 
 QUAKE_COLORS = {
@@ -629,9 +633,21 @@ class WinCurlAudioEngine:
     def play_clack(self, intensity):
         if not self.sfx_on:
             return
+        now = pygame.time.get_ticks()
+        if hasattr(self, "last_clack") and now - getattr(self, "last_clack", 0) < 150:
+            return
+        self.last_clack = now
+        
+        if not IS_ANDROID and sc_haptics is not None:
+            mass = min(intensity * 0.1, 1.0)
+            sc_haptics.trigger_collision(mass)
+
         vol = max(0.1, min(1.0, intensity / 20.0))
         if isinstance(getattr(self, "snd_clack", None), pygame.mixer.Sound):
             self.snd_clack.set_volume(vol)
+            ch = pygame.mixer.find_channel()
+            if ch:
+                ch.play(self.snd_clack)
             self.ch_sfx.play(self.snd_clack)
         if IS_ANDROID and vol > 0.3:
             now = pygame.time.get_ticks()
@@ -810,14 +826,14 @@ class WinCurlAudioEngine:
             )
             chord = [261.63, 329.63]
         elif phrase == "RED_TEAM_WINS":
-            # Three dips in the frequency envelope simulate three words
-            f1_env = [(0.0, 500), (0.2, 530), (0.3, 300), (0.5, 550), (0.7, 400), (0.8, 600), (1.0, 300)]
-            f2_env = [(0.0, 1800), (0.3, 1840), (0.5, 1200), (0.8, 1600), (1.0, 1500)]
+            # Three dips in the frequency envelope simulate three words (red team wins)
+            f1_env = [(0.0, 300), (0.15, 500), (0.3, 300), (0.35, 400), (0.5, 300), (0.6, 300), (0.65, 300), (0.8, 400), (1.0, 300)]
+            f2_env = [(0.0, 1200), (0.15, 1700), (0.3, 1500), (0.35, 2000), (0.5, 2200), (0.6, 1000), (0.65, 800), (0.8, 1900), (1.0, 1500)]
             f3_env = [(0.0, 2600), (0.5, 2400), (1.0, 2600)]
             chord = [220.00, 277.18]
         elif phrase == "YELLOW_TEAM_WINS":
-            f1_env = [(0.0, 530), (0.2, 500), (0.3, 300), (0.5, 550), (0.7, 400), (0.8, 600), (1.0, 300)]
-            f2_env = [(0.0, 1840), (0.3, 1200), (0.5, 1200), (0.8, 1600), (1.0, 1500)]
+            f1_env = [(0.0, 300), (0.1, 500), (0.2, 400), (0.3, 500), (0.35, 400), (0.5, 300), (0.6, 300), (0.65, 300), (0.8, 400), (1.0, 300)]
+            f2_env = [(0.0, 2200), (0.1, 1700), (0.2, 1200), (0.3, 900), (0.35, 2000), (0.5, 2200), (0.6, 1000), (0.65, 800), (0.8, 1900), (1.0, 1500)]
             f3_env = [(0.0, 2600), (0.3, 2000), (0.5, 2400), (1.0, 2600)]
             chord = [233.08, 293.66]
         elif phrase == "CHALLENGE_COMPLETE":
@@ -1524,27 +1540,26 @@ class WinCurlAudioEngine:
             if not hasattr(self, "last_sweep_vib") or now - getattr(self, "last_sweep_vib", 0) > 400:
                 self.last_sweep_vib = now
                 vibrate_android(15)
+        elif not IS_ANDROID and sc_haptics is not None and intensity > 0.1:
+            now = pygame.time.get_ticks()
+            if not hasattr(self, "last_sc_sweep_vib") or now - getattr(self, "last_sc_sweep_vib", 0) > 40:
+                self.last_sc_sweep_vib = now
+                sc_haptics.trigger_sweep(intensity)
 
     def play_throw(self):
         if isinstance(getattr(self, "snd_throw", None), pygame.mixer.Sound):
             self.ch_sfx.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_sfx.play(self.snd_throw)
 
-    def play_clack(self, force):
-        now = pygame.time.get_ticks()
-        if hasattr(self, "last_clack") and now - self.last_clack < 150:
-            return
-        self.last_clack = now
-        ch = pygame.mixer.find_channel()
-        if ch and isinstance(getattr(self, "snd_clack", None), pygame.mixer.Sound):
-            ch.play(self.snd_clack)
-            ch.set_volume(min(0.4, force * 0.05) * getattr(self, "master_volume", 1.0))
 
     def play_hover(self):
         if isinstance(getattr(self, "snd_hover", None), pygame.mixer.Sound):
             self.ch_ui.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_ui.play(self.snd_hover)
-
+        try:
+            import sc_driver
+            sc_driver.trigger_hover()
+        except: pass
 
     def play_click(self):
         if isinstance(getattr(self, "snd_click", None), pygame.mixer.Sound):
@@ -1552,6 +1567,11 @@ class WinCurlAudioEngine:
             self.ch_ui.play(self.snd_click)
         if IS_ANDROID:
             vibrate_android(15)
+        else:
+            try:
+                import sc_driver
+                sc_driver.trigger_click()
+            except: pass
 
     def play_error(self):
         if isinstance(getattr(self, "snd_click", None), pygame.mixer.Sound):
@@ -1764,24 +1784,29 @@ class Stone:
 
     def _render_base(self, color):
         # BUILD 14 PREVIEW 2: Advanced 3D Geometry
-        s = pygame.Surface((self.radius * 2 + 15, self.radius * 2 + 15), pygame.SRCALPHA).convert_alpha()
+        s_size = self.radius * 2 + 15
+        s = pygame.Surface((s_size, s_size), pygame.SRCALPHA).convert_alpha()
+        s.fill((0, 0, 0, 0))
+
+        # Shadow
         pygame.draw.circle(s, (0, 0, 0, 80), (self.radius + 8, self.radius + 8), self.radius)
 
+        # Stone body (3D shaded concentric circles)
         for r in range(self.radius, 0, -1):
             t = (self.radius - r) / self.radius
             shade = 70 + int(80 * (1.0 - (1.0 - t) ** 3))
-            pygame.draw.circle(s, (shade, shade + 2, shade + 5), (self.radius + 5, self.radius + 5), r)
+            c = (shade, shade + 2, shade + 5, 255)
+            pygame.draw.circle(s, c, (self.radius + 5, self.radius + 5), r)
 
-        pygame.draw.circle(s, color, (self.radius + 5, self.radius + 5), self.radius - 4, 6)
+        # Colored ring
+        ring_c = (color[0], color[1], color[2], 255)
+        pygame.draw.circle(s, ring_c, (self.radius + 5, self.radius + 5), self.radius - 4, 6)
+
         # Highlight ring for 3D depth
-        pygame.draw.circle(
-            s,
-            (min(255, color[0] + 60), min(255, color[1] + 60), min(255, color[2] + 60)),
-            (self.radius + 5, self.radius + 5),
-            self.radius - 4,
-            1,
-        )
+        hl_c = (min(255, color[0] + 60), min(255, color[1] + 60), min(255, color[2] + 60), 180)
+        pygame.draw.circle(s, hl_c, (self.radius + 5, self.radius + 5), self.radius - 4, 1)
 
+        # Glare
         glare = pygame.Surface((self.radius * 2 + 15, self.radius * 2 + 15), pygame.SRCALPHA).convert_alpha()
         pygame.draw.ellipse(glare, (255, 255, 255, 70), (self.radius - 3, self.radius - 9, self.radius * 1.2, self.radius * 0.6))
         s.blit(glare, (0, 0))
@@ -2469,6 +2494,14 @@ class WinCurl3:
         self.current_mapped_pos = pygame.math.Vector2(BASE_WIDTH // 2, BASE_HEIGHT // 2)
         self.is_pointer_pressed = False
 
+        # Steam Controller Virtual Mouse State
+        self.sc_virtual_x = 1280 // 2
+        self.sc_virtual_y = 720 // 2
+        self.sc_touch_active = False
+        self.last_sc_x = 0
+        self.last_sc_y = 0
+        self.sc_rt_down = False
+
         self.story = StoryManager()
 
         # BUILD 14 PREVIEW 2: Advanced Chat State
@@ -2664,8 +2697,10 @@ class WinCurl3:
 
         is_web_platform = hasattr(sys, "platform") and sys.platform == "emscripten"
 
-        if IS_ANDROID or is_web_platform:
+        if IS_ANDROID:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
+        elif is_web_platform:
+            self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.DOUBLEBUF | pygame.SCALED)
         else:
             desk_h = info.current_h
             if desk_h > 0 and BASE_HEIGHT > desk_h * 0.80:
@@ -2722,8 +2757,7 @@ class WinCurl3:
             pass
 
         self.is_4k = info.current_w >= 1920 or info.current_h >= 1080
-        is_web_platform = hasattr(sys, "platform") and sys.platform == "emscripten"
-        if IS_ANDROID or is_web_platform:
+        if IS_ANDROID:
             self.canvas = self.screen
         else:
             self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
@@ -2869,10 +2903,8 @@ class WinCurl3:
             self.static_ice_surface, (10, 10, 10), (0, self.house_pos.y - 220), (BASE_WIDTH, self.house_pos.y - 220), 4
         )
 
-        house_layer = pygame.Surface((440, 440))
-        house_layer.fill((255, 0, 255))
-        house_layer.set_colorkey((255, 0, 255))
-        house_layer.set_alpha(80)
+        house_layer = pygame.Surface((440 * 3, 440 * 3), pygame.SRCALPHA).convert_alpha()
+        house_layer.fill((0, 0, 0, 0))
         for r, c, w in [
             (210, HOUSE_BLUE, 0),
             (140, WHITE, 0),
@@ -2882,7 +2914,9 @@ class WinCurl3:
             (6, BLACK, 0),
             (2, WHITE, 0),
         ]:
-            pygame.draw.circle(house_layer, c, (220, 220), r, w)
+            pygame.draw.circle(house_layer, c, (220 * 3, 220 * 3), r * 3, w * 3 if w > 0 else 0)
+        house_layer = pygame.transform.smoothscale(house_layer, (440, 440))
+        house_layer.fill((255, 255, 255, 80), special_flags=pygame.BLEND_RGBA_MULT)
         self.static_ice_surface.blit(house_layer, (int(self.house_pos.x - 220), int(self.house_pos.y - 220)))
 
         # Cache the Hack
@@ -3989,7 +4023,7 @@ class WinCurl3:
                 self.audio.play_click()
                 self.app_state = "OPTIONS_MENU"
                 self.prev_state = "PAUSED"
-            elif self.btn_save_quit.collidepoint(mx, my):
+            elif self.game_mode not in ["HOST", "JOIN"] and self.btn_save_quit.collidepoint(mx, my):
                 self.audio.play_click()
                 self.save_match()
                 self.return_to_menu()
@@ -6149,7 +6183,7 @@ class WinCurl3:
             if getattr(self, "parallax_y", 0) < 0.1:
                 self.parallax_y = 0
 
-        if IS_ANDROID or getattr(self, "is_web", False):
+        if IS_ANDROID:
             pass
         else:
             self.screen.fill((10, 12, 16))
@@ -6172,6 +6206,11 @@ class WinCurl3:
         FIXED_DT = 1000.0 / PHYSICS_FPS
         running = True
         while running:
+            if not getattr(self, "startup_haptic_played", False):
+                self.startup_haptic_played = True
+                if sc_haptics is not None:
+                    sc_haptics.play_wincurl()
+
             if getattr(self, "dragging_slider", False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
@@ -6188,10 +6227,10 @@ class WinCurl3:
             if self.accumulator > 200:
                 self.accumulator = 200  # Prevent spiral of death
             
-            events = pygame.event.get()
 
+            events = pygame.event.get()
             for event in events:
-                if event.type == QUIT:
+                if event.type == pygame.QUIT:
                     self.save_settings()
                     running = False
                 elif getattr(event, "type", None) == getattr(pygame, "APP_TERMINATING", 260):
@@ -6211,7 +6250,7 @@ class WinCurl3:
                 elif getattr(event, "type", None) in (getattr(pygame, "APP_WILLENTERFOREGROUND", 262), getattr(pygame, "APP_DIDENTERFOREGROUND", 263)):
                     self.is_background = False
 
-                if event.type in (MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP):
+                if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
                     self.current_mapped_pos = self.scale_mouse(event.pos)
                     if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
                         self.is_pointer_pressed = True
@@ -6505,6 +6544,9 @@ class WinCurl3:
             self.render()
             if hasattr(sys, "platform") and sys.platform == "emscripten":
                 await asyncio.sleep(0)
+
+        pygame.quit()
+        sys.exit()
 
 # --- DAL.NET IRC Socket Manager ---
 class IRCNetworkManager:
