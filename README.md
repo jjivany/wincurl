@@ -50,10 +50,11 @@ pip install steamcontroller-haptics
 ```
 *Note: Make sure your `udev` rules are configured to grant `/dev/hidraw` access, as detailed in the package documentation!*
 
-## 📱 Android Deployment
+## 📱 Deployment & Builds
 
 This project is configured for Android deployment. 
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
+- **Other Platforms**: Ready-to-play binary builds are available on our [itch.io page](https://itch.io).
 - **Features**: Includes full color native emoji support, latency optimizations, clipboard pasting integration, and automatic background pausing during incoming calls to prevent crashes.
 - **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
 
