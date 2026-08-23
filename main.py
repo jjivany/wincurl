@@ -41,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "Version 3.0 Build 100"
+VERSION = "Version 3.0 Build 101"
 
 
 QUAKE_COLORS = {
@@ -80,7 +80,7 @@ class CachedFont:
             except Exception as e:
                 pass
 
-        if not self.emoji_font:
+        if not self.emoji_font and not getattr(sys, "platform", "") == "emscripten" and not hasattr(sys, "getandroidapilevel") and not "ANDROID_ARGUMENT" in os.environ:
             try:
                 # Remove notocoloremoji to prevent SDL_ttf segfault on Android
                 ef = pygame.font.SysFont("segoeuiemoji,applecoloremoji,symbola", self.target_size)
@@ -251,7 +251,7 @@ def vibrate_android(ms):
 
 
 # Define this immediately after imports
-IS_ANDROID = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ
+IS_ANDROID = hasattr(sys, "getandroidapilevel") or "ANDROID_ARGUMENT" in os.environ or "ANDROID_BOOTLOGO" in os.environ or (hasattr(sys, "platform") and sys.platform == "emscripten")
 if IS_ANDROID:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -264,7 +264,7 @@ print("=" * 80 + "\n")
 
 # --- Configuration & Canvas Setup ---
 BASE_WIDTH, BASE_HEIGHT = 1200, 1800
-FPS = 120
+FPS = 60
 PHYSICS_FPS = 60
 FRICTION_BASE = 0.022
 
@@ -2706,9 +2706,9 @@ class WinCurl3:
             if desk_h > 0 and BASE_HEIGHT > desk_h * 0.80:
                 target_h = int(desk_h * 0.80)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
-                self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF, vsync=1)
             else:
-                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF, vsync=1)
 
         try:
             if not IS_ANDROID:
@@ -2757,7 +2757,7 @@ class WinCurl3:
             pass
 
         self.is_4k = info.current_w >= 1920 or info.current_h >= 1080
-        if IS_ANDROID:
+        if IS_ANDROID or is_web_platform:
             self.canvas = self.screen
         else:
             self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
@@ -2992,9 +2992,9 @@ class WinCurl3:
             if desk_h > 0 and BASE_HEIGHT > desk_h * 0.80:
                 target_h = int(desk_h * 0.80)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
-                self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF, vsync=1)
             else:
-                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.RESIZABLE | pygame.DOUBLEBUF, vsync=1)
         ww, wh = self.screen.get_size()
         self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
         self.update_caption()
@@ -3946,6 +3946,14 @@ class WinCurl3:
                 if pygame.time.get_ticks() - getattr(self, "dialog_time", 0) < 300:
                     return
                 self.audio.play_click()
+                rink_idx = getattr(self.story, "replay_rink_idx", None)
+                if rink_idx is None:
+                    rink_idx = min(self.story.current_rink, len(STORY_RINKS) - 1)
+                rink = STORY_RINKS[rink_idx]
+                if getattr(self, "dialog_index", 0) < len(rink.get("intro_dialog", [])) - 1:
+                    self.dialog_index += 1
+                    self.dialog_time = pygame.time.get_ticks()
+                    return
                 self.game_mode = "STORY"
                 self.audio.stop_music()
                 self.start_match()
@@ -6189,11 +6197,11 @@ class WinCurl3:
             if getattr(self, "parallax_y", 0) < 0.1:
                 self.parallax_y = 0
 
-        if IS_ANDROID:
+        if IS_ANDROID or getattr(self, "is_web", False):
             pass
         else:
             self.screen.fill((10, 12, 16))
-            if getattr(self, "border_starfield", None):
+            if getattr(self, "border_starfield", None) and self.app_state not in ("PLAY", "PAUSED", "MATCH_OVER", "COIN_TOSS", "STORY_DIALOG", "CONFIRM_DISCONNECT"):
                 self.border_starfield.draw(
                     self.screen, getattr(self, "last_starfield_speed", 0.5) * scale, getattr(self, "time_mult", 1.0)
                 )
@@ -6226,6 +6234,11 @@ class WinCurl3:
             
             ms_passed = self.clock.tick(FPS)
             
+            # Snap ms_passed to exactly FIXED_DT if we are very close to 60Hz (16-17ms)
+            # This prevents integer rounding drift from causing microstutters on 60Hz vsync displays
+            if 15 <= ms_passed <= 18:
+                ms_passed = 1000.0 / PHYSICS_FPS
+
             self.update_caption()
             
             self.time_mult = ms_passed / (1000.0 / PHYSICS_FPS)
