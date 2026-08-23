@@ -1,8 +1,12 @@
 import os
 import pygame
 import threading
-import evdev
-import steamcontroller_haptics
+try:
+    import evdev
+    import steamcontroller_haptics
+except ImportError:
+    evdev = None
+    steamcontroller_haptics = None
 
 class SteamControllerEvdevDriver:
     def __init__(self):
@@ -21,7 +25,7 @@ class SteamControllerEvdevDriver:
         self.start()
 
     def start(self):
-        if self.running: return
+        if self.running or evdev is None: return
         try:
             # Find Steam Controller evdev node with REL_X
             devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
@@ -105,19 +109,20 @@ def get_haptics():
     return _driver
 
 def trigger_sweep(intensity=1.0):
-    steamcontroller_haptics.trigger_sweep(intensity)
+    if steamcontroller_haptics: steamcontroller_haptics.trigger_sweep(intensity)
 
 def trigger_collision(mass=1.0):
-    steamcontroller_haptics.trigger_collision(mass)
+    if steamcontroller_haptics: steamcontroller_haptics.trigger_collision(mass)
 
 def trigger_click():
-    steamcontroller_haptics.trigger_click()
+    if steamcontroller_haptics: steamcontroller_haptics.trigger_click()
 
 def trigger_hover():
-    steamcontroller_haptics.trigger_hover()
+    if steamcontroller_haptics: steamcontroller_haptics.trigger_hover()
 
 def play_wincurl():
-    h = steamcontroller_haptics.get_haptics()
-    def _wincurl_thread():
-        h.play_english("WINCURL")
-    threading.Thread(target=_wincurl_thread, daemon=True).start()
+    if steamcontroller_haptics:
+        h = steamcontroller_haptics.get_haptics()
+        def _wincurl_thread():
+            h.play_english("WINCURL")
+        threading.Thread(target=_wincurl_thread, daemon=True).start()
