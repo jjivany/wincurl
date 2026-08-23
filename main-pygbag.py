@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 100"
+VERSION = "3.0 Build 102"
 
 
 class CachedFont:
@@ -1609,6 +1609,10 @@ class Stone:
     cached_red_base = None
     cached_ylw_base = None
     cached_hl = None
+    
+    # OPTIMIZATION: Cache 360 degree rotated handles to save CPU line/circle draws per frame.
+    cached_red_handles = None
+    cached_ylw_handles = None
 
     next_id = 1
 
@@ -1625,6 +1629,7 @@ class Stone:
             )
             Stone.cached_red_base = self._render_base(HOUSE_RED)
             Stone.cached_ylw_base = self._render_base(TEAM_YELLOW)
+            self._pre_render_handles()
 
     def _render_base(self, color):
         # BUILD 14 PREVIEW 2: Advanced 3D Geometry
@@ -1651,6 +1656,31 @@ class Stone:
         s.blit(glare, (0, 0))
 
         return s
+
+    @classmethod
+    def _pre_render_handles(cls):
+        cls.cached_red_handles = []
+        cls.cached_ylw_handles = []
+        for angle_deg in range(360):
+            angle = math.radians(angle_deg)
+            hx_s, hy_s = 32 - math.cos(angle) * 18, 32 - math.sin(angle) * 18
+            hx_e, hy_e = 32 + math.cos(angle) * 22, 32 + math.sin(angle) * 22
+            
+            sr = pygame.Surface((64, 64), pygame.SRCALPHA).convert_alpha()
+            sy = pygame.Surface((64, 64), pygame.SRCALPHA).convert_alpha()
+            sr.fill((0, 0, 0, 0))
+            sy.fill((0, 0, 0, 0))
+            
+            for s, color in [(sr, HOUSE_RED), (sy, TEAM_YELLOW)]:
+                pygame.draw.line(s, (40, 40, 40), (hx_s, hy_s), (hx_e, hy_e), 14)
+                for x, y in [(hx_s, hy_s), (hx_e, hy_e)]:
+                    pygame.draw.circle(s, (40, 40, 40), (int(x), int(y)), 7)
+                pygame.draw.line(s, color, (hx_s, hy_s), (hx_e, hy_e), 8)
+                for x, y in [(hx_s, hy_s), (hx_e, hy_e)]:
+                    pygame.draw.circle(s, color, (int(x), int(y)), 4)
+            
+            cls.cached_red_handles.append(sr)
+            cls.cached_ylw_handles.append(sy)
 
     def get_state(self, offset_y=0):
         return [
@@ -1719,17 +1749,11 @@ class Stone:
         )
         color = HOUSE_RED if self.team == 0 else TEAM_YELLOW
 
+        deg = int(self.rotation) % 360
+        handles = Stone.cached_red_handles if self.team == 0 else Stone.cached_ylw_handles
+        surface.blit(handles[deg], (self.pos.x - 32, self.pos.y - 32))
+        
         angle = math.radians(self.rotation)
-        hx_s, hy_s = self.pos.x - math.cos(angle) * 18, self.pos.y - math.sin(angle) * 18
-        hx_e, hy_e = self.pos.x + math.cos(angle) * 22, self.pos.y + math.sin(angle) * 22
-
-        # 3D Handle
-        pygame.draw.line(surface, (40, 40, 40), (hx_s, hy_s), (hx_e, hy_e), 14)
-        for x, y in [(hx_s, hy_s), (hx_e, hy_e)]:
-            pygame.draw.circle(surface, (40, 40, 40), (int(x), int(y)), 7)
-        pygame.draw.line(surface, color, (hx_s, hy_s), (hx_e, hy_e), 8)
-        for x, y in [(hx_s, hy_s), (hx_e, hy_e)]:
-            pygame.draw.circle(surface, color, (int(x), int(y)), 4)
 
         hl_s, hl_e = (
             self.pos.x - math.cos(angle) * 10 - math.sin(angle) * 2,

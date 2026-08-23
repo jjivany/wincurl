@@ -4,7 +4,8 @@ import threading
 try:
     import evdev
     import steamcontroller_haptics
-except ImportError:
+except Exception as e:
+    print("[SC] Could not import steamcontroller dependencies:", e)
     evdev = None
     steamcontroller_haptics = None
 
