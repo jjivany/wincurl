@@ -41,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 103"
+VERSION = "3, build 104"
 
 
 QUAKE_COLORS = {
@@ -3689,7 +3689,7 @@ class WinCurl3:
                     self.audio.ch_voice.play(self.audio.snd_red_wins)
                 elif y_tot > r_tot and getattr(self.audio, "snd_ylw_wins", None):
                     self.audio.ch_voice.play(self.audio.snd_ylw_wins)
-                elif getattr(self, "audio", "snd_end_match", None):
+                elif getattr(self.audio, "snd_end_match", None):
                     self.audio.ch_voice.play(self.audio.snd_end_match)
         else:
             self.reset_end()

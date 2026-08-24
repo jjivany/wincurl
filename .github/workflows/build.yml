@@ -80,7 +80,11 @@ jobs:
           python generate_web_assets.py
       - name: Build WebAssembly
         run: |
-          cp main.py icon.png wincurl_web/
+          cp main.py icon.png patch_pygbag.py wincurl_web/
+          cd wincurl_web
+          python patch_pygbag.py
+          mv main-pygbag.py main.py
+          cd ..
           pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
