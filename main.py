@@ -41,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "Version 3.0 Build 102"
+VERSION = "3, build 103"
 
 
 QUAKE_COLORS = {
@@ -257,7 +257,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "=" * 80)
-print(f"     [SYSTEM] WINCURL 3 BUILD 102")
+print(f"     [SYSTEM] WINCURL 3 BUILD 103")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("=" * 80 + "\n")
 
@@ -416,9 +416,8 @@ def draw_speaker_icon(surface, x, y, is_muted):
 
 
 def draw_trophy(surface, x, y, size=40):
-    # Handles (draw first so they go behind the bowl)
-    pygame.draw.ellipse(surface, (255, 215, 0), (int(x), int(y + size * 0.15), int(size * 0.4), int(size * 0.4)), 3)
-    pygame.draw.ellipse(surface, (200, 150, 50), (int(x + size * 0.6), int(y + size * 0.15), int(size * 0.4), int(size * 0.4)), 3)
+    pygame.draw.circle(surface, (255, 215, 0), (int(x + size * 0.2), int(y + size * 0.35)), int(size * 0.2))
+    pygame.draw.circle(surface, (200, 150, 50), (int(x + size * 0.8), int(y + size * 0.35)), int(size * 0.2))
 
     # Base and stem
     pygame.draw.rect(surface, (150, 100, 20), (int(x + size * 0.3), int(y + size * 0.8), int(size * 0.4), int(size * 0.2)))
@@ -2541,9 +2540,13 @@ class WinCurl3:
         return self.is_pointer_pressed
 
     def scale_mouse(self, pos):
-        if IS_ANDROID:
-            if isinstance(pos, pygame.math.Vector2):
-                return pos
+        if self.screen is None:
+            return pygame.math.Vector2(pos[0], pos[1])
+        screen_w, screen_h = self.screen.get_size()
+        if screen_w == 0 or screen_h == 0:
+            return pygame.math.Vector2(pos[0], pos[1])
+        scale = min(screen_w / BASE_WIDTH, screen_h / BASE_HEIGHT)
+        if scale <= 0:
             return pygame.math.Vector2(pos[0], pos[1])
 
         ww, wh = self.screen.get_size()
@@ -3175,8 +3178,10 @@ class WinCurl3:
                 "master_vol": getattr(self.audio, "master_volume", 1.0) if getattr(self, "audio", None) else 1.0,
                 "active_slot": getattr(self, "active_slot", 0),
             }
-            with open(self.save_file, "w") as f:
+            import os
+            with open(self.save_file + ".tmp", "w") as f:
                 json.dump(data, f)
+            os.replace(self.save_file + ".tmp", self.save_file)
         except Exception as e:
             print(f"Game Progress Save Failed: {e}")
 
@@ -3458,9 +3463,9 @@ class WinCurl3:
             rink_idx = min(getattr(self.story, "current_rink", 0), len(STORY_RINKS) - 1) if getattr(self, "story", None) else 0
             ai_type = STORY_RINKS[rink_idx].get("ai_type", "balanced")
 
-        err_mult = max(0.1, 3.0 - ((diff - 1) * 0.32))
-        takeout_chance = min(0.9, (diff - 1) * 0.1)
-        guard_chance = min(0.8, 0.1 + (diff - 1) * 0.08)
+        err_mult = max(0.01, 3.0 - ((diff - 1) * 0.40))
+        takeout_chance = min(0.95, (diff - 1) * 0.12)
+        guard_chance = min(0.85, 0.15 + (diff - 1) * 0.10)
 
         if ai_type == "aggressive":
             takeout_chance = min(0.95, takeout_chance + 0.3)
@@ -4210,6 +4215,8 @@ class WinCurl3:
                     pygame.event.set_grab(True)
             elif event.type == MOUSEMOTION and self.is_dragging and getattr(self, "drag_start_pos", None):
                 if f_id == getattr(self, "drag_finger_id", None) or (IS_ANDROID and f_id == "mouse"):
+                    if event.pos == (0, 0) or mouse_pos.distance_to(self.drag_start_pos) > 800:
+                        return
                     self.virtual_pull = pygame.math.Vector2((mouse_pos.x - self.drag_start_pos.x) * 0.70, (mouse_pos.y - self.drag_start_pos.y) * 0.30)
                     self.pull_history.append(pygame.math.Vector2(self.virtual_pull))
                     if len(self.pull_history) > 5:

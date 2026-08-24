@@ -14,7 +14,7 @@ import collections
 import asyncio
 import sys
 
-VERSION = "3.0 Build 102"
+VERSION = "3.0 Build 103"
 
 
 class CachedFont:
@@ -3252,9 +3252,9 @@ class WinCurl3:
 
     def execute_ai(self):
         diff = int(getattr(self, "match_ai_difficulty", 5))
-        err_mult = max(0.1, 3.0 - ((diff - 1) * 0.32))
-        takeout_chance = min(0.9, (diff - 1) * 0.1)
-        guard_chance = min(0.8, 0.1 + (diff - 1) * 0.08)
+        err_mult = max(0.01, 3.0 - ((diff - 1) * 0.40))
+        takeout_chance = min(0.95, (diff - 1) * 0.12)
+        guard_chance = min(0.85, 0.15 + (diff - 1) * 0.10)
         params = {"error_multiplier": err_mult, "takeout_chance": takeout_chance, "guard_chance": guard_chance}
 
         if not hasattr(self, "ai_wait_start"):
