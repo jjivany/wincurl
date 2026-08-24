@@ -21,9 +21,7 @@ net_patch = """        if sys.platform == "emscripten":
 code = code.replace(
     '        self.connection_error = ""\n        import threading', '        self.connection_error = ""\n' + net_patch
 )
-code = code.replace("def main():\n", "async def main():\n")
-code = code.replace("    game.run()\n", "    await game.run()\n")
-code = code.replace("    main()\n", "    asyncio.run(main())\n")
+
 
 with open("main-pygbag.py", "w") as f:
     f.write(code)
