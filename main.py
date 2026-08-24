@@ -90,6 +90,8 @@ class CachedFont:
                 pass
 
     def __getattr__(self, attr):
+        if type(attr) is not str:
+            raise AttributeError("Attribute name must be a string")
         return getattr(self.font, attr)
 
     def render(self, text, antialias, color, background=None):
