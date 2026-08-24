@@ -3012,7 +3012,8 @@ class WinCurl3:
     def toggle_fullscreen(self):
         self.is_fullscreen = not self.is_fullscreen
         if self.is_fullscreen:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
+            target_size = pygame.display.get_desktop_sizes()[0] if hasattr(pygame.display, 'get_desktop_sizes') else (0, 0)
+            self.screen = pygame.display.set_mode(target_size, pygame.FULLSCREEN | pygame.DOUBLEBUF)
         else:
             info = pygame.display.Info()
             desk_h = info.current_h
