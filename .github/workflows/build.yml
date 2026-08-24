@@ -88,6 +88,13 @@ jobs:
           pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
+          mv wincurl_web.apk wincurl_web.data
+          python3 -c "
+          with open('index.html', 'r') as f: code = f.read()
+          code = code.replace('wincurl_web.apk', 'wincurl_web.data')
+          code = code.replace('if platform.window.location.host.find(\'.itch.zone\')>0:', 'if True:')
+          with open('index.html', 'w') as f: f.write(code)
+          "
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
