@@ -2726,7 +2726,7 @@ class WinCurl3:
 
         is_web_platform = hasattr(sys, "platform") and sys.platform == "emscripten"
 
-        if IS_ANDROID:
+        if IS_ANDROID and not is_web_platform:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         elif is_web_platform:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.DOUBLEBUF | pygame.SCALED)
