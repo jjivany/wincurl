@@ -41,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 106"
+VERSION = "3, build 107"
 
 
 QUAKE_COLORS = {
@@ -259,7 +259,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "=" * 80)
-print(f"     [SYSTEM] WINCURL 3 BUILD 105")
+print(f"     [SYSTEM] WINCURL 3 BUILD 107")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("=" * 80 + "\n")
 
@@ -1514,7 +1514,7 @@ class WinCurlAudioEngine:
 
     def play_curler_call(self, intensity):
         now = pygame.time.get_ticks()
-        if intensity > 0.8 and (now - self.last_call) > 2500:
+        if intensity > 0.5 and (now - self.last_call) > 2500:
             self.last_call = now
             if isinstance(getattr(self, "snd_hurry", None), pygame.mixer.Sound) and isinstance(getattr(self, "snd_hard", None), pygame.mixer.Sound):
                 if not self.ch_voice.get_busy():
@@ -3912,49 +3912,121 @@ class WinCurl3:
                 pass
 
     def handle_challenge_menu_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = self.get_pointer_pos()
-            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+        is_click = (event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1)
+        is_key_click = not getattr(self, "typing_target", None) and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or (getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0))
+        m = self.get_pointer_pos()
+        mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
 
-            if self.btn_return_menu.collidepoint(mx, my):
-                self.audio.play_click()
-                self.app_state = "MENU"
-                return
+        if event.type == MOUSEMOTION:
+            hovered = None
+            if hasattr(self, "btn_return_menu") and self.btn_return_menu.collidepoint(mx, my): hovered = 25
             for i in range(25):
                 row, col = i // 5, i % 5
                 rect = pygame.Rect(BASE_WIDTH // 2 - 250 + col * 100, 300 + row * 100, 90, 90)
-                if rect.collidepoint(mx, my):
-                    self.audio.play_click()
+                if rect.collidepoint(mx, my): hovered = i
+            if hovered is not None and hovered != getattr(self, "chal_hovered", None):
+                self.audio.play_hover()
+                self.chal_hovered = hovered
+
+        nav_dx, nav_dy = 0, 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dy = -1
+            elif event.key == K_DOWN: nav_dy = 1
+            elif event.key == K_LEFT: nav_dx = -1
+            elif event.key == K_RIGHT: nav_dx = 1
+        elif event.type == JOYHATMOTION and (event.value[0] != 0 or event.value[1] != 0):
+            nav_dx, nav_dy = event.value[0], -event.value[1]
+
+        if nav_dx != 0 or nav_dy != 0:
+            idx = getattr(self, "chal_hovered", 25)
+            if idx == 25:
+                if nav_dy < 0: idx = 20
+            else:
+                row, col = idx // 5, idx % 5
+                row += nav_dy
+                col += nav_dx
+                if row > 4: idx = 25
+                elif row < 0: row = 0
+                else:
+                    if col < 0: col = 0
+                    elif col > 4: col = 4
+                if idx != 25: idx = row * 5 + col
+            self.chal_hovered = idx
+            self.audio.play_hover()
+
+        if is_click or is_key_click:
+            target_id = getattr(self, "chal_hovered", None)
+            if is_click:
+                target_id = None
+                if hasattr(self, "btn_return_menu") and self.btn_return_menu.collidepoint(mx, my): target_id = 25
+                for i in range(25):
+                    row, col = i // 5, i % 5
+                    rect = pygame.Rect(BASE_WIDTH // 2 - 250 + col * 100, 300 + row * 100, 90, 90)
+                    if rect.collidepoint(mx, my): target_id = i
+            if target_id is not None:
+                self.audio.play_click()
+                if target_id == 25:
+                    self.app_state = "MENU"
+                else:
                     self.game_mode = "CHALLENGE"
-                    self.challenge_level = i + 1
+                    self.challenge_level = target_id + 1
                     self.audio.stop_music()
                     self.start_match()
-                    return
+                return
 
     def handle_save_slots_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and event.button == 1:
+        is_click = event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1
+        is_key_click = not getattr(self, "typing_target", None) and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or (getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0))
+        m = self.get_pointer_pos()
+        mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+        cx = BASE_WIDTH // 2
+        
+        if event.type == MOUSEMOTION:
+            hovered = None
+            if hasattr(self, "btn_return_menu") and self.btn_return_menu.collidepoint(mx, my): hovered = 3
+            for i in range(3):
+                if pygame.Rect(cx - 300, 300 + i * 200, 600, 150).collidepoint(mx, my): hovered = i
+            if hovered is not None and hovered != getattr(self, "save_hovered", None):
+                self.audio.play_hover()
+                self.save_hovered = hovered
+                
+        nav_dy = 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dy = -1
+            elif event.key == K_DOWN: nav_dy = 1
+        elif event.type == JOYHATMOTION and event.value[1] != 0:
+            nav_dy = -event.value[1]
+            
+        if nav_dy != 0:
+            idx = getattr(self, "save_hovered", 0)
+            idx = (idx + nav_dy) % 4
+            self.save_hovered = idx
+            self.audio.play_hover()
+
+        if is_click or is_key_click:
             now = pygame.time.get_ticks()
             if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
                 return
             self.last_click_time = now
-            m = self.get_pointer_pos()
-            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            cx = BASE_WIDTH // 2
 
-            for i in range(3):
-                rect = pygame.Rect(cx - 300, 300 + i * 200, 600, 150)
-                if rect.collidepoint(mx, my):
-                    self.audio.play_click()
-                    self.load_slot(i)
+            target_id = getattr(self, "save_hovered", None)
+            if is_click:
+                target_id = None
+                if hasattr(self, "btn_return_menu") and self.btn_return_menu.collidepoint(mx, my): target_id = 3
+                for i in range(3):
+                    if pygame.Rect(cx - 300, 300 + i * 200, 600, 150).collidepoint(mx, my): target_id = i
+                    
+            if target_id is not None:
+                self.audio.play_click()
+                if target_id == 3:
+                    self.app_state = "MENU"
+                else:
+                    self.load_slot(target_id)
                     if getattr(self, "slot_intention", "story") == "story":
                         self.app_state = "STORY_MAP"
                     else:
                         self.app_state = "BOT_MENU"
-                    return
-
-            if self.btn_return_menu.collidepoint(mx, my):
-                self.audio.play_click()
-                self.app_state = "MENU"
+                return
 
     def handle_bot_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
@@ -4084,27 +4156,60 @@ class WinCurl3:
                         return
 
     def handle_pause_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = self.get_pointer_pos()
-            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+        is_click = (event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1)
+        is_key_click = not getattr(self, "typing_target", None) and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0)
+        m = self.get_pointer_pos()
+        mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+        
+        quit_y = BASE_HEIGHT // 2 + 20 if self.game_mode in ["HOST", "JOIN", "CHALLENGE"] else BASE_HEIGHT // 2 + 140
+        self.btn_quit_main.y = quit_y
+        
+        btns = [self.btn_resume, self.btn_options_pause, self.btn_quit_main]
+        if self.game_mode not in ["HOST", "JOIN", "CHALLENGE"]:
+            btns.insert(2, self.btn_save_quit)
             
-            quit_y = BASE_HEIGHT // 2 + 20 if self.game_mode in ["HOST", "JOIN", "CHALLENGE"] else BASE_HEIGHT // 2 + 140
-            self.btn_quit_main.y = quit_y
+        if event.type == MOUSEMOTION:
+            hovered = None
+            for i, b in enumerate(btns):
+                if b.collidepoint(mx, my): hovered = i
+            if hovered is not None and hovered != getattr(self, "pause_hovered", None):
+                self.audio.play_hover()
+                self.pause_hovered = hovered
+                
+        nav_dy = 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dy = -1
+            elif event.key == K_DOWN: nav_dy = 1
+        elif event.type == JOYHATMOTION and event.value[1] != 0:
+            nav_dy = -event.value[1]
+            
+        if nav_dy != 0:
+            idx = getattr(self, "pause_hovered", 0)
+            idx = (idx + nav_dy) % len(btns)
+            self.pause_hovered = idx
+            self.audio.play_hover()
 
-            if self.btn_resume.collidepoint(mx, my):
+        if is_click or is_key_click:
+            target_id = getattr(self, "pause_hovered", None)
+            if is_click:
+                target_id = None
+                for i, b in enumerate(btns):
+                    if b.collidepoint(mx, my): target_id = i
+                    
+            if target_id is not None:
                 self.audio.play_click()
-                self.app_state = "PLAY"
-            elif self.btn_options_pause.collidepoint(mx, my):
-                self.audio.play_click()
-                self.app_state = "OPTIONS_MENU"
-                self.prev_state = "PAUSED"
-            elif self.game_mode not in ["HOST", "JOIN", "CHALLENGE"] and self.btn_save_quit.collidepoint(mx, my):
-                self.audio.play_click()
-                self.save_match()
-                self.return_to_menu()
-            elif self.btn_quit_main.collidepoint(mx, my):
-                self.audio.play_click()
-                self.return_to_menu()
+                b = btns[target_id]
+                if b == self.btn_resume:
+                    self.app_state = "PLAY"
+                elif b == self.btn_options_pause:
+                    self.app_state = "OPTIONS_MENU"
+                    self.prev_state = "PAUSED"
+                elif b == self.btn_save_quit:
+                    self.save_match()
+                    self.return_to_menu()
+                elif b == self.btn_quit_main:
+                    self.return_to_menu()
+                return
 
     def handle_confirm_disconnect_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -4120,29 +4225,65 @@ class WinCurl3:
                 self.app_state = "PLAY"
 
     def handle_match_over_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
-            m = self.get_pointer_pos()
-            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            if getattr(self, "btn_leaderboard", None) and self.btn_leaderboard.collidepoint(mx, my):
+        is_click = (event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1)
+        is_key_click = not getattr(self, "typing_target", None) and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0)
+        m = self.get_pointer_pos()
+        mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+        
+        btns = [self.btn_return_menu]
+        if getattr(self, "btn_leaderboard", None):
+            btns.insert(0, self.btn_leaderboard)
+            
+        if event.type == MOUSEMOTION:
+            hovered = None
+            for i, b in enumerate(btns):
+                if b.collidepoint(mx, my): hovered = i
+            if hovered is not None and hovered != getattr(self, "match_hovered", None):
+                self.audio.play_hover()
+                self.match_hovered = hovered
+                
+        nav_dy = 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dy = -1
+            elif event.key == K_DOWN: nav_dy = 1
+        elif event.type == JOYHATMOTION and event.value[1] != 0:
+            nav_dy = -event.value[1]
+            
+        if nav_dy != 0:
+            idx = getattr(self, "match_hovered", 0)
+            idx = (idx + nav_dy) % len(btns)
+            self.match_hovered = idx
+            self.audio.play_hover()
+            
+        if is_click or is_key_click:
+            target_id = getattr(self, "match_hovered", None)
+            if is_click:
+                target_id = None
+                for i, b in enumerate(btns):
+                    if b.collidepoint(mx, my): target_id = i
+                    
+            if target_id is not None:
                 self.audio.play_click()
-                self.app_state = "LEADERBOARD"
-                self.fetch_leaderboard()
-            elif self.btn_return_menu.collidepoint(mx, my):
-                self.audio.play_click()
-                if getattr(self, "game_mode", None) == "STORY":
-                    if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
-                        if getattr(self, "story", None) and getattr(self.story, "replay_rink_idx", None) is not None:
-                            self.story.replay_rink_idx = None
-                            self.app_state = "STORY_MAP"
+                b = btns[target_id]
+                if getattr(self, "btn_leaderboard", None) and b == self.btn_leaderboard:
+                    self.app_state = "LEADERBOARD"
+                    self.fetch_leaderboard()
+                elif b == self.btn_return_menu:
+                    if getattr(self, "game_mode", None) == "STORY":
+                        if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
+                            if getattr(self, "story", None) and getattr(self.story, "replay_rink_idx", None) is not None:
+                                self.story.replay_rink_idx = None
+                                self.app_state = "STORY_MAP"
+                            else:
+                                self.app_state = "STORY_WIN"
+                                snd = getattr(self.audio, "snd_you_win", None)
+                                if isinstance(snd, pygame.mixer.Sound):
+                                    self.audio.ch_voice.play(snd)
                         else:
-                            self.app_state = "STORY_WIN"
-                            snd = getattr(self.audio, "snd_you_win", None)
-                            if isinstance(snd, pygame.mixer.Sound):
-                                self.audio.ch_voice.play(snd)
+                            self.app_state = "STORY_MAP"
                     else:
-                        self.app_state = "STORY_MAP"
-                else:
-                    self.return_to_menu()
+                        self.return_to_menu()
+                return
 
     def handle_story_win_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -4296,10 +4437,10 @@ class WinCurl3:
             self.is_sweeping_now = is_sweeping
 
             if self.is_sweeping_now:
-                if delta > 4:
-                    self.sweep_power = min(1.0, self.sweep_power + 0.1)
+                if delta > 2:
+                    self.sweep_power = min(1.0, self.sweep_power + 0.15)
                 else:
-                    self.sweep_power = max(0.0, self.sweep_power - 0.05)
+                    self.sweep_power = max(0.0, self.sweep_power - 0.03)
 
                 if self.sweep_power > 0:
                     self.audio.play_curler_call(self.sweep_power)
@@ -4335,7 +4476,7 @@ class WinCurl3:
                 if getattr(self, "game_mode", None) == "STORY" and can_player_sweep and actual_sweep > 0:
                     actual_sweep *= 1.0 + self.story.level * 0.15
                 s.update(actual_sweep, FRICTION_BASE)
-                if s.is_moving and s.vel.length() > 0.5:
+                if s.is_moving and s.vel.length() > 0.5 and (not IS_ANDROID or self.frames_elapsed % 2 == 0):
                     self.particles.append(
                         {
                             "pos": s.pos + pygame.math.Vector2(random.uniform(-15, 15), random.uniform(-15, 15)),
@@ -5061,22 +5202,47 @@ class WinCurl3:
         )
         menu_my = my - getattr(self, "menu_dy", 0)
 
-        curr_hov = None
+        is_click = event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1
+        is_key_click = not getattr(self, "typing_target", None) and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0)
+
+        visible_btns = []
         for b in self.options_buttons:
-            if (not IS_ANDROID and b["id"] == "hi_res_mode") or (
-                IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"
-            ):
+            if (not IS_ANDROID and b["id"] == "hi_res_mode") or (IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"):
                 continue
-            if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
-                curr_hov = "opt_" + b["id"]
-                break
+            visible_btns.append(b)
 
-        if curr_hov != self.last_hovered:
-            if curr_hov:
-                self.audio.play_hover()
-            self.last_hovered = curr_hov
+        if event.type == MOUSEMOTION:
+            curr_hov = None
+            for idx, b in enumerate(visible_btns):
+                if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
+                    curr_hov = "opt_" + b["id"]
+                    self.options_hovered_idx = idx
+                    break
+            if curr_hov != self.last_hovered:
+                if curr_hov: self.audio.play_hover()
+                self.last_hovered = curr_hov
+                
+        nav_dy = 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dy = -1
+            elif event.key == K_DOWN: nav_dy = 1
+        elif event.type == JOYHATMOTION and event.value[1] != 0:
+            nav_dy = -event.value[1]
+            
+        if nav_dy != 0 and visible_btns:
+            idx = getattr(self, "options_hovered_idx", 0)
+            idx = (idx + nav_dy) % len(visible_btns)
+            self.options_hovered_idx = idx
+            self.last_hovered = "opt_" + visible_btns[idx]["id"]
+            self.audio.play_hover()
+            # Scroll to keep in view
+            by = visible_btns[idx]["y"]
+            if by + getattr(self, "menu_dy", 0) < 100:
+                self.menu_dy = -by + 100
+            elif by + getattr(self, "menu_dy", 0) > BASE_HEIGHT - 100:
+                self.menu_dy = -by + BASE_HEIGHT - 200
 
-        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+        if is_click or is_key_click:
             now = pygame.time.get_ticks()
             if hasattr(self, "last_click_time") and now - getattr(self, "last_click_time", 0) < 300:
                 return
@@ -5166,7 +5332,7 @@ class WinCurl3:
         for i in range(25):
             row, col = i // 5, i % 5
             rect = pygame.Rect(cx - 250 + col * 100, 300 + row * 100, 90, 90)
-            is_hov = rect.collidepoint(self.get_pointer_pos())
+            is_hov = getattr(self, "chal_hovered", None) == i
             draw_glass_rect(self.canvas, rect, (40, 120, 60) if self.challenge_progress[i] else PURPLE_SUIT, 16, is_hov)
             txt = self.font.render(str(i + 1), True, WHITE)
             self.canvas.blit(txt, txt.get_rect(center=rect.center))
@@ -5178,7 +5344,7 @@ class WinCurl3:
             self.btn_return_menu,
             HOUSE_BLUE,
             self.btn_return_menu.h // 2,
-            self.btn_return_menu.collidepoint(self.get_pointer_pos()),
+            getattr(self, "chal_hovered", None) == 25,
         )
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE)
         self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
@@ -5193,17 +5359,17 @@ class WinCurl3:
 
         if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode") == getattr(self, "game_mode", ""):
             start_btn = pygame.Rect(cx - 250, 420, 500, 120)
-            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, getattr(self, "bot_hovered", None) == 0)
             lbl_btn2 = self.font_72.render("RESUME MATCH", True, WHITE)
             self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
 
             new_btn = pygame.Rect(cx - 200, 580, 400, 80)
-            draw_glass_rect(self.canvas, new_btn, (100, 100, 100), new_btn.h // 2, new_btn.collidepoint(self.get_pointer_pos()))
+            draw_glass_rect(self.canvas, new_btn, (100, 100, 100), new_btn.h // 2, getattr(self, "bot_hovered", None) == 1)
             lbl_new = self.font.render("NEW MATCH", True, WHITE)
             self.canvas.blit(lbl_new, lbl_new.get_rect(center=new_btn.center))
         else:
             start_btn = pygame.Rect(cx - 250, 420, 500, 120)
-            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, start_btn.collidepoint(self.get_pointer_pos()))
+            draw_glass_rect(self.canvas, start_btn, HOUSE_RED, start_btn.h // 2, getattr(self, "bot_hovered", None) == 0)
             lbl_btn2 = self.font_72.render("START MATCH", True, WHITE)
             self.canvas.blit(lbl_btn2, lbl_btn2.get_rect(center=start_btn.center))
 
@@ -5212,7 +5378,7 @@ class WinCurl3:
             self.btn_return_menu,
             HOUSE_BLUE,
             self.btn_return_menu.h // 2,
-            self.btn_return_menu.collidepoint(self.get_pointer_pos()),
+            getattr(self, "bot_hovered", None) == 3,
         )
         lbl_btn = self.font.render("BACK TO MENU", True, WHITE)
         self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
@@ -5233,7 +5399,7 @@ class WinCurl3:
             slots = self.slots_data
         for i in range(3):
             rect = pygame.Rect(cx - 300, 300 + i * 200, 600, 150)
-            is_hover = rect.collidepoint(self.get_pointer_pos())
+            is_hover = (getattr(self, "save_hovered", None) == i)
             draw_glass_rect(self.canvas, rect, (60, 60, 80) if not is_hover else HOUSE_BLUE, rect.h // 4, is_hover)
 
             slot_data = slots[i] if i < len(slots) else {}
@@ -5996,19 +6162,19 @@ class WinCurl3:
         )
 
         res_rect = self.btn_resume.move(-int((1.0 - self.pause_anim) * 400), 0)
-        draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
+        draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, getattr(self, "pause_hovered", None) == 0)
         lbl_btn = self.font.render("RESUME MATCH", True, WHITE)
         self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
 
         opt_rect = self.btn_options_pause.move(int((1.0 - self.pause_anim) * 400), 0)
-        draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
+        draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, getattr(self, "pause_hovered", None) == 1)
         lbl_opt = self.font.render("OPTIONS", True, WHITE)
         self.canvas.blit(lbl_opt, lbl_opt.get_rect(center=opt_rect.center))
         self.draw_gear_icon(self.canvas, opt_rect.x + 30, opt_rect.centery - 10)
 
         if self.game_mode not in ["HOST", "JOIN", "CHALLENGE"]:
             sq_rect = self.btn_save_quit.move(-int((1.0 - self.pause_anim) * 400), 0)
-            draw_glass_rect(self.canvas, sq_rect, PURPLE_SUIT, sq_rect.h // 2, sq_rect.collidepoint(m_pos.x, m_pos.y))
+            draw_glass_rect(self.canvas, sq_rect, PURPLE_SUIT, sq_rect.h // 2, getattr(self, "pause_hovered", None) == 2)
             lbl_sq = self.font.render("SAVE & QUIT", True, WHITE)
             self.canvas.blit(lbl_sq, lbl_sq.get_rect(center=sq_rect.center))
             self.draw_floppy_icon(self.canvas, sq_rect.x + 30, sq_rect.centery - 10)
