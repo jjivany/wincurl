@@ -41,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 105"
+VERSION = "3, build 106"
 
 
 QUAKE_COLORS = {
@@ -826,6 +826,13 @@ class WinCurlAudioEngine:
                 [(0.0, 2600), (0.5, 1600), (1.0, 2800)],
             )
             chord = [261.63, 329.63]
+        elif phrase == "HARD":
+            f1_env, f2_env, f3_env = (
+                [(0.0, 300), (0.4, 450), (1.0, 200)],
+                [(0.0, 1200), (0.4, 1600), (1.0, 1000)],
+                [(0.0, 2200), (0.4, 2800), (1.0, 2000)],
+            )
+            chord = [196.00, 246.94]
         elif phrase == "RED_TEAM_WINS":
             # Three dips in the frequency envelope simulate three words (red team wins)
             f1_env = [(0.0, 300), (0.15, 500), (0.3, 300), (0.35, 400), (0.5, 300), (0.6, 300), (0.65, 300), (0.8, 400), (1.0, 300)]
