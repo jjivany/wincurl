@@ -41,7 +41,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 107"
+VERSION = "3, build 108"
 
 
 QUAKE_COLORS = {
