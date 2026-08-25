@@ -94,6 +94,7 @@ jobs:
           code = code.replace('wincurl_web.apk', 'wincurl_web.data')
           code = code.replace('if platform.window.location.host.find(\'.itch.zone\')>0:', 'if True:')
           code = code.replace('while embed.counter()<0:', 'if False:')
+          code = code.replace('await shell.source(main, callback=ui_callback)', 'platform.window.infobox.style.display = "none"; await shell.source(main, callback=ui_callback)')
           with open('index.html', 'w') as f: f.write(code)
           "
       - name: Upload Web Binary

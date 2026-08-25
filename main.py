@@ -1514,7 +1514,7 @@ class WinCurlAudioEngine:
 
     def play_curler_call(self, intensity):
         now = pygame.time.get_ticks()
-        if intensity > 8.0 and (now - self.last_call) > 2500:
+        if intensity > 0.8 and (now - self.last_call) > 2500:
             self.last_call = now
             if isinstance(getattr(self, "snd_hurry", None), pygame.mixer.Sound) and isinstance(getattr(self, "snd_hard", None), pygame.mixer.Sound):
                 if not self.ch_voice.get_busy():
