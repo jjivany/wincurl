@@ -3708,36 +3708,60 @@ class WinCurl3:
 
     def handle_menu_events(self, event):
         mouse_pos = self.get_pointer_pos()
-        mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, (
-            mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
-        )
+        mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, (mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y)
         menu_my = my - getattr(self, "menu_dy", 0)
-        curr_hov = next(
-            (b["id"] for b in self.menu_buttons if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]), None
-        )
-        if curr_hov != self.last_hovered:
-            if curr_hov:
+        
+        # Only update hover from mouse if mouse actually moved
+        if event.type == MOUSEMOTION:
+            curr_hov = next((b["id"] for b in self.menu_buttons if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]), None)
+            if curr_hov and curr_hov != getattr(self, "last_hovered", None):
                 self.audio.play_hover()
-            self.last_hovered = curr_hov
+                self.last_hovered = curr_hov
+
+        # Keyboard / Gamepad Navigation
+        nav_dir = 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dir = -1
+            elif event.key == K_DOWN: nav_dir = 1
+        elif event.type == JOYHATMOTION and event.value[1] != 0:
+            nav_dir = -event.value[1] # up is 1, down is -1
+
+        if nav_dir != 0:
+            if not getattr(self, "last_hovered", None):
+                self.last_hovered = self.menu_buttons[0]["id"]
+                self.audio.play_hover()
+            else:
+                idx = next((i for i, b in enumerate(self.menu_buttons) if b["id"] == self.last_hovered), -1)
+                if idx != -1:
+                    new_idx = (idx + nav_dir) % len(self.menu_buttons)
+                    self.last_hovered = self.menu_buttons[new_idx]["id"]
+                    self.audio.play_hover()
 
         if event.type == MOUSEBUTTONUP and getattr(event, "button", 1) == 1:
             if self.dragging_slider:
                 self.dragging_slider = False
                 self.save_progress()
 
-        if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+        is_click = (event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1)
+        is_key_click = not self.typing_target and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0)
+
+        if is_click or is_key_click:
             now = pygame.time.get_ticks()
             if hasattr(self, "last_click_time") and now - self.last_click_time < 300:
                 return
             self.last_click_time = now
 
             if self.typing_target:
-                if not (300 < mx < 900 and 950 < menu_my < 1070):
+                if is_click and not (300 < mx < 900 and 950 < menu_my < 1070):
                     self.set_typing_target(None)
 
-            if 300 < mx < 900:
+            target_id = getattr(self, "last_hovered", None)
+            if is_click and not (300 < mx < 900):
+                target_id = None
+
+            if target_id:
                 for b in self.menu_buttons:
-                    if b["id"] == curr_hov:
+                    if b["id"] == target_id:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "local":
