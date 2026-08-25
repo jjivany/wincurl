@@ -63,7 +63,6 @@ This project is configured for Android deployment.
 Contributions are welcome. Feel free to open an issue or submit a pull request if you'd like to help improve the game.
 
 ---
-~itch.io binary builds can be found here: [https://itch.io/](https://jayjayivanygmailcom.itch.io/wincurl)
 
 *WinCurl 3.0 is a spiritual successor and derives inspiration from the original WinCurl 2.0:*
 [View the original on Archive.org](https://archive.org/details/WCURLD)
