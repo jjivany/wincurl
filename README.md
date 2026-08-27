@@ -54,7 +54,7 @@ pip install steamcontroller-haptics
 
 This project is configured for Android deployment. 
 - **Download**: You can download `wincurl_latest.apk` directly from the repository releases and sideload it.
-- **Other Platforms**: Ready-to-play binary builds are available on our [itch.io page](https://itch.io).
+- **Other Platforms**: Ready-to-play binary builds are available on our [itch.io page](https://jayjayivanygmailcom.itch.io/wincurl).
 - **Features**: Includes full color native emoji support, latency optimizations, clipboard pasting integration, and automatic background pausing during incoming calls to prevent crashes.
 - **Developers**: The repository includes automated GitHub Actions that build the APK natively in the cloud.
 
