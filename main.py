@@ -53,7 +53,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 110"
+VERSION = "3, build 112"
 
 
 QUAKE_COLORS = {
@@ -271,7 +271,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "=" * 80)
-print(f"     [SYSTEM] WINCURL 3 BUILD 108")
+print(f"     [SYSTEM] WINCURL 3 BUILD 112")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("=" * 80 + "\n")
 
