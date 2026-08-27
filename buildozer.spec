@@ -22,6 +22,7 @@ android.minapi = 24
 android.allow_backup = True
 android.permissions = INTERNET, VIBRATE
 p4a.setup_py = false
+ios.codesign.allowed = False
 
 [buildozer]
 log_level = 2
