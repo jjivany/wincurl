@@ -53,7 +53,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 113"
+VERSION = "3, build 114"
 
 
 QUAKE_COLORS = {
@@ -271,7 +271,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "=" * 80)
-print(f"     [SYSTEM] WINCURL 3 BUILD 113")
+print(f"     [SYSTEM] WINCURL 3 BUILD 114")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("=" * 80 + "\n")
 
@@ -588,7 +588,7 @@ class WinCurlAudioEngine:
         )
         load_sound(
             "snd_hard",
-            "snd_hard_v2.wav",
+            "snd_hard.wav",
             lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes),
         )
         load_sound(
@@ -861,13 +861,6 @@ class WinCurlAudioEngine:
                 [(0.0, 2600), (0.5, 1600), (1.0, 2800)],
             )
             chord = [261.63, 329.63]
-        elif phrase == "HARD":
-            f1_env, f2_env, f3_env = (
-                [(0.0, 300), (0.4, 450), (1.0, 200)],
-                [(0.0, 1200), (0.4, 1600), (1.0, 1000)],
-                [(0.0, 2200), (0.4, 2800), (1.0, 2000)],
-            )
-            chord = [196.00, 246.94]
         elif phrase == "RED_TEAM_WINS":
             # Three dips in the frequency envelope simulate three words (red team wins)
             f1_env = [(0.0, 300), (0.15, 500), (0.3, 300), (0.35, 400), (0.5, 300), (0.6, 300), (0.65, 300), (0.8, 400), (1.0, 300)]
@@ -4130,10 +4123,10 @@ class WinCurl3:
         
         if self.app_state != "STORY_DIALOG":
             if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode") == getattr(self, "game_mode", ""):
-                btns.append({"id": "resume", "rect": pygame.Rect(cx - 250, 420, 500, 120)})
-                btns.append({"id": "new", "rect": pygame.Rect(cx - 200, 580, 400, 80)})
+                btns.append({"id": "resume", "rect": pygame.Rect(cx - 300, 780, 600, 140)})
+                btns.append({"id": "new", "rect": pygame.Rect(cx - 200, 1000, 400, 80)})
             else:
-                btns.append({"id": "start", "rect": pygame.Rect(cx - 250, 420, 500, 120)})
+                btns.append({"id": "start", "rect": pygame.Rect(cx - 200, 800, 400, 100)})
                 
             if getattr(self, "btn_upgrades", None):
                 for k, btn in self.btn_upgrades.items():
@@ -4144,6 +4137,7 @@ class WinCurl3:
                     btns.append({"id": f"replay_{idx}", "rect": rect})
                     
             btns.append({"id": "back", "rect": self.btn_return_menu})
+            btns.sort(key=lambda b: b["rect"].y)
             
         self.story_map_btns = btns
 
@@ -5693,12 +5687,17 @@ class WinCurl3:
                 label_y = start_y + ((len(STORY_RINKS) - 1) // cols) * spacing + 220
                 self.canvas.blit(lbl_replay, (cx - lbl_replay.get_width() // 2, label_y))
 
+            is_back_hovered = self.btn_return_menu.collidepoint(self.get_pointer_pos())
+            if getattr(self, "story_hovered", None) is not None and hasattr(self, "story_map_btns"):
+                if 0 <= self.story_hovered < len(self.story_map_btns) and self.story_map_btns[self.story_hovered]["id"] == "back":
+                    is_back_hovered = True
+
             draw_glass_rect(
                 self.canvas,
                 self.btn_return_menu,
                 HOUSE_BLUE,
                 self.btn_return_menu.h // 2,
-                self.btn_return_menu.collidepoint(self.get_pointer_pos()),
+                is_back_hovered,
             )
             lbl_btn = self.font.render("BACK TO MENU", True, WHITE)
             self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
@@ -6292,7 +6291,8 @@ class WinCurl3:
         quit_y = BASE_HEIGHT // 2 + 20 if self.game_mode in ["HOST", "JOIN", "CHALLENGE"] else BASE_HEIGHT // 2 + 140
         self.btn_quit_main.y = quit_y
         quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
-        draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
+        expected_quit_idx = 3 if self.game_mode not in ["HOST", "JOIN", "CHALLENGE"] else 2
+        draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, getattr(self, "pause_hovered", None) == expected_quit_idx)
         lbl_quit = self.font.render("QUIT TO MENU", True, WHITE)
         self.canvas.blit(lbl_quit, lbl_quit.get_rect(center=quit_rect.center))
         self.draw_back_icon(self.canvas, quit_rect.x + 30, quit_rect.centery - 10, color=(100, 255, 100))
@@ -6609,6 +6609,21 @@ class WinCurl3:
                         self.audio.stop_music()
                 elif getattr(event, "type", None) in (getattr(pygame, "APP_WILLENTERFOREGROUND", 262), getattr(pygame, "APP_DIDENTERFOREGROUND", 263)):
                     self.is_background = False
+
+                if event.type == getattr(pygame, "JOYAXISMOTION", 1536):
+                    if getattr(event, "axis", -1) in (0, 1):
+                        if not hasattr(self, 'joystick_axis_state'):
+                            self.joystick_axis_state = {0: 0, 1: 0}
+                        val = 0
+                        if getattr(event, "value", 0) > 0.5: val = 1
+                        elif getattr(event, "value", 0) < -0.5: val = -1
+                        if val != self.joystick_axis_state[getattr(event, "axis", -1)]:
+                            self.joystick_axis_state[getattr(event, "axis", -1)] = val
+                            if val != 0:
+                                if getattr(event, "axis", -1) == 0:
+                                    events.append(pygame.event.Event(getattr(pygame, "JOYHATMOTION", 1538), joy=getattr(event, "joy", 0), hat=0, value=(val, 0)))
+                                else:
+                                    events.append(pygame.event.Event(getattr(pygame, "JOYHATMOTION", 1538), joy=getattr(event, "joy", 0), hat=0, value=(0, -val)))
 
                 if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
                     self.current_mapped_pos = self.scale_mouse(event.pos)
