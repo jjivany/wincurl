@@ -1,7 +1,7 @@
 from setuptools import setup
 setup(
     name='wincurl3',
-    version='108',
+    version='109.post4',
     description='WinCurl 3 - A Multiplayer Curling Simulator',
     author='Jason Ivany',
     packages=['wincurl3'],
@@ -13,7 +13,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'wincurl3=wincurl3.main:main',
+            'wincurl3=wincurl3.main:entrypoint',
         ],
     },
     python_requires='>=3.8',

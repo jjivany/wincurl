@@ -17,8 +17,15 @@ import sys
 import re
 import urllib.request
 
-import sc_driver
-sc_haptics = sc_driver
+try:
+    import sc_driver
+    sc_haptics = sc_driver
+except ImportError:
+    try:
+        from wincurl3 import sc_driver
+        sc_haptics = sc_driver
+    except ImportError:
+        sc_haptics = None
 
 def _ensure_assets():
     if getattr(sys, 'frozen', False) or (hasattr(sys, 'platform') and sys.platform == 'emscripten'):
@@ -35,13 +42,18 @@ def _ensure_assets():
             url = f"https://raw.githubusercontent.com/jjivany/wincurl/main/{filename}"
             print(f"[WinCurl] Downloading missing asset: {filename}...")
             try:
-                urllib.request.urlretrieve(url, filepath)
+                import ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with urllib.request.urlopen(url, context=ctx) as response, open(filepath, 'wb') as out_file:
+                    out_file.write(response.read())
             except Exception as e:
                 print(f"[WinCurl] Failed to download {filename}: {e}")
 
 _ensure_assets()
 
-VERSION = "3, build 108"
+VERSION = "3, build 110"
 
 
 QUAKE_COLORS = {
@@ -259,7 +271,7 @@ if IS_ANDROID:
 
 # --- Immediate Environment Verification ---
 print("\n" + "=" * 80)
-print(f"     [SYSTEM] WINCURL 3 BUILD 107")
+print(f"     [SYSTEM] WINCURL 3 BUILD 108")
 print("     (IMPROVED NETPLAY | NET CHAT | MULTI-SYLLABLE AUDIO | REALISM | VIBRATION)")
 print("=" * 80 + "\n")
 
@@ -478,23 +490,45 @@ def draw_glass_rect(surface, rect, base_color, border_radius=16, is_hovered=Fals
         surface.blit(sheen_layer, rect.topleft)
 
 
+class DummyChannel:
+    def play(self, *args, **kwargs): pass
+    def set_volume(self, *args, **kwargs): pass
+    def get_busy(self): return False
+    def stop(self): pass
+    def get_volume(self): return 1.0
+
 # --- Audio Synthesis Engine ---
 class WinCurlAudioEngine:
     def __init__(self):
-        if IS_ANDROID:
-            pygame.mixer.pre_init(44100, -16, 2, 4096)
+        self.audio_initialized = False
+        try:
+            if IS_ANDROID:
+                pygame.mixer.pre_init(44100, -16, 2, 4096)
+            else:
+                pygame.mixer.pre_init(44100, -16, 2, 1024)
+            pygame.mixer.init()
+            pygame.mixer.set_num_channels(16)
+            pygame.mixer.set_reserved(7)
+            self.audio_initialized = True
+        except Exception as e:
+            print(f"[WinCurl] Audio initialization failed: {e}")
+
+        if self.audio_initialized:
+            self.ch_slide = pygame.mixer.Channel(0)
+            self.ch_sweep = pygame.mixer.Channel(1)
+            self.ch_sfx = pygame.mixer.Channel(2)
+            self.ch_ui = pygame.mixer.Channel(3)
+            self.ch_music = pygame.mixer.Channel(4)
+            self.ch_crowd = pygame.mixer.Channel(5)
+            self.ch_voice = pygame.mixer.Channel(6)
         else:
-            pygame.mixer.pre_init(44100, -16, 2, 1024)
-        pygame.mixer.init()
-        self.ch_slide = pygame.mixer.Channel(0)
-        self.ch_sweep = pygame.mixer.Channel(1)
-        self.ch_sfx = pygame.mixer.Channel(2)
-        self.ch_ui = pygame.mixer.Channel(3)
-        self.ch_music = pygame.mixer.Channel(4)
-        self.ch_crowd = pygame.mixer.Channel(5)
-        self.ch_voice = pygame.mixer.Channel(6)
-        pygame.mixer.set_num_channels(16)
-        pygame.mixer.set_reserved(7)
+            self.ch_slide = DummyChannel()
+            self.ch_sweep = DummyChannel()
+            self.ch_sfx = DummyChannel()
+            self.ch_ui = DummyChannel()
+            self.ch_music = DummyChannel()
+            self.ch_crowd = DummyChannel()
+            self.ch_voice = DummyChannel()
 
         self.sfx_on = True
 
@@ -519,7 +553,8 @@ class WinCurlAudioEngine:
 
     def set_master_volume(self, vol):
         self.master_volume = vol
-        pygame.mixer.music.set_volume(vol)
+        try: pygame.mixer.music.set_volume(vol)
+        except: pass
         for ch in [self.ch_slide, self.ch_sweep, self.ch_sfx, self.ch_ui, self.ch_music, self.ch_crowd, self.ch_voice]:
             ch.set_volume(ch.get_volume() * vol if vol > 0 else 0)
 
@@ -553,7 +588,7 @@ class WinCurlAudioEngine:
         )
         load_sound(
             "snd_hard",
-            "snd_hard.wav",
+            "snd_hard_v2.wav",
             lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes),
         )
         load_sound(
@@ -828,11 +863,11 @@ class WinCurlAudioEngine:
             chord = [261.63, 329.63]
         elif phrase == "HARD":
             f1_env, f2_env, f3_env = (
-                [(0.0, 400), (0.3, 750), (1.0, 200)],
-                [(0.0, 1000), (0.8, 1400), (1.0, 1600)],
-                [(0.0, 2600), (0.8, 1800), (1.0, 2400)],
+                [(0.0, 300), (0.4, 450), (1.0, 200)],
+                [(0.0, 1200), (0.4, 1600), (1.0, 1000)],
+                [(0.0, 2200), (0.4, 2800), (1.0, 2000)],
             )
-            chord = [246.94, 311.13]
+            chord = [196.00, 246.94]
         elif phrase == "RED_TEAM_WINS":
             # Three dips in the frequency envelope simulate three words (red team wins)
             f1_env = [(0.0, 300), (0.15, 500), (0.3, 300), (0.35, 400), (0.5, 300), (0.6, 300), (0.65, 300), (0.8, 400), (1.0, 300)]
@@ -1565,8 +1600,14 @@ class WinCurlAudioEngine:
             self.ch_ui.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_ui.play(self.snd_hover)
         try:
-            import sc_driver
-            sc_driver.trigger_hover()
+            try:
+                import sc_driver
+                sc_driver.trigger_hover()
+            except ImportError:
+                from wincurl3 import sc_driver
+                sc_driver.trigger_hover()
+            except Exception:
+                pass
         except: pass
 
     def play_click(self):
@@ -1577,8 +1618,14 @@ class WinCurlAudioEngine:
             vibrate_android(15)
         else:
             try:
-                import sc_driver
-                sc_driver.trigger_click()
+                try:
+                    import sc_driver
+                    sc_driver.trigger_click()
+                except ImportError:
+                    from wincurl3 import sc_driver
+                    sc_driver.trigger_click()
+                except Exception:
+                    pass
             except: pass
 
     def play_error(self):
@@ -1587,7 +1634,7 @@ class WinCurlAudioEngine:
             self.ch_ui.play(self.snd_click)
 
     def play_music(self, *args):
-        if not getattr(self, "sfx_on", True) or not getattr(self, "snd_music", None):
+        if not getattr(self, "audio_initialized", False) or not getattr(self, "sfx_on", True) or not getattr(self, "snd_music", None):
             return
             
         target = args[0] if len(args) > 0 and args[0] else "theme"
@@ -1657,7 +1704,11 @@ class WinCurlAudioEngine:
             pygame.mixer.music.play(-1)
 
     def stop_music(self):
-        pygame.mixer.music.stop()
+        try:
+            if getattr(self, "audio_initialized", False):
+                pygame.mixer.music.stop()
+        except:
+            pass
 
 
 # --- Visual Effects & Geometry ---
@@ -4068,14 +4119,66 @@ class WinCurl3:
                 self.game_mode = "LOCAL"
 
     def handle_story_map_events(self, event):
-        if event.type == MOUSEBUTTONDOWN and event.button == 1:
+        is_click = event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1
+        is_key_click = not getattr(self, "typing_target", None) and ((event.type == KEYDOWN and event.key in (K_RETURN, K_SPACE, K_KP_ENTER)) or getattr(event, "type", None) == JOYBUTTONDOWN and getattr(event, "button", -1) == 0)
+
+        m = self.get_pointer_pos()
+        mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+
+        cx = BASE_WIDTH // 2
+        btns = []
+        
+        if self.app_state != "STORY_DIALOG":
+            if getattr(self, "saved_match_state", None) and self.saved_match_state.get("game_mode") == getattr(self, "game_mode", ""):
+                btns.append({"id": "resume", "rect": pygame.Rect(cx - 250, 420, 500, 120)})
+                btns.append({"id": "new", "rect": pygame.Rect(cx - 200, 580, 400, 80)})
+            else:
+                btns.append({"id": "start", "rect": pygame.Rect(cx - 250, 420, 500, 120)})
+                
+            if getattr(self, "btn_upgrades", None):
+                for k, btn in self.btn_upgrades.items():
+                    btns.append({"id": f"upgrade_{k}", "rect": btn})
+                    
+            if self.story.current_rink >= len(STORY_RINKS) and hasattr(self, "rink_replay_rects"):
+                for rect, idx in self.rink_replay_rects:
+                    btns.append({"id": f"replay_{idx}", "rect": rect})
+                    
+            btns.append({"id": "back", "rect": self.btn_return_menu})
+            
+        self.story_map_btns = btns
+
+        if event.type == MOUSEMOTION:
+            hovered = None
+            for i, b in enumerate(btns):
+                if b["rect"].collidepoint(mx, my): hovered = i
+            if hovered is not None and hovered != getattr(self, "story_hovered", None):
+                self.audio.play_hover()
+                self.story_hovered = hovered
+
+        nav_dx, nav_dy = 0, 0
+        if event.type == KEYDOWN:
+            if event.key == K_UP: nav_dy = -1
+            elif event.key == K_DOWN: nav_dy = 1
+            elif event.key == K_LEFT: nav_dx = -1
+            elif event.key == K_RIGHT: nav_dx = 1
+        elif event.type == JOYHATMOTION:
+            if event.value[1] != 0: nav_dy = -event.value[1]
+            if event.value[0] != 0: nav_dx = event.value[0]
+            
+        if (nav_dx != 0 or nav_dy != 0) and btns:
+            idx = getattr(self, "story_hovered", 0)
+            if nav_dy != 0:
+                idx = (idx + nav_dy) % len(btns)
+            elif nav_dx != 0:
+                idx = (idx + nav_dx) % len(btns)
+            self.story_hovered = idx
+            self.audio.play_hover()
+
+        if is_click or is_key_click:
             now = pygame.time.get_ticks()
-            if hasattr(self, 'last_click_time') and now - self.last_click_time < 300:
+            if hasattr(self, 'last_click_time') and now - getattr(self, 'last_click_time', 0) < 300:
                 return
             self.last_click_time = now
-            m = self.get_pointer_pos()
-            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
-            print(f'STORY CLICK mx={mx} my={my}')
 
             if self.app_state == "STORY_DIALOG":
                 if pygame.time.get_ticks() - getattr(self, "dialog_time", 0) < 300:
@@ -4094,35 +4197,29 @@ class WinCurl3:
                 self.start_match()
                 return
 
-            if self.btn_return_menu.collidepoint(mx, my):
-                self.audio.play_click()
-                if getattr(self.story, "replay_rink_idx", None) is not None:
-                    self.story.replay_rink_idx = None
-                self.app_state = "MENU"
-                return
+            target_id = getattr(self, "story_hovered", None)
+            if is_click:
+                target_id = None
+                for i, b in enumerate(btns):
+                    if b["rect"].collidepoint(mx, my): target_id = i
 
-            if getattr(self, "btn_upgrades", None):
-                spent_points = sum(self.story.stats.values())
-                avail_points = max(0, (self.story.level - 1) - spent_points)
-                for k, btn in self.btn_upgrades.items():
-                    if btn.collidepoint(mx, my):
-                        if avail_points > 0 and self.story.stats.get(k, 0) < 5:
-                            self.audio.play_click()
-                            self.story.stats[k] = self.story.stats.get(k, 0) + 1
-                            self.save_progress()
-                        else:
-                            self.audio.play_error()
-                        return
-
-            if getattr(self, "saved_match_state", None):
-                cont_btn = pygame.Rect(BASE_WIDTH // 2 - 300, 780, 600, 140)
-                new_btn = pygame.Rect(BASE_WIDTH // 2 - 200, 1000, 400, 80)
-                if cont_btn.collidepoint(mx, my):
-                    self.audio.play_click()
+            if target_id is not None and 0 <= target_id < len(btns):
+                b = btns[target_id]
+                
+                if b["id"] != "new":
                     self.confirm_new_game = False
+                    
+                if b["id"] == "back":
+                    self.audio.play_click()
+                    if getattr(self.story, "replay_rink_idx", None) is not None:
+                        self.story.replay_rink_idx = None
+                    self.app_state = "MENU"
+                    self.game_mode = "LOCAL"
+                elif b["id"] == "resume":
+                    self.audio.play_click()
+                    self.audio.stop_music()
                     self.restore_match()
-                    return
-                elif new_btn.collidepoint(mx, my):
+                elif b["id"] == "new":
                     self.audio.play_click()
                     if getattr(self, "confirm_new_game", False):
                         if self.story.current_rink < len(STORY_RINKS):
@@ -4134,26 +4231,31 @@ class WinCurl3:
                         self.confirm_new_game = False
                     else:
                         self.confirm_new_game = True
-                else:
-                    self.confirm_new_game = False
-            else:
-                start_btn = pygame.Rect(BASE_WIDTH // 2 - 200, 800, 400, 100)
-                if start_btn.collidepoint(mx, my):
+                elif b["id"] == "start":
                     self.audio.play_click()
                     if self.story.current_rink < len(STORY_RINKS):
                         self.app_state = "STORY_DIALOG"
                         self.dialog_index = 0
                         self.dialog_time = pygame.time.get_ticks()
-
-            if self.story.current_rink >= len(STORY_RINKS) and hasattr(self, "rink_replay_rects"):
-                for rect, idx in self.rink_replay_rects:
-                    if rect.collidepoint(mx, my):
+                elif b["id"].startswith("upgrade_"):
+                    k = b["id"].split("_")[1]
+                    spent_points = sum(self.story.stats.values())
+                    avail_points = max(0, (self.story.level - 1) - spent_points)
+                    if avail_points > 0 and self.story.stats.get(k, 0) < 5:
                         self.audio.play_click()
-                        self.story.replay_rink_idx = idx
-                        self.app_state = "STORY_DIALOG"
-                        self.dialog_index = 0
-                        self.dialog_time = pygame.time.get_ticks()
-                        return
+                        self.story.stats[k] = self.story.stats.get(k, 0) + 1
+                        self.save_progress()
+                    else:
+                        self.audio.play_error()
+                elif b["id"].startswith("replay_"):
+                    self.audio.play_click()
+                    idx = int(b["id"].split("_")[1])
+                    self.story.replay_rink_idx = idx
+                    self.app_state = "STORY_DIALOG"
+                    self.dialog_index = 0
+                    self.dialog_time = pygame.time.get_ticks()
+            elif is_click:
+                self.confirm_new_game = False
 
     def handle_pause_events(self, event):
         is_click = (event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1)
@@ -5249,59 +5351,62 @@ class WinCurl3:
             self.last_click_time = now
 
             if self.typing_target:
-                if not (300 < mx < 900 and 570 < menu_my < 690):
+                if is_click and not (300 < mx < 900 and 570 < menu_my < 690):
                     self.set_typing_target(None)
 
-            if 300 < mx < 900:
-                for b in self.options_buttons:
-                    if (not IS_ANDROID and b["id"] == "hi_res_mode") or (
-                        IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"
-                    ):
-                        continue
+            clicked_btn = None
+            if is_click and 300 < mx < 900:
+                for b in visible_btns:
                     if b["y"] < menu_my < b["y"] + 90 * b["scale"]:
-                        self.audio.play_click()
-                        new_target = None
-                        if b["id"] == "name":
-                            new_target = "name"
-                        elif b["id"] == "master_vol":
-                            pass  # Handled by drag
-                        elif b["id"] == "color":
-                            act_pref = getattr(self, "actual_preferred_color", self.preferred_color)
-                            self.preferred_color = 1 if act_pref == 0 else 0
-                            self.actual_preferred_color = self.preferred_color
-                            self.save_progress()
-                        elif b["id"] == "hair_color":
-                            colors = [(100, 50, 20), (200, 180, 100), (30, 30, 30), (180, 80, 40), (220, 220, 220), (80, 100, 200)]
-                            curr = getattr(self, "hair_color", (100, 50, 20))
-                            try:
-                                idx = colors.index(curr)
-                            except ValueError:
-                                idx = -1
-                            self.hair_color = colors[(idx + 1) % len(colors)]
-                            self.save_progress()
-                        elif b["id"] == "hair_style":
-                            self.hair_style = "long" if getattr(self, "hair_style", "short") == "short" else "short"
-                            self.save_progress()
-                        elif b["id"] == "hi_res_mode":
-                            self.hi_res_mode = not getattr(self, "hi_res_mode", False)
-                            self.save_progress()
-                        elif b["id"] == "smoothscale":
-                            self.fxaa_on = not getattr(self, "fxaa_on", False)
-                            self.save_progress()
-
-                        elif b["id"] == "update":
-                            if not getattr(self, "is_updating", False):
-                                self.is_updating = True
-                                self.update_status = "updating..."
-                                import sys
-
-                                if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
-                                    threading.Thread(target=self.perform_update, daemon=True).start()
-                        elif b["id"] == "back":
-                            self.app_state = "MENU"
-                        self.set_typing_target(new_target)
-                        self.update_caption()
+                        clicked_btn = b
                         break
+            elif is_key_click and visible_btns:
+                idx = getattr(self, "options_hovered_idx", 0)
+                if 0 <= idx < len(visible_btns):
+                    clicked_btn = visible_btns[idx]
+
+            if clicked_btn:
+                b = clicked_btn
+                self.audio.play_click()
+                new_target = None
+                if b["id"] == "name":
+                    new_target = "name"
+                elif b["id"] == "master_vol":
+                    pass  # Handled by drag
+                elif b["id"] == "color":
+                    act_pref = getattr(self, "actual_preferred_color", self.preferred_color)
+                    self.preferred_color = 1 if act_pref == 0 else 0
+                    self.actual_preferred_color = self.preferred_color
+                    self.save_progress()
+                elif b["id"] == "hair_color":
+                    colors = [(100, 50, 20), (200, 180, 100), (30, 30, 30), (180, 80, 40), (220, 220, 220), (80, 100, 200)]
+                    curr = getattr(self, "hair_color", (100, 50, 20))
+                    try:
+                        idx = colors.index(curr)
+                    except ValueError:
+                        idx = -1
+                    self.hair_color = colors[(idx + 1) % len(colors)]
+                    self.save_progress()
+                elif b["id"] == "hair_style":
+                    self.hair_style = "long" if getattr(self, "hair_style", "short") == "short" else "short"
+                    self.save_progress()
+                elif b["id"] == "hi_res_mode":
+                    self.hi_res_mode = not getattr(self, "hi_res_mode", False)
+                    self.save_progress()
+                elif b["id"] == "smoothscale":
+                    self.fxaa_on = not getattr(self, "fxaa_on", False)
+                    self.save_progress()
+                elif b["id"] == "update":
+                    if not getattr(self, "is_updating", False):
+                        self.is_updating = True
+                        self.update_status = "updating..."
+                        import sys
+                        if not (hasattr(sys, "platform") and sys.platform == "emscripten"):
+                            threading.Thread(target=self.perform_update, daemon=True).start()
+                elif b["id"] == "back":
+                    self.app_state = "MENU"
+                self.set_typing_target(new_target)
+                self.update_caption()
         elif event.type == KEYDOWN and self.typing_target == "name":
             if event.key in (K_RETURN, K_KP_ENTER):
                 self.set_typing_target(None)
@@ -5674,6 +5779,11 @@ class WinCurl3:
             if chars_to_show >= len(full_text) and (pygame.time.get_ticks() % 1000 > 500):
                 tap_lbl = self.small_font.render(f"Tap anywhere...", True, (150, 150, 150))
                 self.canvas.blit(tap_lbl, (dialog_rect.right - 30 - tap_lbl.get_width(), dialog_rect.bottom - 40))
+
+        hover_idx = getattr(self, "story_hovered", None)
+        if hover_idx is not None and hasattr(self, "story_map_btns") and 0 <= hover_idx < len(self.story_map_btns):
+            b_rect = self.story_map_btns[hover_idx]["rect"]
+            pygame.draw.rect(self.canvas, TEAM_YELLOW, b_rect, 4, border_radius=15)
 
         self.draw_global_ui()
 
@@ -7039,4 +7149,7 @@ async def main():
 
 
 if __name__ == "__main__":
+    asyncio.run(main())
+
+def entrypoint():
     asyncio.run(main())
