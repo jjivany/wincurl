@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
 source.exclude_patterns = setup.py, *_test.py, test_*.py, test_*.js, *.apk
 source.exclude_dirs = wincurl_web, bin, wincurl_build_clean
-version = 108
+version = 114
 # (str) Icon of the application
 icon.filename = icon.png
 
@@ -26,4 +26,4 @@ ios.codesign.allowed = False
 
 [buildozer]
 log_level = 2
-android.numeric_version = 108
+android.numeric_version = 114
