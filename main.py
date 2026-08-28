@@ -53,7 +53,7 @@ def _ensure_assets():
 
 _ensure_assets()
 
-VERSION = "3, build 115"
+VERSION = "3, build 116"
 
 
 QUAKE_COLORS = {
@@ -3210,7 +3210,7 @@ class WinCurl3:
             
             slots[self.active_slot] = {
                 "challenge": self.challenge_progress[:25],
-                "story": self.story.to_dict() if getattr(self, "story", None) else self.slots_data[self.active_slot].get("story", None),
+                "story": self.story.to_dict() if getattr(self, "story", None) else (self.slots_data[self.active_slot].get("story") or {}),
                 "saved_match_state": sm_state,
             }
             data = {
@@ -5509,7 +5509,8 @@ class WinCurl3:
                 elif getattr(self, "game_mode", "") == "LOCAL":
                     txt_main = self.font.render(f"1V1 SLOT {i+1}", True, WHITE)
                 else:
-                    prog = min(8, slot_data.get("story", {}).get("current_rink", 0) + 1)
+                    story_data = slot_data.get("story") or {}
+                    prog = min(8, story_data.get("current_rink", 0) + 1)
                     txt_main = self.font.render(f"SLOT {i+1} - STORY RINK {prog}", True, WHITE)
                 has_save = slot_data.get("saved_match_state") is not None
                 if has_save:
