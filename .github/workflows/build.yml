@@ -136,7 +136,7 @@ jobs:
           path: dist/wincurl-ios.ipa
 
   deploy-itch:
-    needs: [build-windows, build-mac, build-linux, build-web, build-ios]
+    needs: [build-windows, build-mac, build-linux, build-web]
     if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
@@ -175,9 +175,38 @@ jobs:
           if [ -d "artifacts/wincurl-web" ]; then
             ./butler push artifacts/wincurl-web $ITCH_TARGET:html5 --userversion "$VERSION"
           fi
-          if [ -f "artifacts/wincurl-ios/wincurl-ios.ipa" ]; then
-            ./butler push artifacts/wincurl-ios/wincurl-ios.ipa $ITCH_TARGET:ios --userversion "$VERSION"
-          fi
           if [ -f "wincurl_latest.apk" ]; then
             ./butler push wincurl_latest.apk $ITCH_TARGET:android --userversion "$VERSION"
+          fi
+
+  deploy-itch-ios:
+    needs: [build-ios]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      ITCH_TARGET: jayjayivanygmailcom/wincurl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: artifacts
+      - name: Install Butler
+        run: |
+          curl -L -o butler.zip https://github.com/itchio/butler/releases/download/v15.29.0/butler-linux-amd64.zip
+          unzip butler.zip
+          mv linux-amd64/butler .
+          chmod +x butler
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "BUTLER_API_KEY secret is not set. Skipping itch.io deployment."
+            exit 0
+          fi
+          VERSION=$(grep -m 1 -oP 'VERSION\s*=\s*"\K[^"]+' main.py || echo "3.0 Build 62")
+          
+          if [ -f "artifacts/wincurl-ios/wincurl-ios.ipa" ]; then
+            ./butler push artifacts/wincurl-ios/wincurl-ios.ipa $ITCH_TARGET:ios --userversion "$VERSION"
           fi
