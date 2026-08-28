@@ -1,13 +1,13 @@
 from setuptools import setup
 setup(
     name='wincurl3',
-    version='114',
+    version='116',
     description='WinCurl 3 - A Multiplayer Curling Simulator',
     author='Jason Ivany',
     packages=['wincurl3'],
     package_dir={'wincurl3': '.'},
     include_package_data=True,
-    package_data={'wincurl3': ['*.jpg', '*.wav', '*.png', '*.ttf']},
+    package_data={'wincurl3': ['*.jpg', '*.ogg', '*.png', '*.ttf']},
     install_requires=[
         'pygame-ce>=2.5.0',
     ],
