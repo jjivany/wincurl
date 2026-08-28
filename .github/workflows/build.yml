@@ -136,7 +136,7 @@ jobs:
           path: dist/wincurl-ios.ipa
 
   deploy-itch:
-    needs: [build-windows, build-mac, build-linux, build-web, build-ios]
+    needs: [build-windows, build-mac, build-linux, build-web]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     env:
