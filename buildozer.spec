@@ -24,6 +24,9 @@ android.permissions = INTERNET, VIBRATE
 p4a.setup_py = false
 ios.codesign.allowed = False
 
+ios.ios_deploy_url = https://github.com/ios-control/ios-deploy
+ios.ios_deploy_branch = 1.12.2
+
 [buildozer]
 log_level = 2
 android.numeric_version = 114

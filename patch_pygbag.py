@@ -8,7 +8,7 @@ code = code.replace('.wav"', '.ogg"')
 code = code.replace(".wav',", ".ogg',")
 code = code.replace("    def run(self):\n", "    async def run(self):\n")
 code = code.replace(
-    "            pygame.display.flip()\n", "            pygame.display.flip()\n            await asyncio.sleep(0)\n"
+    "        pygame.display.flip()\n", "        pygame.display.flip()\n        await asyncio.sleep(0)\n"
 )
 
 net_patch = """        if sys.platform == "emscripten":
