@@ -136,14 +136,15 @@ jobs:
           path: dist/wincurl-ios.ipa
 
   deploy-itch:
-    needs: [build-windows, build-mac, build-linux, build-web]
+    needs: [build-windows, build-mac, build-linux, build-web, build-ios]
+    if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     env:
       ITCH_TARGET: jayjayivanygmailcom/wincurl
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           path: artifacts
       - name: Install Butler
@@ -161,9 +162,22 @@ jobs:
             exit 0
           fi
           VERSION=$(grep -m 1 -oP 'VERSION\s*=\s*"\K[^"]+' main.py || echo "3.0 Build 62")
-          ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows --userversion "$VERSION"
-          ./butler push artifacts/wincurl-mac/WinCurl-Mac.zip $ITCH_TARGET:mac --userversion "$VERSION"
-          ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux --userversion "$VERSION"
-          ./butler push artifacts/wincurl-web $ITCH_TARGET:html5 --userversion "$VERSION"
-          ./butler push artifacts/wincurl-ios/wincurl-ios.ipa $ITCH_TARGET:ios --userversion "$VERSION"
-          ./butler push wincurl_latest.apk $ITCH_TARGET:android --userversion "$VERSION"
+          
+          if [ -f "artifacts/wincurl-windows/WinCurl.exe" ]; then
+            ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows --userversion "$VERSION"
+          fi
+          if [ -f "artifacts/wincurl-mac/WinCurl-Mac.zip" ]; then
+            ./butler push artifacts/wincurl-mac/WinCurl-Mac.zip $ITCH_TARGET:mac --userversion "$VERSION"
+          fi
+          if [ -d "artifacts/wincurl-linux" ]; then
+            ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux --userversion "$VERSION"
+          fi
+          if [ -d "artifacts/wincurl-web" ]; then
+            ./butler push artifacts/wincurl-web $ITCH_TARGET:html5 --userversion "$VERSION"
+          fi
+          if [ -f "artifacts/wincurl-ios/wincurl-ios.ipa" ]; then
+            ./butler push artifacts/wincurl-ios/wincurl-ios.ipa $ITCH_TARGET:ios --userversion "$VERSION"
+          fi
+          if [ -f "wincurl_latest.apk" ]; then
+            ./butler push wincurl_latest.apk $ITCH_TARGET:android --userversion "$VERSION"
+          fi
