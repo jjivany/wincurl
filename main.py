@@ -4295,15 +4295,15 @@ class WinCurl3:
             if target_id is not None:
                 self.audio.play_click()
                 b = btns[target_id]
-                if b == self.btn_resume:
+                if b is self.btn_resume:
                     self.app_state = "PLAY"
-                elif b == self.btn_options_pause:
+                elif b is self.btn_options_pause:
                     self.app_state = "OPTIONS_MENU"
                     self.prev_state = "PAUSED"
-                elif b == self.btn_save_quit:
+                elif getattr(self, "btn_save_quit", None) and b is self.btn_save_quit:
                     self.save_match()
                     self.return_to_menu()
-                elif b == self.btn_quit_main:
+                elif b is self.btn_quit_main:
                     self.return_to_menu()
                 return
 
