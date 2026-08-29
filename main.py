@@ -7159,9 +7159,14 @@ async def main():
 
     if not hasattr(sys, "getandroidapilevel"):
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    game = WinCurl3()
-    game.setup_display()
-    await game.run()
+    try:
+        game = WinCurl3()
+        game.setup_display()
+        await game.run()
+    except Exception as e:
+        import traceback
+        print("GAME ERROR:", e)
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
