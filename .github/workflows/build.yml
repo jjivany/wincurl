@@ -99,6 +99,7 @@ jobs:
           code = code.replace('if platform.window.location.host.find(\'.itch.zone\')>0:', 'if True:')
           code = code.replace('while embed.counter()<0:', 'if False:')
           code = code.replace('await shell.source(main, callback=ui_callback)', 'platform.window.infobox.style.display = \\'none\\'; await shell.source(main, callback=ui_callback)')
+          code = code.replace('async defer', '')
           with open('index.html', 'w') as f: f.write(code)
           "
           sed -i 's|https://pygame-web.github.io/cdn/0.9.3//browserfs.min.js|https://cdnjs.cloudflare.com/ajax/libs/BrowserFS/1.4.3/browserfs.min.js|g' index.html
@@ -110,7 +111,7 @@ jobs:
           path: wincurl_web/build/web/
 
   build-ios:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
