@@ -15,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pygame pyinstaller pillow
+          pip install pygame-ce pyinstaller pillow
       - name: Build with PyInstaller
         run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png;." --add-data "TwemojiMozilla.ttf;." --icon=icon.png main.py
       - name: Upload Windows Binary
@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pygame pyinstaller pillow
+          pip install pygame-ce pyinstaller pillow
       - name: Build with PyInstaller
         run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --add-data "TwemojiMozilla.ttf:." --icon=icon.png main.py
       - name: Create ZIP
@@ -59,7 +59,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pygame pyinstaller pillow
+          pip install pygame-ce pyinstaller pillow
       - name: Build with PyInstaller
         run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --add-data "TwemojiMozilla.ttf:." --icon=icon.png main.py
       - name: Upload Linux Binary
@@ -77,7 +77,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pygbag and pygame
-        run: pip install pygbag==0.8.5 pygame ffmpeg-python
+        run: pip install pygbag==0.8.5 pygame-ce ffmpeg-python
       - name: Synthesize Web Assets
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
