@@ -660,7 +660,7 @@ class WinCurlAudioEngine:
     def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
 
-        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
+        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
@@ -690,7 +690,7 @@ class WinCurlAudioEngine:
 
         if cache_key:
             cache_dir = self._get_cache_dir()
-            path = os.path.join(cache_dir, f"{cache_key}.ogg")
+            path = os.path.join(cache_dir, f"{cache_key}.wav")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
                 with open(path, "wb") as f:
@@ -989,7 +989,7 @@ class WinCurlAudioEngine:
         import os
 
         if return_path:
-            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.ogg")
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
             if os.path.exists(cache_file):
                 return cache_file
         else:
@@ -3517,7 +3517,10 @@ class WinCurl3:
             )
             if curr_hov:
                 try:
-                    self.ui_selected_index = next(i for i, b in enumerate(self.menu_buttons) if b["id"] == curr_hov)
+                    new_idx = next(i for i, b in enumerate(self.menu_buttons) if b["id"] == curr_hov)
+                    if getattr(self, "ui_selected_index", -1) != new_idx:
+                        self.ui_selected_index = new_idx
+                        self.audio.play_hover()
                 except StopIteration:
                     pass
 
