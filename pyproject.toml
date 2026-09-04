@@ -4,16 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wincurl3"
-version = "120"
+version = "121"
 description = "A fast-paced multiplayer curling game."
 readme = "RELEASES.md"
 requires-python = ">=3.8"
 dependencies = [
     "pygame-ce>=2.4.0",
+    "evdev>=1.6.0; sys_platform == 'linux'",
 ]
 
 [project.scripts]
 wincurl = "wincurl:main"
 
 [tool.setuptools]
-py-modules = ["wincurl"]
+py-modules = ["wincurl", "sc_driver"]
+packages = ["steamcontroller_haptics"]

@@ -15,7 +15,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 120"
+VERSION = "3.0 Build 121"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -5807,6 +5807,10 @@ class WinCurl3:
                         elif self.app_state == "ROOM_PROMPT":
                             self.app_state = "MENU"
                             self.set_typing_target(None)
+                        elif self.app_state in ["OPTIONS_MENU", "CHALLENGE_MENU", "CREDITS", "MULTIPLAYER_LOBBY"]:
+                            self.audio.play_click()
+                            self.app_state = "MENU"
+                            self.set_typing_target(None)
                         continue
 
                     if not self.typing_target and not self.typing_chat:
@@ -5846,6 +5850,16 @@ class WinCurl3:
                             self.ui_nav_dir = "left"
                         elif value > 0.5:
                             self.ui_nav_dir = "right"
+
+                if event.type == getattr(pygame, "USEREVENT", 32847) + 1:
+                    if hasattr(event, "rel_x") or hasattr(event, "rel_y"):
+                        cx, cy = pygame.mouse.get_pos()
+                        pygame.mouse.set_pos((cx + getattr(event, "rel_x", 0), cy + getattr(event, "rel_y", 0)))
+                    elif hasattr(event, "btn_down"):
+                        if getattr(event, "btn_down"):
+                            pygame.event.post(pygame.event.Event(MOUSEBUTTONDOWN, {"pos": self.current_mapped_pos, "button": 1, "finger_id": "mouse", "simulated": True}))
+                        else:
+                            pygame.event.post(pygame.event.Event(MOUSEBUTTONUP, {"pos": self.current_mapped_pos, "button": 1, "finger_id": "mouse", "simulated": True}))
 
                 if event.type == getattr(pygame, "JOYBUTTONDOWN", 1539):
                     btn = getattr(event, "button", 0)
