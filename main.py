@@ -3,6 +3,7 @@ import os, sys
 if hasattr(os, "name") and os.name == "posix" and not hasattr(sys, "getandroidapilevel") and "ANDROID_ARGUMENT" not in os.environ:
     os.environ["SDL_VIDEO_WAYLAND_WMCLASS"] = "wincurl3"
     os.environ["SDL_VIDEO_X11_WMCLASS"] = "wincurl3"
+    os.environ["SDL_JOYSTICK_HIDAPI_STEAM"] = "0"
 import pygame
 import math, random, time, json, socket, queue, base64, zlib
 import sys
@@ -15,7 +16,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 120"
+VERSION = "3.0 Build 120 (Revision 3)"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -145,34 +146,52 @@ import os
 VIBRATE_ENABLED = True
 
 
+_vibrator_impl = None
+_vibrator_init = False
+
 def vibrate_android(ms):
-    global VIBRATE_ENABLED
+    global VIBRATE_ENABLED, _vibrator_impl, _vibrator_init
     if not VIBRATE_ENABLED:
         return
-    try:
-        from plyer import vibrator
+        
+    if not _vibrator_init:
+        _vibrator_init = True
+        try:
+            from jnius import autoclass
+            Context = autoclass("android.content.Context")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            sys_vibrator = PythonActivity.mActivity.getSystemService(Context.VIBRATOR_SERVICE)
+            if sys_vibrator and sys_vibrator.hasVibrator():
+                VERSION = autoclass("android.os.Build$VERSION")
+                if VERSION.SDK_INT >= 26:
+                    VibrationEffect = autoclass("android.os.VibrationEffect")
+                    _vibrator_impl = ('jnius_26', (sys_vibrator, VibrationEffect))
+                else:
+                    _vibrator_impl = ('jnius_old', sys_vibrator)
+        except Exception as e:
+            print("Pyjnius vibration init failed:", e)
+            try:
+                from plyer import vibrator
+                vibrator.vibrate(time=0.001)
+                _vibrator_impl = ('plyer', vibrator)
+            except Exception as e2:
+                print("Plyer vibration init failed:", e2)
 
-        vibrator.vibrate(time=ms / 1000.0)
-        return
-    except Exception as e:
-        print("Plyer vibration failed:", e)
-
-    try:
-        from jnius import autoclass
-
-        Context = autoclass("android.content.Context")
-        PythonActivity = autoclass("org.kivy.android.PythonActivity")
-        vibrator = PythonActivity.mActivity.getSystemService(Context.VIBRATOR_SERVICE)
-        if vibrator and vibrator.hasVibrator():
-            VERSION = autoclass("android.os.Build$VERSION")
-            if VERSION.SDK_INT >= 26:
-                VibrationEffect = autoclass("android.os.VibrationEffect")
-                vibrator.vibrate(VibrationEffect.createOneShot(int(ms), VibrationEffect.DEFAULT_AMPLITUDE))
+    if _vibrator_impl:
+        try:
+            kind, impl = _vibrator_impl
+            if kind == 'plyer':
+                impl.vibrate(time=ms / 1000.0)
+            elif kind == 'jnius_26':
+                if not hasattr(vibrate_android, "cache"):
+                    vibrate_android.cache = {}
+                if ms not in vibrate_android.cache:
+                    vibrate_android.cache[ms] = impl[1].createOneShot(int(ms), impl[1].DEFAULT_AMPLITUDE)
+                impl[0].vibrate(vibrate_android.cache[ms])
             else:
-                vibrator.vibrate(int(ms))
-            return
-    except Exception as e:
-        print("Pyjnius vibration failed:", e)
+                impl.vibrate(int(ms))
+        except Exception:
+            pass
 
     try:
         if pygame.joystick.get_count() > 0:
@@ -3806,7 +3825,10 @@ class WinCurl3:
         f_id = getattr(event, "finger_id", "mouse")
 
         if event.type == getattr(pygame, "FINGERDOWN", 1792):
-            mx, my = self.map_touch(event.x, event.y)
+            finger_x = event.x * self.screen.get_width()
+            finger_y = event.y * self.screen.get_height()
+            fpos = self.scale_mouse((finger_x, finger_y))
+            mx, my = fpos.x, fpos.y
             self.is_pointer_pressed = True
             if hasattr(self, "btn_mute") and self.btn_mute.collidepoint(mx, my):
                 self.is_music_muted = not getattr(self, "is_music_muted", False)
@@ -4847,7 +4869,7 @@ class WinCurl3:
 
             self.canvas.blit(self.dark_overlay_200, (0, 0))
 
-            if self.story.scene == "intro":
+            if getattr(self.story, "scene", None) == "intro":
                 for i in range(-15, 15):
                     grid_y = BASE_HEIGHT // 2 + (i * 120 + int(self.frames_elapsed) % 120)
                     pygame.draw.line(self.canvas, (55, 70, 95), (0, grid_y), (BASE_WIDTH, grid_y), 2)
@@ -5836,6 +5858,17 @@ class WinCurl3:
                         self.ui_nav_dir = "right"
 
                 if event.type == getattr(pygame, "JOYAXISMOTION", 1536):
+                    if IS_ANDROID:
+                        jid = getattr(event, "instance_id", getattr(event, "joy", 0))
+                        if not hasattr(self, "_joy_name_cache"):
+                            self._joy_name_cache = {}
+                        if jid not in self._joy_name_cache:
+                            try:
+                                self._joy_name_cache[jid] = pygame.joystick.Joystick(jid).get_name().lower()
+                            except:
+                                self._joy_name_cache[jid] = ""
+                        if "accelerometer" in self._joy_name_cache[jid] or "sensor" in self._joy_name_cache[jid] or "bmi" in self._joy_name_cache[jid]:
+                            continue
                     axis = getattr(event, "axis", 0)
                     value = getattr(event, "value", 0.0)
                     if axis == 1:
