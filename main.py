@@ -3797,6 +3797,10 @@ class WinCurl3:
         f_id = getattr(event, "finger_id", "mouse")
 
         if event.type == getattr(pygame, "FINGERDOWN", 1792):
+            mx, my = self.map_touch(event.x, event.y)
+            self.is_pointer_pressed = True
+            if hasattr(self, "btn_mute") and self.btn_mute.collidepoint(mx, my):
+                self.is_music_muted = not getattr(self, "is_music_muted", False)
             self.last_finger_id = event.finger_id
             if self.turn_state == "AIMING":
                 finger_x = event.x * self.screen.get_width()
@@ -4080,6 +4084,7 @@ class WinCurl3:
         if self.game_mode not in ["HOST", "JOIN"]:
             return
         if self.app_state == "MENU" and self.net.matched:
+            self.reset_match()
             self.app_state = "COIN_TOSS"
             self.coin_timer = 30
             self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
@@ -4833,18 +4838,13 @@ class WinCurl3:
 
             self.canvas.blit(self.dark_overlay_200, (0, 0))
 
-            grid_color = (rink["color"][0] // 4 + 20, rink["color"][1] // 4 + 20, rink["color"][2] // 4 + 20)
-            offset = (pygame.time.get_ticks() // 20) % 100
-            start_x = offset - 200
-            start_y = offset - 200
-            for x in range(0, BASE_WIDTH + 400, 100):
-                pygame.draw.line(
-                    self.canvas, grid_color, (start_x + x, start_y), (start_x + x - 400, start_y + BASE_HEIGHT + 400), 2
-                )
-            for y in range(0, BASE_HEIGHT + 400, 100):
-                pygame.draw.line(
-                    self.canvas, grid_color, (start_x, start_y + y), (start_x + BASE_WIDTH + 400, start_y + y - 400), 2
-                )
+            if self.story.scene == "intro":
+                for i in range(-15, 15):
+                    grid_y = BASE_HEIGHT // 2 + (i * 120 + int(self.frames_elapsed) % 120)
+                    pygame.draw.line(self.canvas, (55, 70, 95), (0, grid_y), (BASE_WIDTH, grid_y), 2)
+                for i in range(-25, 25):
+                    grid_x = BASE_WIDTH // 2 + (i * 120)
+                    pygame.draw.line(self.canvas, (55, 70, 95), (grid_x, 0), (grid_x, BASE_HEIGHT), 2)
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5400,11 +5400,18 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_pause_screen(self):
-        # 1. Light translucent grey background
-        if not hasattr(self, "pause_grey_overlay"):
-            self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-            self.pause_grey_overlay.fill((50, 55, 60, 180))
-        self.canvas.blit(self.pause_grey_overlay, (0, 0))
+        if hasattr(self.canvas, "white_tex"):
+            tex = self.canvas.white_tex
+            tex.color = (50, 55, 60)
+            tex.alpha = 180
+            tex.draw(dstrect=pygame.Rect(0, 0, BASE_WIDTH, BASE_HEIGHT))
+            tex.color = (255, 255, 255)
+            tex.alpha = 255
+        else:
+            if not hasattr(self, "pause_grey_overlay"):
+                self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+                self.pause_grey_overlay.fill((50, 55, 60, 180))
+            self.canvas.blit(self.pause_grey_overlay, (0, 0))
 
         # 2. Draw global UI / scoreboard so it is visible as requested
         self.draw_ui()

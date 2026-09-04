@@ -48,7 +48,7 @@ You no longer need `python-libusb1`. Simply ensure you have the `steamcontroller
 ```bash
 pip install steamcontroller-haptics
 ```
-*Note: Make sure your `udev` rules are configured to grant `/dev/hidraw` access, as detailed in the package documentation!*
+*Note: Make sure your `udev` rules are configured to grant `/dev/hidraw` access. We have provided the `99-steamcontroller.rules` file in the root of this repository. You can install it by copying it to `/etc/udev/rules.d/` and running `sudo udevadm control --reload-rules`.*
 
 ## 📱 Deployment & Builds
 

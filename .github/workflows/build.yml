@@ -1,0 +1,213 @@
+name: Build and Deploy
+on: [push]
+
+jobs:
+
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pygame pyinstaller pillow
+      - name: Build with PyInstaller
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png;." --add-data "TwemojiMozilla.ttf;." --icon=icon.png main.py
+      - name: Upload Windows Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-windows
+          path: dist/wincurl.exe
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pygame pyinstaller pillow
+      - name: Build with PyInstaller
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --add-data "TwemojiMozilla.ttf:." --icon=icon.png main.py
+      - name: Create ZIP
+        run: |
+          cd dist
+          zip -ry WinCurl-Mac.zip wincurl.app/
+      - name: Upload Mac Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-mac
+          path: dist/WinCurl-Mac.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pygame pyinstaller pillow
+      - name: Build with PyInstaller
+        run: pyinstaller --name wincurl --onefile --windowed --add-data "icon.png:." --add-data "TwemojiMozilla.ttf:." --icon=icon.png main.py
+      - name: Upload Linux Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-linux
+          path: dist/wincurl
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pygbag and pygame
+        run: pip install pygbag==0.8.5 pygame ffmpeg-python
+      - name: Synthesize Web Assets
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          python generate_web_assets.py
+      - name: Build WebAssembly
+        run: |
+          cp main.py icon.png patch_pygbag.py sc_driver.py wincurl_web/
+          cd wincurl_web
+          python patch_pygbag.py
+          mv main-pygbag.py main.py
+          cd ..
+          pygbag --build wincurl_web
+          cd wincurl_web/build/web
+          rm -f wincurl_web.tar.gz
+          mv wincurl_web.apk wincurl_web.data
+          python3 -c "
+          with open('index.html', 'r') as f: code = f.read()
+          code = code.replace('wincurl_web.apk', 'wincurl_web.data')
+          code = code.replace('if platform.window.location.host.find(\'.itch.zone\')>0:', 'if True:')
+          code = code.replace('async defer', '')
+          with open('index.html', 'w') as f: f.write(code)
+          "
+      - name: Upload Web Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-web
+          path: wincurl_web/build/web/
+
+  build-ios:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          brew install autoconf automake libtool pkg-config
+          python -m pip install --upgrade pip
+          pip install cython buildozer sh pbxproj cookiecutter Pillow
+      - name: Build with Buildozer
+        run: buildozer ios debug
+      - name: Package IPA
+        run: |
+          mkdir -p dist/Payload
+          cp -r .buildozer/ios/platform/kivy-ios/wincurl-ios/build/Release-iphonesimulator/wincurl.app dist/Payload/ 2>/dev/null || cp -r .buildozer/ios/platform/kivy-ios/wincurl-ios/build/Release-iphoneos/wincurl.app dist/Payload/ 2>/dev/null || cp -r wincurl-ios/build/Release-iphoneos/wincurl.app dist/Payload/ || echo "App not found"
+          cd dist
+          zip -r wincurl-ios.ipa Payload/
+      - name: Upload iOS Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wincurl-ios
+          path: dist/wincurl-ios.ipa
+
+  deploy-itch:
+    needs: [build-windows, build-mac, build-linux, build-web]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      ITCH_TARGET: jayjayivanygmailcom/wincurl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: artifacts
+      - name: Install Butler
+        run: |
+          curl -L -o butler.zip https://github.com/itchio/butler/releases/download/v15.29.0/butler-linux-amd64.zip
+          unzip butler.zip
+          mv linux-amd64/butler .
+          chmod +x butler
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "BUTLER_API_KEY secret is not set. Skipping itch.io deployment."
+            exit 0
+          fi
+          VERSION=$(grep -m 1 -oP 'VERSION\s*=\s*"\K[^"]+' main.py || echo "3.0 Build 62")
+          
+          if [ -f "artifacts/wincurl-windows/wincurl.exe" ]; then
+            ./butler push artifacts/wincurl-windows $ITCH_TARGET:windows --userversion "$VERSION"
+          fi
+          if [ -f "artifacts/wincurl-mac/WinCurl-Mac.zip" ]; then
+            ./butler push artifacts/wincurl-mac/WinCurl-Mac.zip $ITCH_TARGET:mac --userversion "$VERSION"
+          fi
+          if [ -d "artifacts/wincurl-linux" ]; then
+            ./butler push artifacts/wincurl-linux $ITCH_TARGET:linux --userversion "$VERSION"
+          fi
+          if [ -d "artifacts/wincurl-web" ]; then
+            ./butler push artifacts/wincurl-web $ITCH_TARGET:html5 --userversion "$VERSION"
+          fi
+          if [ -f "artifacts/wincurl-ios/wincurl-ios.ipa" ]; then
+            ./butler push artifacts/wincurl-ios/wincurl-ios.ipa $ITCH_TARGET:ios --userversion "$VERSION"
+          fi
+          if [ -f "wincurl_latest.apk" ]; then
+            ./butler push wincurl_latest.apk $ITCH_TARGET:android --userversion "$VERSION"
+          fi
+
+  deploy-itch-ios:
+    needs: [build-ios]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      ITCH_TARGET: jayjayivanygmailcom/wincurl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: artifacts
+      - name: Install Butler
+        run: |
+          curl -L -o butler.zip https://github.com/itchio/butler/releases/download/v15.29.0/butler-linux-amd64.zip
+          unzip butler.zip
+          mv linux-amd64/butler .
+          chmod +x butler
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "BUTLER_API_KEY secret is not set. Skipping itch.io deployment."
+            exit 0
+          fi
+          VERSION=$(grep -m 1 -oP 'VERSION\s*=\s*"\K[^"]+' main.py || echo "3.0 Build 62")
+          
+          if [ -f "artifacts/wincurl-ios/wincurl-ios.ipa" ]; then
+            ./butler push artifacts/wincurl-ios/wincurl-ios.ipa $ITCH_TARGET:ios --userversion "$VERSION"
+          fi
