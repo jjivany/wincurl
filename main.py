@@ -15,7 +15,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 106"
+VERSION = "3.0 Build 120"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -180,6 +180,15 @@ def vibrate_android(ms):
             if not joy.get_init():
                 joy.init()
             joy.rumble(0.5, 0.5, int(ms))
+    except:
+        pass
+
+    try:
+        import sc_driver
+        if ms > 20:
+            sc_driver.trigger_collision()
+        else:
+            sc_driver.trigger_sweep()
     except:
         pass
 
@@ -6192,5 +6201,10 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+    try:
+        import sc_driver
+        sc_driver.get_haptics()
+    except Exception:
+        pass
 
     asyncio.run(main())
