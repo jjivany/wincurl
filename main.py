@@ -5851,6 +5851,8 @@ class WinCurl3:
                     btn = getattr(event, "button", 0)
                     if btn == 0:
                         self.ui_nav_select = True
+                    elif btn == 1:
+                        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
                     elif btn == 11:
                         self.ui_nav_dir = "up"
                     elif btn == 12:
@@ -6204,6 +6206,7 @@ if __name__ == "__main__":
     try:
         import sc_driver
         sc_driver.get_haptics()
+        sc_driver.play_wincurl()
     except Exception:
         pass
 
