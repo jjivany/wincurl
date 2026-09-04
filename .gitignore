@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Buildozer & Android
+.buildozer/
+bin/
+!wincurl_latest.apk
+android_crash.log
+logcat.txt
+logcat_pid.txt
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Patches and temporary scripts
+patch*.py
+test*.py
+scratch*.py
+check_*.py
+fix_*.py
+debug_*.py
+post_to_reddit.py
+diff*.txt
+*test_out.png
+out_*.png
+raw_*.png
+scratch*.png
+puppeteer*.js
+
+# Temporary data / builds
+portraits_data.bakpy
+portraits_data.py
+dr_sludge*.txt
+dr_sludge*.png
+itch_html5.zip
+wincurl_web*/
+wincurl_web*.zip
+wincurl-web*.zip
+wincurl_gh_artifact_web/
+itch_deploy/
+
+# Antigravity agents
+.agents/
+all.log
+plan.md
+walkthrough.md
