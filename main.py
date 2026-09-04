@@ -16,7 +16,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 120 (Revision 3)"
+VERSION = "3.0 Build 120 (Revision 4)"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
