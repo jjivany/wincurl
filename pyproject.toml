@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wincurl3"
-version = "120.3"
+version = "121.2"
 description = "A fast-paced multiplayer curling game."
 readme = "RELEASES.md"
 requires-python = ">=3.8"
