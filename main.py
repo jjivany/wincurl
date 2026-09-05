@@ -16,7 +16,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 121.2"
+VERSION = "3.0 Build 120"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -660,7 +660,7 @@ class WinCurlAudioEngine:
     def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
 
-        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
+        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
@@ -690,7 +690,7 @@ class WinCurlAudioEngine:
 
         if cache_key:
             cache_dir = self._get_cache_dir()
-            path = os.path.join(cache_dir, f"{cache_key}.ogg")
+            path = os.path.join(cache_dir, f"{cache_key}.wav")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
                 with open(path, "wb") as f:
@@ -923,7 +923,7 @@ class WinCurlAudioEngine:
                 import time
 
                 time.sleep(0.001)
-            struct.pack_into("<hh", buf, i * 4, int(random.uniform(-0.6, 0.6) * 32767), int(random.uniform(-0.6, 0.6) * 32767))
+            struct.pack_into("<hh", buf, i * 4, int(random.uniform(-0.15, 0.15) * 32767), int(random.uniform(-0.15, 0.15) * 32767))
         return self._create_wav_sound(buf, 22050, cache_key="sweep", return_bytes=return_bytes)
 
     def _synthesize_throw(self, return_bytes=False):
@@ -989,7 +989,7 @@ class WinCurlAudioEngine:
         import os
 
         if return_path:
-            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.ogg")
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
             if os.path.exists(cache_file):
                 return cache_file
         else:
@@ -1964,7 +1964,7 @@ class AnimatedCurler:
                     style = getattr(self, "hair_style", "short")
                     if str(style) != "bald":  # Not Bald
                         hair_poly = []
-                        for angle in range(0, 360, 15):
+                        for angle in range(0, 361, 15):
                             rad = math.radians(angle)
                             base_r = head_rw * 1.05
                             
@@ -2144,12 +2144,7 @@ class AnimatedCurler:
         oy = self.delivery_progress * 70 if self.state == "BACKSWING" else 0
         ld = (1.0 - self.delivery_progress) * -190 if self.state == "LUNGING" else 0
 
-        if not hasattr(self, "shadow_surf"):
-            self.shadow_surf = pygame.Surface((250, 450), pygame.SRCALPHA).convert_alpha()
-        self.shadow_surf.fill((0, 0, 0, 0))
-        self._draw_char_geometry(self.shadow_surf, 125 + 18, 200 + 18, oy, ld, (0, 0, 0, 100), is_evil)
-        surface.blit(self.shadow_surf, (self.hack_pos.x - 125, self.hack_pos.y - 200))
-
+        self._draw_char_geometry(surface, self.hack_pos.x + 18, self.hack_pos.y + 18, oy, ld, (0, 0, 0, 100), is_evil)
         self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
 
     def render_portrait(self, surface, x, y, size, team_color, is_evil=False, bob_y=0):
@@ -2481,7 +2476,6 @@ class WinCurl3:
     def __init__(self):
         if not pygame.get_init():
             pygame.init()
-
         if not pygame.joystick.get_init():
             pygame.joystick.init()
         self.joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
@@ -2980,10 +2974,7 @@ class WinCurl3:
                 self.preferred_color = data.get("color", 0)
                 style = data.get("hair_style", "short")
                 self.hair_style = "short" if style in [0, "short"] else "long"
-                try:
-                    self.hair_color = int(data.get("hair_color", 0))
-                except (TypeError, ValueError):
-                    self.hair_color = 0
+                self.hair_color = data.get("hair_color", 0)
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
@@ -3390,10 +3381,8 @@ class WinCurl3:
             2.5, min(35.0, math.sqrt(2 * FRICTION_BASE * (target - self.hack_pos).length()) + random.uniform(-0.05, 0.05) * err)
         )
 
-        self.curler_anim.delivery_progress = min(1.0, req_spd / 35.0 + 0.4)
         self.curler_anim.update("LUNGING")
         self.audio.play_throw()
-        self.active_stone.pos = pygame.math.Vector2(self.hack_pos)
         self.active_stone.vel = (target - self.hack_pos).normalize() * req_spd
         self.active_stone.curl = random.choice([-0.55, 0.55])
         self.active_stone.is_moving = True
@@ -4552,11 +4541,7 @@ class WinCurl3:
                 text = f"Hair Length: {style.capitalize()}"
             elif btn["id"] == "hair_color":
                 color_names = ["Brown", "Blonde", "Black", "Red", "Blue", "Green"]
-                try:
-                    hc_val = int(getattr(self, 'hair_color', 0))
-                except (TypeError, ValueError):
-                    hc_val = 0
-                text = f"Hair Colour: {color_names[hc_val % 6]}"
+                text = f"Hair Colour: {color_names[getattr(self, 'hair_color', 0) % 6]}"
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -4616,11 +4601,7 @@ class WinCurl3:
                     head_rw, head_rh = 15, 12
                     pygame.draw.ellipse(self.canvas, (240, 200, 180), (swatch_x - head_rw, swatch_y - head_rh, head_rw * 2, head_rh * 2))
                     
-                    try:
-                        hc_idx = int(getattr(self, "hair_color", 0))
-                    except (TypeError, ValueError):
-                        hc_idx = 0
-                    hc_idx = hc_idx % 6
+                    hc_idx = getattr(self, "hair_color", 0) % 6
                     if hc_idx == 0: hair_color = (80, 50, 30)
                     elif hc_idx == 1: hair_color = (220, 180, 80)
                     elif hc_idx == 2: hair_color = (30, 30, 30)
@@ -4632,7 +4613,7 @@ class WinCurl3:
                     if str(style) != "bald":
                         hair_poly = []
                         rng = random.Random(TEAM_YELLOW[0] if getattr(self, "preferred_color", 0) else HOUSE_RED[0])
-                        for angle in range(0, 360, 15):
+                        for angle in range(0, 361, 15):
                             rad = math.radians(angle)
                             base_r = head_rw * 1.05
                             if str(style) == "short":
@@ -4732,11 +4713,7 @@ class WinCurl3:
                             else: self.hair_style = "short"
                             self.save_progress()
                         elif b["id"] == "hair_color":
-                            try:
-                                hc_val = int(getattr(self, "hair_color", 0))
-                            except (TypeError, ValueError):
-                                hc_val = 0
-                            self.hair_color = (hc_val + 1) % 6
+                            self.hair_color = (getattr(self, "hair_color", 0) + 1) % 6
                             self.save_progress()
                         elif b["id"] == "hi_res_mode":
                             self.hi_res_mode = not getattr(self, "hi_res_mode", False)
