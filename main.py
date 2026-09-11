@@ -197,13 +197,18 @@ def vibrate_android(ms):
             pass
 
     try:
-        if pygame.joystick.get_count() > 0:
-            joy = pygame.joystick.Joystick(0)
-            if not joy.get_init():
-                joy.init()
-            joy.rumble(0.5, 0.5, int(ms))
+        if not hasattr(vibrate_android, "joy"):
+            if pygame.joystick.get_count() > 0:
+                joy = pygame.joystick.Joystick(0)
+                if not joy.get_init():
+                    joy.init()
+                vibrate_android.joy = joy
+            else:
+                vibrate_android.joy = None
+        if vibrate_android.joy:
+            vibrate_android.joy.rumble(0.5, 0.5, int(ms))
     except:
-        pass
+        vibrate_android.joy = None
 
     try:
         import sc_driver
@@ -1839,7 +1844,7 @@ def get_pixel_portrait(name, size=(120, 120)):
     surf = pygame.image.load(io.BytesIO(data)).convert_alpha()
 
     # High res 2D Sprite
-    scaled = pygame.transform.smoothscale(surf, size)
+    scaled = pygame.transform.scale(surf, size)
 
     PIXEL_PORTRAIT_CACHE[key] = scaled
     return scaled
@@ -1922,7 +1927,7 @@ class AnimatedCurler:
                 surf = pygame.Surface((60, 80), pygame.SRCALPHA)
                 cx, cy = 30, 40
 
-                head_rw, head_rh = 15, 12
+                head_rw, head_rh = 12, 15
                 # Base skin tone
                 pygame.draw.ellipse(surf, c((240, 200, 180)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
@@ -1976,7 +1981,7 @@ class AnimatedCurler:
                     pygame.draw.ellipse(surf, c((80, 50, 30)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
                 # Beanie Base
-                hat_rw, hat_rh = 19, 14
+                hat_rw, hat_rh = 15, 17
                 hat_shade = (max(0, self.tc[0] - 80), max(0, self.tc[1] - 80), max(0, self.tc[2] - 80))
 
                 # The beanie pulled down over the back of the head
@@ -2731,7 +2736,10 @@ class WinCurl3:
         if getattr(self, "is_web", False):
             self.canvas = self.screen
         else:
-            self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
+            if hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ:
+                self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), depth=32, masks=(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000))
+            else:
+                self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
             
             if IS_ANDROID:
                 try:
@@ -3609,6 +3617,10 @@ class WinCurl3:
                     elif b["id"] == "options":
                         self.app_state = "OPTIONS_MENU"
                         self.prev_state = "MENU"
+                    elif b["id"] == "online":
+                        self.audio.play_click()
+                        self.app_state = "ROOM_PROMPT"
+                        new_target = "room"
                     elif b["id"] in ["host", "join"]:
                         self.audio.play_click()
                         self.app_state = "ROOM_PROMPT"
@@ -4573,6 +4585,25 @@ class WinCurl3:
             elif btn["id"] == "ring_color":
                 ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
                 text = f"Outer Ring: {ring_names[getattr(self, 'ring_color_idx', 0) % 6]}"
+            elif btn["id"] == "ring_color":
+                ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
+                ring_colors = [(50, 80, 180), (180, 50, 50), (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
+                idx = getattr(self, "ring_color_idx", 0) % 6
+                c_name = ring_names[idx]
+                c_val = ring_colors[idx]
+                img_p1 = self.font.render("Outer Ring: ", True, WHITE)
+                img_shadow = self.font.render(c_name, True, BLACK)
+                img_p2 = self.font.render(c_name, True, c_val)
+                total_w = img_p1.get_width() + img_p2.get_width()
+                start_x = rect.centerx - total_w // 2 - 20
+                self.canvas.blit(img_p1, (start_x, rect.centery - img_p1.get_height() // 2))
+                self.canvas.blit(img_shadow, (start_x + img_p1.get_width() + 2, rect.centery - img_p2.get_height() // 2 + 2))
+                self.canvas.blit(img_p2, (start_x + img_p1.get_width(), rect.centery - img_p2.get_height() // 2))
+                
+                swatch_x = start_x + total_w + 40
+                swatch_y = rect.centery
+                for r, c, w in [(28, c_val, 0), (18, WHITE, 0), (9, HOUSE_RED, 0), (2, WHITE, 0)]:
+                    pygame.draw.circle(self.canvas, c, (swatch_x, swatch_y), r, w)
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -4628,18 +4659,9 @@ class WinCurl3:
                     pygame.draw.line(self.canvas, stone_c, (swatch_x - 12, swatch_y), (swatch_x + 12, swatch_y), 6)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x - 12, swatch_y), 3)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x + 12, swatch_y), 3)
-                elif btn["id"] == "ring_color":
-                    ring_colors = [(50, 80, 180), (180, 50, 50), (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
-                    outer_c = ring_colors[getattr(self, "ring_color_idx", 0) % 6]
-                    for r, c, w in [
-                        (28, outer_c, 0),
-                        (18, WHITE, 0),
-                        (9, HOUSE_RED, 0),
-                        (2, WHITE, 0),
-                    ]:
-                        pygame.draw.circle(self.canvas, c, (swatch_x, swatch_y), r, w)
+
                 elif btn["id"] in ["hair_color", "hair_style"]:
-                    head_rw, head_rh = 15, 12
+                    head_rw, head_rh = 12, 15
                     pygame.draw.ellipse(self.canvas, (240, 200, 180), (swatch_x - head_rw, swatch_y - head_rh, head_rw * 2, head_rh * 2))
                     
                     hc_idx = getattr(self, "hair_color", 0) % 6
@@ -4670,7 +4692,7 @@ class WinCurl3:
                         pygame.draw.polygon(self.canvas, hair_color, hair_poly)
 
                     tc = TEAM_YELLOW if getattr(self, "preferred_color", 0) else HOUSE_RED
-                    hat_rw, hat_rh = 19, 14
+                    hat_rw, hat_rh = 15, 17
                     hat_shade = (max(0, tc[0] - 80), max(0, tc[1] - 80), max(0, tc[2] - 80))
                     pygame.draw.ellipse(self.canvas, hat_shade, (swatch_x - hat_rw - 1, swatch_y - head_rh - 6, hat_rw * 2 + 2, hat_rh * 2 + 2))
                     pygame.draw.ellipse(self.canvas, tc, (swatch_x - hat_rw, swatch_y - head_rh - 5, hat_rw * 2, hat_rh * 2))
@@ -4678,6 +4700,25 @@ class WinCurl3:
                     pygame.draw.rect(self.canvas, hat_shade, (swatch_x - hat_rw - 2, swatch_y - head_rh + 4, hat_rw * 2 + 4, 10), border_radius=4)
                     pygame.draw.rect(self.canvas, tc, (swatch_x - hat_rw - 1, swatch_y - head_rh + 5, hat_rw * 2 + 2, 8), border_radius=3)
                     pygame.draw.rect(self.canvas, (0, 255, 255) if tc == TEAM_YELLOW else (255, 255, 0), (swatch_x - hat_rw - 1, swatch_y - head_rh + 7, hat_rw * 2 + 2, 3), border_radius=1)
+            elif btn["id"] == "ring_color":
+                ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
+                ring_colors = [(50, 80, 180), (180, 50, 50), (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
+                idx = getattr(self, "ring_color_idx", 0) % 6
+                c_name = ring_names[idx]
+                c_val = ring_colors[idx]
+                img_p1 = self.font.render("Outer Ring: ", True, WHITE)
+                img_shadow = self.font.render(c_name, True, BLACK)
+                img_p2 = self.font.render(c_name, True, c_val)
+                total_w = img_p1.get_width() + img_p2.get_width()
+                start_x = rect.centerx - total_w // 2 - 20
+                self.canvas.blit(img_p1, (start_x, rect.centery - img_p1.get_height() // 2))
+                self.canvas.blit(img_shadow, (start_x + img_p1.get_width() + 2, rect.centery - img_p2.get_height() // 2 + 2))
+                self.canvas.blit(img_p2, (start_x + img_p1.get_width(), rect.centery - img_p2.get_height() // 2))
+                
+                swatch_x = start_x + total_w + 40
+                swatch_y = rect.centery
+                for r, c, w in [(28, c_val, 0), (18, WHITE, 0), (9, HOUSE_RED, 0), (2, WHITE, 0)]:
+                    pygame.draw.circle(self.canvas, c, (swatch_x, swatch_y), r, w)
             elif btn["id"] == "master_vol":
                 img = self.font.render(text, True, WHITE)
                 txt_rect = img.get_rect(center=(rect.left + 160, rect.centery))
@@ -5029,13 +5070,14 @@ class WinCurl3:
 
             self.canvas.blit(self.dark_overlay_200, (0, 0))
 
-            if getattr(self.story, "scene", None) == "intro":
-                for i in range(-15, 15):
-                    grid_y = BASE_HEIGHT // 2 + (i * 120 + int(self.frames_elapsed) % 120)
-                    pygame.draw.line(self.canvas, (55, 70, 95), (0, grid_y), (BASE_WIDTH, grid_y), 2)
-                for i in range(-25, 25):
-                    grid_x = BASE_WIDTH // 2 + (i * 120)
-                    pygame.draw.line(self.canvas, (55, 70, 95), (grid_x, 0), (grid_x, BASE_HEIGHT), 2)
+            grid_color = (rink["color"][0] // 4 + 20, rink["color"][1] // 4 + 20, rink["color"][2] // 4 + 20)
+            offset = (pygame.time.get_ticks() // 20) % 100
+            start_x = offset - 200
+            start_y = offset - 200
+            for x in range(0, BASE_WIDTH + 400, 100):
+                pygame.draw.line(self.canvas, grid_color, (start_x + x, start_y), (start_x + x - 400, start_y + BASE_HEIGHT + 400), 2)
+            for y in range(0, BASE_HEIGHT + 400, 100):
+                pygame.draw.line(self.canvas, grid_color, (start_x, start_y + y), (start_x + BASE_WIDTH + 400, start_y + y - 400), 2)
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5097,8 +5139,13 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_coin_toss_screen(self):
-        self.draw_ice()
-        self.canvas.blit(self.dark_overlay_150, (0, 0))
+        if getattr(self, "_coin_bg_cache", None) is None:
+            self.draw_ice()
+            self.canvas.blit(self.dark_overlay_150, (0, 0))
+            self._coin_bg_cache = self.canvas.copy()
+        else:
+            self.canvas.blit(self._coin_bg_cache, (0, 0))
+            
         cx, cy, t = BASE_WIDTH // 2, BASE_HEIGHT // 2, 30 - self.coin_timer
         scale_x = abs(math.cos(t * 0.6))
 
@@ -5538,8 +5585,10 @@ class WinCurl3:
                             i += 1
                             
                     traj_col = HOUSE_RED if self.current_team == 0 else HOUSE_BLUE
-                    for px, py in getattr(self, "_cached_traj_points", []):
-                        pygame.draw.circle(self.canvas, traj_col, (px, py), 6)
+                    pts = getattr(self, "_cached_traj_points", [])
+                    if len(pts) >= 2:
+                        pygame.draw.lines(self.canvas, traj_col, False, pts, 6)
+                        pygame.draw.circle(self.canvas, traj_col, pts[-1], 10)
             shadow_col = (255, 255, 255)
             if self.selected_curl < 0:
                 c = int(255 * (1.0 + self.selected_curl))
@@ -5598,19 +5647,6 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_pause_screen(self):
-        if hasattr(self.canvas, "white_tex"):
-            tex = self.canvas.white_tex
-            tex.color = (50, 55, 60)
-            tex.alpha = 180
-            tex.draw(dstrect=pygame.Rect(0, 0, BASE_WIDTH, BASE_HEIGHT))
-            tex.color = (255, 255, 255)
-            tex.alpha = 255
-        else:
-            if not hasattr(self, "pause_grey_overlay"):
-                self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-                self.pause_grey_overlay.fill((50, 55, 60, 180))
-            self.canvas.blit(self.pause_grey_overlay, (0, 0))
-
         # 2. Draw global UI / scoreboard so it is visible as requested
         self.draw_ui()
 
@@ -5626,6 +5662,7 @@ class WinCurl3:
         draw_glass_rect(self.canvas, res_rect, HOUSE_BLUE, res_rect.h // 2, res_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_btn = self.font.render("RESUME MATCH", True, WHITE)
         self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=res_rect.center))
+        draw_hammer_icon(self.canvas, res_rect.x + 30, res_rect.centery - 6, (50, 200, 100))
 
         opt_rect = self.btn_options_pause.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, opt_rect, (50, 60, 80), opt_rect.h // 2, opt_rect.collidepoint(m_pos.x, m_pos.y))
@@ -5892,13 +5929,24 @@ class WinCurl3:
         FPS = 60.0
         FIXED_DT = 1000.0 / PHYSICS_FPS
         while getattr(self, "running", True):
+            if not hasattr(self, "_prev_app_state"):
+                self._prev_app_state = self.app_state
+            
+            if self._prev_app_state != self.app_state:
+                self._pause_bg_cache = None
+                self._coin_bg_cache = None
+                self._prev_app_state = self.app_state
+                
             if getattr(self, "dragging_slider", False) and not self.get_pointer_pressed():
                 self.dragging_slider = False
                 self.save_progress()
 
             if not getattr(self, "is_web", False):
                 if not getattr(self, "is_headless", False):
-                    ms_passed = self.clock.tick(FPS)
+                    if IS_ANDROID:
+                        ms_passed = self.clock.tick(FPS)
+                    else:
+                        ms_passed = self.clock.tick_busy_loop(FPS)
                 else:
                     ms_passed = self.clock.tick(0)
             else:
@@ -6258,10 +6306,20 @@ class WinCurl3:
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
                 self.draw_ui()
             elif self.app_state == "PAUSED":
-                self.draw_ice()
-                [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
-                is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
-                self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
+                if getattr(self, "_pause_bg_cache", None) is None:
+                    self.draw_ice()
+                    [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
+                    is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
+                    self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
+                    
+                    if not hasattr(self, "pause_grey_overlay"):
+                        self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+                        self.pause_grey_overlay.fill((50, 55, 60, 180))
+                    self.canvas.blit(self.pause_grey_overlay, (0, 0))
+                    self._pause_bg_cache = self.canvas.copy()
+                else:
+                    self.canvas.blit(self._pause_bg_cache, (0, 0))
+                    
                 self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER":
                 self.draw_match_over_screen()
@@ -6326,14 +6384,8 @@ class IRCNetworkManager:
 
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.settimeout(5.0)
-            try:
-                self.sock.connect(("irc.dal.net", 6667))
-            except Exception as e:
-                print("DNS/IPv6 Failed, trying IPv4 fallback:", e)
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.settimeout(5.0)
-                self.sock.connect(("194.14.236.50", 6667))  # Dal.net fallback IP
+            self.sock.settimeout(10.0)
+            self.sock.connect(("irc.rizon.net", 6667))
             self.sock.settimeout(None)
             self.sock.send(f"NICK {self.username}\r\nUSER {self.username} 8 * :WinCurl3\r\n".encode())
             buffer = ""

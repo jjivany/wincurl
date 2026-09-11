@@ -19,6 +19,11 @@ To put it bluntly: we have genocided all of the bugs in WinCurl 3, especially th
 - **Fixed Pause Screen:** Replaced the buggy alpha surface overlay with native hardware-accelerated translucent textures.
 - **Fixed Multiplayer Online Match:** Joining an online match after playing a Challenge level would mistakenly limit each team to 1 rock. Network state initialization has been fixed to ensure you always get the full 8 rocks.
 
+### Build 120 (Revision 1)
+- **IRC Matchmaking:** Replaced the legacy Dalnet IRC server with a newer, less laggy server (Rizon) for much faster and more reliable matchmaking connection speeds.
+- **Outer Rings 💎:** Re-styled the "Outer Rings" settings menu option to feature colored text and drop shadows for better contrast and legibility.
+- **Android Heat Management:** Restructured the main game loop from a `tick_busy_loop` to a standard `tick` on Android to drastically reduce processor load and prevent thermal throttling.
+- **UI Enhancements:** Restored background rendering on the options menu that was occasionally being clipped, fixed head/hat aspect ratios for the character portrait, and added a green curling rock icon to the pause menu.
 ## Build 119
 - Initial optimizations for the Android build pipeline.
 - Gameplay balance tweaks for Story Mode.

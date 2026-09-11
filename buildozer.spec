@@ -13,6 +13,7 @@ icon.filename = icon.png
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
 requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer,pyjnius
+p4a.env_vars = PIP_NO_BINARY=pygame
 orientation = portrait
 fullscreen = 1
 android.archs = arm64-v8a, armeabi-v7a
