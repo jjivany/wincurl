@@ -4585,25 +4585,6 @@ class WinCurl3:
             elif btn["id"] == "ring_color":
                 ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
                 text = f"Outer Ring: {ring_names[getattr(self, 'ring_color_idx', 0) % 6]}"
-            elif btn["id"] == "ring_color":
-                ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
-                ring_colors = [(50, 80, 180), (180, 50, 50), (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
-                idx = getattr(self, "ring_color_idx", 0) % 6
-                c_name = ring_names[idx]
-                c_val = ring_colors[idx]
-                img_p1 = self.font.render("Outer Ring: ", True, WHITE)
-                img_shadow = self.font.render(c_name, True, BLACK)
-                img_p2 = self.font.render(c_name, True, c_val)
-                total_w = img_p1.get_width() + img_p2.get_width()
-                start_x = rect.centerx - total_w // 2 - 20
-                self.canvas.blit(img_p1, (start_x, rect.centery - img_p1.get_height() // 2))
-                self.canvas.blit(img_shadow, (start_x + img_p1.get_width() + 2, rect.centery - img_p2.get_height() // 2 + 2))
-                self.canvas.blit(img_p2, (start_x + img_p1.get_width(), rect.centery - img_p2.get_height() // 2))
-                
-                swatch_x = start_x + total_w + 40
-                swatch_y = rect.centery
-                for r, c, w in [(28, c_val, 0), (18, WHITE, 0), (9, HOUSE_RED, 0), (2, WHITE, 0)]:
-                    pygame.draw.circle(self.canvas, c, (swatch_x, swatch_y), r, w)
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -5142,8 +5123,9 @@ class WinCurl3:
         if getattr(self, "_coin_bg_cache", None) is None:
             self.draw_ice()
             self.canvas.blit(self.dark_overlay_150, (0, 0))
-            self._coin_bg_cache = self.canvas.copy()
+            self._coin_bg_cache = self.canvas.copy().convert()
         else:
+            self.canvas.fill((0, 0, 0))
             self.canvas.blit(self._coin_bg_cache, (0, 0))
             
         cx, cy, t = BASE_WIDTH // 2, BASE_HEIGHT // 2, 30 - self.coin_timer
@@ -6316,8 +6298,9 @@ class WinCurl3:
                         self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
                         self.pause_grey_overlay.fill((50, 55, 60, 180))
                     self.canvas.blit(self.pause_grey_overlay, (0, 0))
-                    self._pause_bg_cache = self.canvas.copy()
+                    self._pause_bg_cache = self.canvas.copy().convert()
                 else:
+                    self.canvas.fill((0, 0, 0))
                     self.canvas.blit(self._pause_bg_cache, (0, 0))
                     
                 self.draw_pause_screen()
