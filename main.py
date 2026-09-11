@@ -1927,7 +1927,7 @@ class AnimatedCurler:
                 surf = pygame.Surface((60, 80), pygame.SRCALPHA)
                 cx, cy = 30, 40
 
-                head_rw, head_rh = 12, 15
+                head_rw, head_rh = 18, 22
                 # Base skin tone
                 pygame.draw.ellipse(surf, c((240, 200, 180)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
@@ -1981,7 +1981,7 @@ class AnimatedCurler:
                     pygame.draw.ellipse(surf, c((80, 50, 30)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
                 # Beanie Base
-                hat_rw, hat_rh = 15, 17
+                hat_rw, hat_rh = head_rw + 3, head_rh + 2
                 hat_shade = (max(0, self.tc[0] - 80), max(0, self.tc[1] - 80), max(0, self.tc[2] - 80))
 
                 # The beanie pulled down over the back of the head
@@ -2087,12 +2087,14 @@ class AnimatedCurler:
             pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 25, ly + 105, 24, 34))
             pygame.draw.ellipse(surface, c((240, 240, 240)), (hx - 23, ly + 107, 20, 30))
 
-            # Trailing Leg (stretches from moving body to stationary hack)
-            pygame.draw.polygon(surface, c((15, 15, 20)), [(hx + 6, ly + 48), (hx + 34, hy + 99), (hx + 10, hy + 104)])
+            # Trailing Leg (stretches from moving body to stationary hack, but drags when too far)
+            drag_y = max(0, -lunge_dist - 60)
+            hy_eff = hy - drag_y
+            pygame.draw.polygon(surface, c((15, 15, 20)), [(hx + 6, ly + 48), (hx + 34, hy_eff + 99), (hx + 10, hy_eff + 104)])
             if not override_color:
-                pygame.draw.polygon(surface, (50, 50, 55), [(hx + 10, ly + 52), (hx + 30, hy + 94), (hx + 14, hy + 97)])
+                pygame.draw.polygon(surface, (50, 50, 55), [(hx + 10, ly + 52), (hx + 30, hy_eff + 94), (hx + 14, hy_eff + 97)])
             # SHOE (Trailing)
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 22, hy + 94, 20, 30))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 22, hy_eff + 94, 20, 30))
 
             # Back of Neck
             if override_color:
@@ -3279,7 +3281,7 @@ class WinCurl3:
             else:
                 self.match_ai_difficulty = self.ai_difficulty
             self.app_state = "COIN_TOSS"
-            self.coin_timer = 30
+            self.coin_timer = 120
             self.coin_flip_result = random.choice([0, 1])
             self.audio.play_cheer()
 
@@ -4193,7 +4195,7 @@ class WinCurl3:
         if self.app_state == "MENU" and self.net.matched:
             self.reset_match()
             self.app_state = "COIN_TOSS"
-            self.coin_timer = 30
+            self.coin_timer = 120
             self.coin_flip_result = random.choice([0, 1]) if self.game_mode == "HOST" else -1
             self.audio.stop_music()
             self.audio.play_cheer()
@@ -4274,7 +4276,7 @@ class WinCurl3:
                 self.winner_text = "Opponent Disconnected"
                 self.audio.play_cheer()
 
-        if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 25:
+        if self.game_mode == "HOST" and self.app_state == "COIN_TOSS" and self.coin_timer == 115:
             self.net.send_action({"cmd": "coin", "result": self.coin_flip_result})
 
     def draw_menu(self):
@@ -5052,13 +5054,18 @@ class WinCurl3:
             self.canvas.blit(self.dark_overlay_200, (0, 0))
 
             grid_color = (rink["color"][0] // 4 + 20, rink["color"][1] // 4 + 20, rink["color"][2] // 4 + 20)
-            offset = (pygame.time.get_ticks() // 20) % 100
-            start_x = offset - 200
-            start_y = offset - 200
-            for x in range(0, BASE_WIDTH + 400, 100):
-                pygame.draw.line(self.canvas, grid_color, (start_x + x, start_y), (start_x + x - 400, start_y + BASE_HEIGHT + 400), 2)
-            for y in range(0, BASE_HEIGHT + 400, 100):
-                pygame.draw.line(self.canvas, grid_color, (start_x, start_y + y), (start_x + BASE_WIDTH + 400, start_y + y - 400), 2)
+            
+            offset_x = (pygame.time.get_ticks() / 20.0) % 100
+            offset_y = (pygame.time.get_ticks() / 20.0) % 100
+            start_x_base = -200
+            start_y_base = -200
+            
+            for x in range(0, BASE_WIDTH + 600, 100):
+                px = start_x_base + x + offset_x
+                pygame.draw.line(self.canvas, grid_color, (px, start_y_base), (px - 400, start_y_base + BASE_HEIGHT + 400), 2)
+            for y in range(0, BASE_HEIGHT + 600, 100):
+                py = start_y_base + y + offset_y
+                pygame.draw.line(self.canvas, grid_color, (start_x_base, py), (start_x_base + BASE_WIDTH + 400, py - 400), 2)
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5128,17 +5135,24 @@ class WinCurl3:
             self.canvas.fill((0, 0, 0))
             self.canvas.blit(self._coin_bg_cache, (0, 0))
             
-        cx, cy, t = BASE_WIDTH // 2, BASE_HEIGHT // 2, 30 - self.coin_timer
-        scale_x = abs(math.cos(t * 0.6))
+        cx, cy, t = BASE_WIDTH // 2, BASE_HEIGHT // 2, 120 - self.coin_timer
+        
+        t_spin = min(t, 90)
+        p = t_spin / 90.0
+        ease = 1.0 - (1.0 - p) ** 3
+        
+        target_angle = 12 * math.pi + (0 if getattr(self, "coin_flip_result", 0) == 0 else math.pi)
+        angle = target_angle * ease
+        
+        scale_x = abs(math.cos(angle))
+        is_red = math.cos(angle) >= 0
 
-        if self.coin_timer > 5:
-            is_red = (t // 3) % 2 == 0
+        if self.coin_timer > 30:
             text = "FLIPPING FOR HAMMER..."
         else:
-            is_red = self.coin_flip_result == 0
-            text = "RED GETS HAMMER" if is_red else "YELLOW GETS HAMMER"
+            text = "RED GETS HAMMER" if getattr(self, "coin_flip_result", 0) == 0 else "YELLOW GETS HAMMER"
 
-        if scale_x > 0.05:
+        if scale_x > 0.01:
             c_surf = self.coin_red_surf if is_red else self.coin_yellow_surf
             w, h = c_surf.get_size()
             scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h)).convert_alpha()
