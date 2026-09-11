@@ -5156,7 +5156,9 @@ class WinCurl3:
             c_surf = self.coin_red_surf if is_red else self.coin_yellow_surf
             w, h = c_surf.get_size()
             scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h)).convert_alpha()
-            self.canvas.blit(scaled, (cx - scaled.get_width() // 2, cy - h // 2))
+            # Toss the coin upwards by up to 250 pixels based on the animation progress p
+            coin_y = cy - 250 * math.sin(math.pi * p) - h // 2
+            self.canvas.blit(scaled, (cx - scaled.get_width() // 2, coin_y))
 
         lbl = self.font.render(text, True, WHITE)
         self.canvas.blit(lbl, (cx - lbl.get_width() // 2, cy + 150))
