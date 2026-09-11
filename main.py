@@ -5135,7 +5135,7 @@ class WinCurl3:
             self.canvas.fill((0, 0, 0))
             self.canvas.blit(self._coin_bg_cache, (0, 0))
             
-        cx, cy, t = BASE_WIDTH // 2, BASE_HEIGHT // 2, 120 - self.coin_timer
+        cx, cy, t = BASE_WIDTH // 2, 250, 120 - self.coin_timer
         
         t_spin = min(t, 90)
         p = t_spin / 90.0
@@ -5156,8 +5156,8 @@ class WinCurl3:
             c_surf = self.coin_red_surf if is_red else self.coin_yellow_surf
             w, h = c_surf.get_size()
             scaled = pygame.transform.scale(c_surf, (max(1, int(w * scale_x)), h)).convert_alpha()
-            # Toss the coin upwards by up to 250 pixels based on the animation progress p
-            coin_y = cy - 250 * math.sin(math.pi * p) - h // 2
+            # Toss the coin upwards by up to 100 pixels based on the animation progress p
+            coin_y = cy - 100 * math.sin(math.pi * p) - h // 2
             self.canvas.blit(scaled, (cx - scaled.get_width() // 2, coin_y))
 
         lbl = self.font.render(text, True, WHITE)
