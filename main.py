@@ -4,6 +4,8 @@ if hasattr(os, "name") and os.name == "posix" and not hasattr(sys, "getandroidap
     os.environ["SDL_VIDEO_WAYLAND_WMCLASS"] = "wincurl3"
     os.environ["SDL_VIDEO_X11_WMCLASS"] = "wincurl3"
     os.environ["SDL_JOYSTICK_HIDAPI_STEAM"] = "0"
+    os.environ["SDL_HINT_ACCELEROMETER_AS_JOYSTICK"] = "0"
+    os.environ["SDL_ACCELEROMETER_AS_JOYSTICK"] = "0"
 import pygame
 import math, random, time, json, socket, queue, base64, zlib
 import sys
@@ -16,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 121.2"
+VERSION = "3.0 Build 123"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -147,6 +149,7 @@ VIBRATE_ENABLED = True
 
 
 _vibrator_impl = None
+_vibrator_impl = None
 _vibrator_init = False
 
 def vibrate_android(ms):
@@ -202,15 +205,14 @@ def vibrate_android(ms):
     except:
         pass
 
-    if not IS_ANDROID:
-        try:
-            import sc_driver
-            if ms > 20:
-                sc_driver.trigger_collision()
-            else:
-                sc_driver.trigger_sweep()
-        except:
-            pass
+    try:
+        import sc_driver
+        if ms > 20:
+            sc_driver.trigger_collision()
+        else:
+            sc_driver.trigger_sweep()
+    except:
+        pass
 
 
 # Define this immediately after imports
@@ -254,51 +256,28 @@ def lerp_color(c1, c2, t):
     return (int(c1[0] + (c2[0] - c1[0]) * t), int(c1[1] + (c2[1] - c1[1]) * t), int(c1[2] + (c2[2] - c1[2]) * t))
 
 
+_maple_cache = {}
+
 def draw_maple_leaf(surface, cx, cy, scale, color):
-    pts = [
-        (-0.45, 10.0),
-        (-0.22, 5.72),
-        (-0.77, 5.23),
-        (-5.04, 5.98),
-        (-4.46, 4.39),
-        (-4.56, 4.03),
-        (-9.23, 0.25),
-        (-8.18, -0.24),
-        (-8.01, -0.64),
-        (-8.93, -3.47),
-        (-6.24, -2.9),
-        (-5.88, -3.09),
-        (-5.36, -4.32),
-        (-3.26, -2.06),
-        (-2.71, -2.35),
-        (-3.72, -7.57),
-        (-2.1, -6.63),
-        (-1.65, -6.76),
-        (0.0, -10.0),
-        (1.65, -6.76),
-        (2.1, -6.63),
-        (3.72, -7.57),
-        (2.71, -2.35),
-        (3.26, -2.06),
-        (5.36, -4.32),
-        (5.88, -3.09),
-        (6.24, -2.9),
-        (8.93, -3.47),
-        (8.01, -0.64),
-        (8.18, -0.24),
-        (9.23, 0.25),
-        (4.56, 4.03),
-        (4.46, 4.39),
-        (5.04, 5.98),
-        (0.77, 5.23),
-        (0.22, 5.72),
-        (0.45, 10.0),
-    ]
-    polygon = []
-    for x, y in pts:
-        wrap_y = y + (x * x + y * y) * 0.015
-        polygon.append((cx + x * scale * 2.5, cy + wrap_y * scale * 2.5))
-    pygame.draw.polygon(surface, color, polygon)
+    q_scale = max(0.1, round(scale, 1))
+    cache_key = (color, q_scale)
+    if cache_key not in _maple_cache:
+        bound = int(12 * q_scale * 2.5) + 2
+        temp = pygame.Surface((bound * 2, bound * 2), pygame.SRCALPHA)
+        pts = [
+            (-0.45, 10.0), (-0.22, 5.72), (-0.77, 5.23), (-5.04, 5.98), (-4.46, 4.39), (-4.56, 4.03), (-9.23, 0.25), (-8.18, -0.24), (-8.01, -0.64), (-8.93, -3.47), (-6.24, -2.9), (-5.88, -3.09), (-5.36, -4.32), (-3.26, -2.06), (-2.71, -2.35), (-3.72, -7.57), (-2.1, -6.63),
+            (-1.65, -6.76), (0.0, -10.0), (1.65, -6.76),
+            (2.1, -6.63), (3.72, -7.57), (2.71, -2.35), (3.26, -2.06), (5.36, -4.32), (5.88, -3.09), (6.24, -2.9), (8.93, -3.47), (8.01, -0.64), (8.18, -0.24), (9.23, 0.25), (4.56, 4.03), (4.46, 4.39), (5.04, 5.98), (0.77, 5.23), (0.22, 5.72), (0.45, 10.0),
+        ]
+        polygon = []
+        for x, y in pts:
+            wrap_y = y + (x * x + y * y) * 0.015
+            polygon.append((bound + x * q_scale * 2.5, bound + wrap_y * q_scale * 2.5))
+        pygame.draw.polygon(temp, color, polygon)
+        _maple_cache[cache_key] = (temp, bound)
+    
+    cached_surf, bound = _maple_cache[cache_key]
+    surface.blit(cached_surf, (cx - bound, cy - bound))
 
 
 def draw_hammer_icon(surface, x, y, color):
@@ -661,7 +640,7 @@ class WinCurlAudioEngine:
     def _get_cached_sound(self, cache_key, return_bytes=False):
         import os, io, threading, pygame
 
-        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.ogg")
+        cache_file = os.path.join(self._get_cache_dir(), f"{cache_key}.wav")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "rb") as f:
@@ -691,7 +670,7 @@ class WinCurlAudioEngine:
 
         if cache_key:
             cache_dir = self._get_cache_dir()
-            path = os.path.join(cache_dir, f"{cache_key}.ogg")
+            path = os.path.join(cache_dir, f"{cache_key}.wav")
             try:
                 os.makedirs(cache_dir, exist_ok=True)
                 with open(path, "wb") as f:
@@ -782,7 +761,7 @@ class WinCurlAudioEngine:
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.5, 450), (1.0, 300)],
                 [(0.0, 1000), (0.5, 1400), (1.0, 2400)],
-                [(0.0, 2600), (0.5, 1600), (1.0, 2800)],
+                [(0.0, 2600), (0.5, 1600), (1.0, 20.0)],
             )
             chord = [261.63, 329.63]
         elif phrase == "RED_TEAM_WINS":
@@ -851,7 +830,7 @@ class WinCurlAudioEngine:
         buf = bytearray(steps * 4)
         f1_env = [(0, 400), (0.3, 500), (0.6, 300), (1.0, 400), (1.4, 700), (1.8, 300), (2.0, 200)]
         f2_env = [(0, 1800), (0.3, 1200), (0.6, 1000), (1.0, 900), (1.4, 1200), (1.8, 1800), (2.0, 2400)]
-        f3_env = [(0, 2600), (0.5, 2400), (1.0, 2400), (1.5, 2600), (2.0, 2800)]
+        f3_env = [(0, 2600), (0.5, 2400), (1.0, 2400), (1.5, 2600), (2.0, 20.0)]
 
         def get_val(t, pts):
             for i in range(len(pts) - 1):
@@ -990,7 +969,7 @@ class WinCurlAudioEngine:
         import os
 
         if return_path:
-            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.ogg")
+            cache_file = os.path.join(self._get_cache_dir(), "theme_v2.wav")
             if os.path.exists(cache_file):
                 return cache_file
         else:
@@ -1597,15 +1576,27 @@ class Starfield:
         self.stars = [
             (random.randint(0, max_w or BASE_WIDTH), random.randint(0, self.max_h), random.uniform(0.5, 3.0)) for _ in range(count)
         ]
-        self.colors = {s: (int(min(255, 30 + s * 60)),) * 3 for _, _, s in self.stars}
+        
+        # Pre-create surfaces for blits optimization
+        self.star_surfs = {}
+        for x, y, s in self.stars:
+            size = max(1, int(s))
+            color = (int(min(255, 30 + s * 60)),) * 3
+            if (size, color) not in self.star_surfs:
+                surf = pygame.Surface((size, size))
+                surf.fill(color)
+                self.star_surfs[(size, color)] = surf
 
     def draw(self, surface, speed_mult=1.0, time_mult=1.0):
+        blit_seq = []
         for i in range(len(self.stars)):
             x, y, s = self.stars[i]
             y = (y + s * speed_mult * time_mult) % self.max_h
             self.stars[i] = (x, y, s)
             size = max(1, int(s))
-            surface.fill(self.colors[s], (int(x), int(y), size, size))
+            color = (int(min(255, 30 + s * 60)),) * 3
+            blit_seq.append((self.star_surfs[(size, color)], (int(x), int(y))))
+        surface.blits(blit_seq)
 
 
 # OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
@@ -1965,7 +1956,7 @@ class AnimatedCurler:
                     style = getattr(self, "hair_style", "short")
                     if str(style) != "bald":  # Not Bald
                         hair_poly = []
-                        for angle in range(0, 360, 15):
+                        for angle in range(0, 361, 15):
                             rad = math.radians(angle)
                             base_r = head_rw * 1.05
                             
@@ -2085,18 +2076,18 @@ class AnimatedCurler:
         elif self.state == "LUNGING":
             ly = hy + lunge_dist
 
-            # 3D Forward Leg
-            draw_cylinder_line(surface, (30, 30, 35), (hx - 12, ly + 60), (hx - 15, hy + 110), 18)
+            # 3D Forward Leg (moves with body)
+            draw_cylinder_line(surface, (30, 30, 35), (hx - 12, ly + 60), (hx - 15, ly + 110), 18)
             # SHOE (Forward)
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 25, hy + 105, 24, 34))
-            pygame.draw.ellipse(surface, c((240, 240, 240)), (hx - 23, hy + 107, 20, 30))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 25, ly + 105, 24, 34))
+            pygame.draw.ellipse(surface, c((240, 240, 240)), (hx - 23, ly + 107, 20, 30))
 
-            # Trailing Leg
-            pygame.draw.polygon(surface, c((15, 15, 20)), [(hx + 6, ly + 48), (hx + 34, ly + 99), (hx + 10, ly + 104)])
+            # Trailing Leg (stretches from moving body to stationary hack)
+            pygame.draw.polygon(surface, c((15, 15, 20)), [(hx + 6, ly + 48), (hx + 34, hy + 99), (hx + 10, hy + 104)])
             if not override_color:
-                pygame.draw.polygon(surface, (50, 50, 55), [(hx + 10, ly + 52), (hx + 30, ly + 94), (hx + 14, ly + 97)])
+                pygame.draw.polygon(surface, (50, 50, 55), [(hx + 10, ly + 52), (hx + 30, hy + 94), (hx + 14, hy + 97)])
             # SHOE (Trailing)
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 22, ly + 94, 20, 30))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 22, hy + 94, 20, 30))
 
             # Back of Neck
             if override_color:
@@ -2146,10 +2137,10 @@ class AnimatedCurler:
         ld = (1.0 - self.delivery_progress) * -190 if self.state == "LUNGING" else 0
 
         if not hasattr(self, "shadow_surf"):
-            self.shadow_surf = pygame.Surface((250, 450), pygame.SRCALPHA).convert_alpha()
+            self.shadow_surf = pygame.Surface((500, 500), pygame.SRCALPHA).convert_alpha()
         self.shadow_surf.fill((0, 0, 0, 0))
-        self._draw_char_geometry(self.shadow_surf, 125 + 18, 200 + 18, oy, ld, (0, 0, 0, 100), is_evil)
-        surface.blit(self.shadow_surf, (self.hack_pos.x - 125, self.hack_pos.y - 200))
+        self._draw_char_geometry(self.shadow_surf, 250, 250, oy, ld, (0, 0, 0, 100), is_evil)
+        surface.blit(self.shadow_surf, (self.hack_pos.x + 18 - 250, self.hack_pos.y + 18 - 250))
 
         self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
 
@@ -2482,7 +2473,6 @@ class WinCurl3:
     def __init__(self):
         if not pygame.get_init():
             pygame.init()
-
         if not pygame.joystick.get_init():
             pygame.joystick.init()
         self.joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
@@ -2737,10 +2727,21 @@ class WinCurl3:
             pass
 
         self.is_4k = info.current_w >= 1920 or info.current_h >= 1080
-        if IS_ANDROID or getattr(self, "is_web", False):
+        # ALWAYS use a software canvas. Drawing primitives on a hardware surface is very slow.
+        if getattr(self, "is_web", False):
             self.canvas = self.screen
         else:
             self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
+            
+            if IS_ANDROID:
+                try:
+                    from pygame._sdl2.video import Window, Renderer, Texture
+                    self._sdl_win = Window.from_display_module()
+                    self._sdl_ren = Renderer.from_window(self._sdl_win)
+                    self._sdl_tex = Texture(self._sdl_ren, (BASE_WIDTH, BASE_HEIGHT), streaming=True)
+                except Exception as e:
+                    print("Failed to initialize SDL2 texture rendering:", e)
+
         self.clock = pygame.time.Clock()
 
         pygame.font.init()
@@ -2821,10 +2822,11 @@ class WinCurl3:
             {"id": "color", "y": 660, "text": "My Team:", "color": HOUSE_RED, "scale": 1.0},
             {"id": "hair_style", "y": 750, "text": "Hair Style:", "color": (150, 180, 200), "scale": 1.0},
             {"id": "hair_color", "y": 840, "text": "Hair Colour:", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "hi_res_mode", "y": 930, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "smoothscale", "y": 1020, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1110, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1200, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "ring_color", "y": 930, "text": "Ring Color:", "color": (150, 180, 200), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 1020, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1200, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1290, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
         ]
         self.last_hovered = None
 
@@ -2861,58 +2863,7 @@ class WinCurl3:
             alpha = max(0, 45 - int((dist_from_center / (BASE_WIDTH // 2)) * 45))
             pygame.draw.rect(self.ice_env_map, (255, 255, 255, alpha), (x, 0, 15, BASE_HEIGHT))
 
-        self.static_ice_surface = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
-        for y in range(0, BASE_HEIGHT, 45):
-            pygame.draw.rect(
-                self.static_ice_surface, (max(0, ICE_COLOR[0] - int((y / BASE_HEIGHT) * 18)),) * 3, (0, y, BASE_WIDTH, 45)
-            )
-        self.static_ice_surface.blit(self.bg_pebble_layer, (0, 0))
-        for y in range(0, BASE_HEIGHT, 80):
-            pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
-        pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
-        pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
-        pygame.draw.line(
-            self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10
-        )
-        pygame.draw.line(
-            self.static_ice_surface, (10, 10, 10), (0, self.house_pos.y - 220), (BASE_WIDTH, self.house_pos.y - 220), 4
-        )
-
-        house_layer = pygame.Surface((440, 440))
-        house_layer.fill((255, 0, 255))
-        house_layer.set_colorkey((255, 0, 255))
-        house_layer.set_alpha(80)
-        for r, c, w in [
-            (210, HOUSE_BLUE, 0),
-            (140, WHITE, 0),
-            (70, HOUSE_RED, 0),
-            (20, WHITE, 0),
-            (20, BLACK, 2),
-            (6, BLACK, 0),
-            (2, WHITE, 0),
-        ]:
-            pygame.draw.circle(house_layer, c, (220, 220), r, w)
-        self.static_ice_surface.blit(house_layer, (int(self.house_pos.x - 220), int(self.house_pos.y - 220)))
-
-        # Cache the Hack
-        cx = self.hack_pos.x
-        hack_y = self.hack_pos.y + 35
-        pygame.draw.rect(self.static_ice_surface, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
-        pygame.draw.rect(self.static_ice_surface, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
-        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 18), (cx - 45, hack_y + 21)]
-        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), left_pad)
-        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), left_pad, 2)
-        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 18), (cx + 45, hack_y + 21)]
-        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), right_pad)
-        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), right_pad, 2)
-
-        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
-        overlay.fill((235, 245, 255, 15))
-        self.static_ice_surface.blit(overlay, (0, 0))
-
-        self.static_ice_surface.blit(self.ice_env_map, (0, 0))
-
-        self.static_ice_surface.blit(self.fg_pebble_layer, (0, 0))
+        self.render_static_ice()
 
         self.reset_match()
 
@@ -2953,10 +2904,68 @@ class WinCurl3:
             ww, wh = self.screen.get_size()
             self.border_starfield = Starfield(count=400, max_w=ww, max_h=wh)
 
+    def render_static_ice(self):
+        self.static_ice_surface = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
+        for y in range(0, BASE_HEIGHT, 45):
+            pygame.draw.rect(
+                self.static_ice_surface, (max(0, ICE_COLOR[0] - int((y / BASE_HEIGHT) * 18)),) * 3, (0, y, BASE_WIDTH, 45)
+            )
+        self.static_ice_surface.blit(self.bg_pebble_layer, (0, 0))
+        for y in range(0, BASE_HEIGHT, 80):
+            pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
+        pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
+        pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
+        pygame.draw.line(
+            self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10
+        )
+        pygame.draw.line(
+            self.static_ice_surface, (10, 10, 10), (0, self.house_pos.y - 220), (BASE_WIDTH, self.house_pos.y - 220), 4
+        )
+
+        ring_colors = [HOUSE_BLUE, HOUSE_RED, (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
+        outer_c = ring_colors[getattr(self, "ring_color_idx", 0) % len(ring_colors)]
+
+        house_layer = pygame.Surface((440, 440))
+        house_layer.fill((255, 0, 255))
+        house_layer.set_colorkey((255, 0, 255))
+        house_layer.set_alpha(80)
+        for r, c, w in [
+            (210, outer_c, 0),
+            (140, WHITE, 0),
+            (70, HOUSE_RED, 0),
+            (20, WHITE, 0),
+            (20, BLACK, 2),
+            (6, BLACK, 0),
+            (2, WHITE, 0),
+        ]:
+            pygame.draw.circle(house_layer, c, (220, 220), r, w)
+        self.static_ice_surface.blit(house_layer, (int(self.house_pos.x - 220), int(self.house_pos.y - 220)))
+
+        # Cache the Hack
+        cx = self.hack_pos.x
+        hack_y = self.hack_pos.y + 35
+        pygame.draw.rect(self.static_ice_surface, (10, 10, 10), (cx - 50, hack_y + 6, 100, 10), border_radius=3)
+        pygame.draw.rect(self.static_ice_surface, (50, 55, 60), (cx - 10, hack_y + 5, 20, 6))
+        left_pad = [(cx - 40, hack_y - 2), (cx - 15, hack_y - 2), (cx - 10, hack_y + 18), (cx - 45, hack_y + 21)]
+        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), left_pad)
+        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), left_pad, 2)
+        right_pad = [(cx + 40, hack_y - 2), (cx + 15, hack_y - 2), (cx + 10, hack_y + 18), (cx + 45, hack_y + 21)]
+        pygame.draw.polygon(self.static_ice_surface, (20, 20, 22), right_pad)
+        pygame.draw.polygon(self.static_ice_surface, (60, 60, 65), right_pad, 2)
+
+        overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
+        overlay.fill((235, 245, 255, 15))
+        self.static_ice_surface.blit(overlay, (0, 0))
+
+        self.static_ice_surface.blit(self.ice_env_map, (0, 0))
+
+        self.static_ice_surface.blit(self.fg_pebble_layer, (0, 0))
+
     def load_progress(self):
         self.challenge_progress = [False] * 25
         self.username = ""
         self.preferred_color = 0
+        self.ring_color_idx = 0
         self.room_text = ""
         self.ai_difficulty = 5
         self.challenge_completed_seen = False
@@ -2979,12 +2988,14 @@ class WinCurl3:
                 data = json.load(f)
                 self.username = data.get("username", "")
                 self.preferred_color = data.get("color", 0)
+                self.ring_color_idx = data.get("ring_color", 0)
                 style = data.get("hair_style", "short")
                 self.hair_style = "short" if style in [0, "short"] else "long"
-                try:
-                    self.hair_color = int(data.get("hair_color", 0))
-                except (TypeError, ValueError):
-                    self.hair_color = 0
+                hc = data.get("hair_color", 0)
+                if isinstance(hc, list): hc = hc[0] if hc else 0
+                try: hc = int(hc)
+                except (TypeError, ValueError): hc = 0
+                self.hair_color = hc
                 self.room_text = data.get("room", "")
                 self.ai_difficulty = data.get("bot_skill", 5)
                 self.challenge_completed_seen = data.get("challenge_completed_seen", False)
@@ -3087,6 +3098,7 @@ class WinCurl3:
                 "local_slots": self.local_slots_data,
                 "username": self.username,
                 "color": self.preferred_color,
+                "ring_color": getattr(self, "ring_color_idx", 0),
                 "hair_style": getattr(self, "hair_style", "short"),
                 "hair_color": getattr(self, "hair_color", 0),
                 "room": self.room_text,
@@ -3391,10 +3403,8 @@ class WinCurl3:
             2.5, min(35.0, math.sqrt(2 * FRICTION_BASE * (target - self.hack_pos).length()) + random.uniform(-0.05, 0.05) * err)
         )
 
-        self.curler_anim.delivery_progress = min(1.0, req_spd / 35.0 + 0.4)
         self.curler_anim.update("LUNGING")
         self.audio.play_throw()
-        self.active_stone.pos = pygame.math.Vector2(self.hack_pos)
         self.active_stone.vel = (target - self.hack_pos).normalize() * req_spd
         self.active_stone.curl = random.choice([-0.55, 0.55])
         self.active_stone.is_moving = True
@@ -3417,7 +3427,7 @@ class WinCurl3:
             if getattr(self, "game_mode", None) == "STORY":
                 max_vel += self.story.stats.get("power", 0) * 1.5
 
-            vel = pull.normalize() * min(max_vel, pull.length() / 14.0)
+            vel = pull.normalize() * min(max_vel, pull.length() / 20.0)
             self.active_stone.vel = vel
 
             curl_factor = self.selected_curl
@@ -3827,9 +3837,13 @@ class WinCurl3:
                 self.audio.play_click()
                 self.save_match()
                 self.return_to_menu()
-            elif self.btn_quit_main.collidepoint(mx, my):
-                self.audio.play_click()
-                self.return_to_menu()
+            else:
+                quit_rect_hit = self.btn_quit_main.copy()
+                if self.game_mode in ["HOST", "JOIN", "CHALLENGE"]:
+                    quit_rect_hit.y = self.btn_save_quit.y
+                if quit_rect_hit.collidepoint(mx, my):
+                    self.audio.play_click()
+                    self.return_to_menu()
 
     def handle_match_over_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -3871,9 +3885,7 @@ class WinCurl3:
                 self.app_state = "MATCH_OVER"
 
     def handle_play_events(self, event):
-        mouse_pos = getattr(event, "pos", self.get_pointer_pos())
-        if isinstance(mouse_pos, tuple):
-            mouse_pos = pygame.math.Vector2(mouse_pos)
+        mouse_pos = self.current_mapped_pos
         f_id = getattr(event, "finger_id", "mouse")
 
         if event.type == getattr(pygame, "FINGERDOWN", 1792):
@@ -4558,6 +4570,9 @@ class WinCurl3:
                 except (TypeError, ValueError):
                     hc_val = 0
                 text = f"Hair Colour: {color_names[hc_val % 6]}"
+            elif btn["id"] == "ring_color":
+                ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
+                text = f"Outer Ring: {ring_names[getattr(self, 'ring_color_idx', 0) % 6]}"
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -4613,15 +4628,21 @@ class WinCurl3:
                     pygame.draw.line(self.canvas, stone_c, (swatch_x - 12, swatch_y), (swatch_x + 12, swatch_y), 6)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x - 12, swatch_y), 3)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x + 12, swatch_y), 3)
+                elif btn["id"] == "ring_color":
+                    ring_colors = [(50, 80, 180), (180, 50, 50), (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
+                    outer_c = ring_colors[getattr(self, "ring_color_idx", 0) % 6]
+                    for r, c, w in [
+                        (28, outer_c, 0),
+                        (18, WHITE, 0),
+                        (9, HOUSE_RED, 0),
+                        (2, WHITE, 0),
+                    ]:
+                        pygame.draw.circle(self.canvas, c, (swatch_x, swatch_y), r, w)
                 elif btn["id"] in ["hair_color", "hair_style"]:
                     head_rw, head_rh = 15, 12
                     pygame.draw.ellipse(self.canvas, (240, 200, 180), (swatch_x - head_rw, swatch_y - head_rh, head_rw * 2, head_rh * 2))
                     
-                    try:
-                        hc_idx = int(getattr(self, "hair_color", 0))
-                    except (TypeError, ValueError):
-                        hc_idx = 0
-                    hc_idx = hc_idx % 6
+                    hc_idx = getattr(self, "hair_color", 0) % 6
                     if hc_idx == 0: hair_color = (80, 50, 30)
                     elif hc_idx == 1: hair_color = (220, 180, 80)
                     elif hc_idx == 2: hair_color = (30, 30, 30)
@@ -4633,7 +4654,7 @@ class WinCurl3:
                     if str(style) != "bald":
                         hair_poly = []
                         rng = random.Random(TEAM_YELLOW[0] if getattr(self, "preferred_color", 0) else HOUSE_RED[0])
-                        for angle in range(0, 360, 15):
+                        for angle in range(0, 361, 15):
                             rad = math.radians(angle)
                             base_r = head_rw * 1.05
                             if str(style) == "short":
@@ -4725,6 +4746,10 @@ class WinCurl3:
                             pass  # Handled by drag
                         elif b["id"] == "color":
                             self.preferred_color = 1 if self.preferred_color == 0 else 0
+                            self.save_progress()
+                        elif b["id"] == "ring_color":
+                            self.ring_color_idx = getattr(self, "ring_color_idx", 0) + 1
+                            self.render_static_ice()
                             self.save_progress()
                         elif b["id"] == "hair_style":
                             curr = getattr(self, "hair_style", "short")
@@ -5369,7 +5394,7 @@ class WinCurl3:
             elif active_chat:
                 for c in active_chat:
                     age = current_time - c["time"]
-                    max_alpha = max(max_alpha, 255 if age < 28000 else int(255 * (1.0 - (age - 28000) / 2000.0)))
+                    max_alpha = max(max_alpha, 255 if age < 20.00 else int(255 * (1.0 - (age - 20.00) / 2000.0)))
 
             if max_alpha > 0:
                 chat_h = 40 + len(active_chat) * 40
@@ -5478,33 +5503,43 @@ class WinCurl3:
                     max_vel = 16.0
                     if getattr(self, "game_mode", None) == "STORY":
                         max_vel += self.story.stats.get("power", 0) * 1.5
-                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(max_vel, pull.length() / 14.0)
+                    spos, svel = pygame.math.Vector2(self.active_stone.pos), pull.normalize() * min(max_vel, pull.length() / 20.0)
                     svel_len = svel.length()
 
                     curl_factor = self.selected_curl * 0.05
                     if getattr(self, "game_mode", None) == "STORY":
                         curl_factor *= 1.0 + self.story.stats.get("curl_control", 0) * 0.25
 
-                    sx, sy, px, py = svel.x, svel.y, spos.x, spos.y
-                    rad_conv = math.pi / 180.0
-                    
-                    i = 0
-                    while svel_len > FRICTION_BASE:
-                        r = (svel_len - FRICTION_BASE) / svel_len
-                        sx *= r
-                        sy *= r
-                        svel_len -= FRICTION_BASE
-                        if svel_len > 0.4:
-                            a = (1.4 / svel_len) * curl_factor * rad_conv
-                            cos_a, sin_a = math.cos(a), math.sin(a)
-                            sx, sy = sx * cos_a - sy * sin_a, sx * sin_a + sy * cos_a
-                        px += sx
-                        py += sy
-                        if i % 5 == 0:
-                            pygame.draw.circle(
-                                self.canvas, (HOUSE_RED if self.current_team == 0 else HOUSE_BLUE), (int(px), int(py)), 6
-                            )
-                        i += 1
+                    # Cache trajectory to avoid expensive math on Android
+                    if not hasattr(self, "_cached_traj_pull") or getattr(self, "_cached_traj_pull", None) != self.virtual_pull or getattr(self, "_cached_traj_curl", None) != self.selected_curl:
+                        self._cached_traj_pull = pygame.math.Vector2(self.virtual_pull)
+                        self._cached_traj_curl = self.selected_curl
+                        self._cached_traj_points = []
+                        
+                        cx, cy = spos.x, spos.y
+                        csx, csy = svel.x, svel.y
+                        cslen = svel_len
+                        rad_conv = math.pi / 180.0
+                        
+                        i = 0
+                        while cslen > FRICTION_BASE:
+                            r = (cslen - FRICTION_BASE) / cslen
+                            csx *= r
+                            csy *= r
+                            cslen -= FRICTION_BASE
+                            if cslen > 0.4:
+                                a = (1.4 / cslen) * curl_factor * rad_conv
+                                cos_a, sin_a = math.cos(a), math.sin(a)
+                                csx, csy = csx * cos_a - csy * sin_a, csx * sin_a + csy * cos_a
+                            cx += csx
+                            cy += csy
+                            if i % 5 == 0:
+                                self._cached_traj_points.append((int(cx), int(cy)))
+                            i += 1
+                            
+                    traj_col = HOUSE_RED if self.current_team == 0 else HOUSE_BLUE
+                    for px, py in getattr(self, "_cached_traj_points", []):
+                        pygame.draw.circle(self.canvas, traj_col, (px, py), 6)
             shadow_col = (255, 255, 255)
             if self.selected_curl < 0:
                 c = int(255 * (1.0 + self.selected_curl))
@@ -5604,8 +5639,13 @@ class WinCurl3:
             lbl_sq = self.font.render("SAVE & QUIT", True, WHITE)
             self.canvas.blit(lbl_sq, lbl_sq.get_rect(center=sq_rect.center))
             self.draw_floppy_icon(self.canvas, sq_rect.x + 30, sq_rect.centery - 10)
+            
+            quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
+        else:
+            quit_rect = self.btn_quit_main.copy()
+            quit_rect.y = self.btn_save_quit.y
+            quit_rect = quit_rect.move(int((1.0 - self.pause_anim) * 400), 0)
 
-        quit_rect = self.btn_quit_main.move(int((1.0 - self.pause_anim) * 400), 0)
         draw_glass_rect(self.canvas, quit_rect, HOUSE_RED, quit_rect.h // 2, quit_rect.collidepoint(m_pos.x, m_pos.y))
         lbl_quit = self.font.render("QUIT TO MENU", True, WHITE)
         self.canvas.blit(lbl_quit, lbl_quit.get_rect(center=quit_rect.center))
@@ -5821,16 +5861,28 @@ class WinCurl3:
             if getattr(self, "parallax_y", 0) < 0.1:
                 self.parallax_y = 0
 
-        if IS_ANDROID:
-            pass
-        else:
+        if not IS_ANDROID:
             self.screen.fill((10, 12, 16))
             if getattr(self, "border_starfield", None):
                 self.border_starfield.draw(
                     self.screen, getattr(self, "last_starfield_speed", 0.5) * scale, getattr(self, "time_mult", 1.0)
                 )
 
-            if self.canvas is not self.screen and sw > 0 and sh > 0:
+        if self.canvas is not self.screen and sw > 0 and sh > 0:
+            if hasattr(self, "_sdl_tex") and hasattr(self, "_sdl_ren") and self._sdl_tex and self._sdl_ren:
+                try:
+                    self._sdl_tex.update(self.canvas)
+                    self._sdl_ren.clear()
+                    self._sdl_tex.draw(dstrect=(ox, oy, sw, sh))
+                    self._sdl_ren.present()
+                    return # Skip pygame.display.flip()
+                except Exception as e:
+                    print("SDL2 texture draw failed:", e)
+                    self._sdl_tex = None # Fallback to CPU scaling on failure
+
+            if sw == BASE_WIDTH and sh == BASE_HEIGHT:
+                self.screen.blit(self.canvas, (ox, oy))
+            else:
                 self.screen.blit(pygame.transform.scale(self.canvas, (sw, sh)), (ox, oy))
 
         pygame.display.flip()
@@ -5844,10 +5896,11 @@ class WinCurl3:
                 self.dragging_slider = False
                 self.save_progress()
 
-            if IS_ANDROID:
-                ms_passed = self.clock.tick_busy_loop(FPS)
-            elif getattr(sys, "platform", "") == "emscripten":
-                ms_passed = self.clock.tick(0)
+            if not getattr(self, "is_web", False):
+                if not getattr(self, "is_headless", False):
+                    ms_passed = self.clock.tick(FPS)
+                else:
+                    ms_passed = self.clock.tick(0)
             else:
                 ms_passed = self.clock.tick(FPS)
 
@@ -6405,3 +6458,4 @@ if __name__ == "__main__":
         pass
 
     asyncio.run(main())
+
