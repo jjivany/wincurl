@@ -1,5 +1,13 @@
 # WinCurl Releases History
 
+## Build 123 (Revision 3) 💍
+*Note: This should be the final revision to build 123.*
+
+- **Android GL Performance:** Enforced explicit matching of the native Android `ABGR8888` GL texture format in the Pygame-CE software canvas. This completely bypassed the heavy CPU-bound pixel conversions and effectively eliminated the Android framerate bottleneck, achieving peak performance.
+- **Full Screen Fix:** Added the missing `pygame.SCALED` flag when toggling full screen on desktop, ensuring the window correctly scales rather than awkwardly resizing.
+- **Story Mode Crash Fix:** Resolved an internal Pygame-CE crash on Android (`ValueError: width greater than radius`) triggered when completing the first match by safely rendering solid inner geometry for the trophies.
+- **Ring Emoji:** Added the ring emoji (💍) to the version identifier to commemorate the ring choice feature update.
+
 ## Build 120 (Latest)
 
 First and foremost: **I want to sincerely apologize to the community for the broken and missing builds over the past week.** 
