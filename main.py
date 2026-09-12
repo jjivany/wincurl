@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123"
+VERSION = "3.0 Build 123 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -363,8 +363,10 @@ def draw_speaker_icon(surface, x, y, is_muted):
 
 
 def draw_trophy(surface, x, y, size=40):
-    pygame.draw.circle(surface, (255, 215, 0), (int(x + size * 0.2), int(y + size * 0.35)), int(size * 0.2), 3)
-    pygame.draw.circle(surface, (200, 150, 50), (int(x + size * 0.8), int(y + size * 0.35)), int(size * 0.2), 3)
+    rad = int(size * 0.2)
+    w = 3 if rad >= 3 else 0
+    pygame.draw.circle(surface, (255, 215, 0), (int(x + size * 0.2), int(y + size * 0.35)), rad, w)
+    pygame.draw.circle(surface, (200, 150, 50), (int(x + size * 0.8), int(y + size * 0.35)), rad, w)
 
     # Base and stem
     pygame.draw.rect(surface, (150, 100, 20), (int(x + size * 0.3), int(y + size * 0.8), int(size * 0.4), int(size * 0.2)))
@@ -2144,10 +2146,10 @@ class AnimatedCurler:
         ld = (1.0 - self.delivery_progress) * -190 if self.state == "LUNGING" else 0
 
         if not hasattr(self, "shadow_surf"):
-            self.shadow_surf = pygame.Surface((500, 500), pygame.SRCALPHA).convert_alpha()
+            self.shadow_surf = pygame.Surface((240, 320), pygame.SRCALPHA).convert_alpha()
         self.shadow_surf.fill((0, 0, 0, 0))
-        self._draw_char_geometry(self.shadow_surf, 250, 250, oy, ld, (0, 0, 0, 100), is_evil)
-        surface.blit(self.shadow_surf, (self.hack_pos.x + 18 - 250, self.hack_pos.y + 18 - 250))
+        self._draw_char_geometry(self.shadow_surf, 120, 160, oy, ld, (0, 0, 0, 100), is_evil)
+        surface.blit(self.shadow_surf, (self.hack_pos.x + 18 - 120, self.hack_pos.y + 18 - 160))
 
         self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
 
@@ -2738,7 +2740,7 @@ class WinCurl3:
         if getattr(self, "is_web", False):
             self.canvas = self.screen
         else:
-            if hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ or 'ANDROID_BOOTLOGO' in os.environ:
+            if IS_ANDROID:
                 self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), depth=32, masks=(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000))
             else:
                 self.canvas = pygame.Surface((BASE_WIDTH, BASE_HEIGHT)).convert()
@@ -2899,9 +2901,7 @@ class WinCurl3:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             if self.is_fullscreen:
-                modes = pygame.display.list_modes()
-                best_mode = modes[0] if modes else (0, 0)
-                self.screen = pygame.display.set_mode(best_mode, pygame.FULLSCREEN | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
             else:
                 info = pygame.display.Info()
                 desk_h = info.current_h
@@ -3261,13 +3261,14 @@ class WinCurl3:
         self.stones_per_team = 8
         self.stones = []
         self.stones_thrown = {0: 0, 1: 0}
+        self.parallax_y = 0.0
+        self.parallax_x = 0.0
+        self._coin_bg_cache = None
 
     def start_match(self):
         self.reset_match()
         if hasattr(self, "end_delay_timer"):
             del self.end_delay_timer
-        self.parallax_y = 1000.0  # mode 7 slide in
-        self.parallax_x = 0.0
         if self.game_mode == "CHALLENGE":
             self.app_state = "PLAY"
             self.challenge_attempts = 0
@@ -5127,12 +5128,13 @@ class WinCurl3:
         self.draw_global_ui()
 
     def draw_coin_toss_screen(self):
-        if getattr(self, "_coin_bg_cache", None) is None:
+        py = getattr(self, "parallax_y", 0)
+        if py > 0.1 or getattr(self, "_coin_bg_cache", None) is None:
             self.draw_ice()
-            self.canvas.blit(self.dark_overlay_150, (0, 0))
-            self._coin_bg_cache = self.canvas.copy().convert()
+            self.canvas.blit(self.get_dark_overlay(150), (0, 0))
+            if py <= 0.1:
+                self._coin_bg_cache = self.canvas.copy().convert()
         else:
-            self.canvas.fill((0, 0, 0))
             self.canvas.blit(self._coin_bg_cache, (0, 0))
             
         cx, cy, t = BASE_WIDTH // 2, 250, 120 - self.coin_timer
@@ -5186,8 +5188,11 @@ class WinCurl3:
         pygame.draw.rect(surface, color, (x + 12, y + 2, 2, 2))
 
     def draw_ice(self):
-        self.canvas.fill((10, 12, 16))
-        self.canvas.blit(self.static_ice_surface, (int(getattr(self, "parallax_x", 0)), int(getattr(self, "parallax_y", 0))))
+        px = int(getattr(self, "parallax_x", 0))
+        py = int(getattr(self, "parallax_y", 0))
+        if py > 0 or px != 0:
+            self.canvas.fill((10, 12, 16))
+        self.canvas.blit(self.static_ice_surface, (px, py))
 
         t = pygame.time.get_ticks()
         if not IS_ANDROID:
@@ -5625,22 +5630,26 @@ class WinCurl3:
                 txt = "END COMPLETE"
 
             img_txt = self.font.render(txt, True, WHITE)
+            if self.app_state == "PAUSED":
+                img_txt.set_alpha(30)
             self.canvas.blit(img_txt, (BASE_WIDTH // 2 - img_txt.get_width() // 2, BASE_HEIGHT // 2 - 50))
-            draw_glass_rect(
-                self.canvas,
-                self.btn_next_end,
-                PURPLE_SUIT,
-                self.btn_next_end.h // 2,
-                self.btn_next_end.collidepoint(m_pos.x, m_pos.y),
-            )
 
-            btn_txt = (
-                "NEXT"
-                if self.game_mode == "CHALLENGE" and (getattr(self, "challenge_success", False) or self.challenge_attempts >= 3)
-                else "RETRY" if self.game_mode == "CHALLENGE" else "ADVANCE MATCH"
-            )
-            lbl = self.small_font.render(btn_txt, True, WHITE)
-            self.canvas.blit(lbl, lbl.get_rect(center=self.btn_next_end.center))
+            if self.app_state != "PAUSED":
+                draw_glass_rect(
+                    self.canvas,
+                    self.btn_next_end,
+                    PURPLE_SUIT,
+                    self.btn_next_end.h // 2,
+                    self.btn_next_end.collidepoint(m_pos.x, m_pos.y),
+                )
+    
+                btn_txt = (
+                    "NEXT"
+                    if self.game_mode == "CHALLENGE" and (getattr(self, "challenge_success", False) or self.challenge_attempts >= 3)
+                    else "RETRY" if self.game_mode == "CHALLENGE" else "ADVANCE MATCH"
+                )
+                lbl = self.small_font.render(btn_txt, True, WHITE)
+                self.canvas.blit(lbl, lbl.get_rect(center=self.btn_next_end.center))
 
         self.draw_global_ui()
 
@@ -6309,6 +6318,9 @@ class WinCurl3:
                     [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
                     is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
                     self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
+                    
+                    if getattr(self, "_prev_app_state", None) == "PLAY":
+                        self.draw_ui()
                     
                     if not hasattr(self, "pause_grey_overlay"):
                         self.pause_grey_overlay = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
