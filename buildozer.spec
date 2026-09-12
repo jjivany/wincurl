@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
 source.exclude_patterns = setup.py, *_test.py, test_*.py, test_*.js, *.apk
 source.exclude_dirs = wincurl_web, bin, wincurl_build_clean, scripts, .venv, build, dist, AI generated games, __pycache__, .git
-version = 1.2.2
+version = 1.2.3
 # (str) Icon of the application
 icon.filename = icon.png
 
@@ -31,4 +31,4 @@ ios.ios_deploy_branch = 1.12.2
 
 [buildozer]
 log_level = 2
-android.numeric_version = 1.2.2
+android.numeric_version = 1.2.3

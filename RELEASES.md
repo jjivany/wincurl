@@ -1,6 +1,6 @@
 # WinCurl Releases History
 
-## Build 124 (Revision 4 - Hotfix) 💍
+## Build 123 (Revision 4) 💍
 
 - **Critical Lockup Fix:** Addressed a severe bug introduced in Revision 3 (Build 123) that caused the game to completely lock up (freeze) immediately upon clicking "New Match" or completing the first Story Mode cutscene. This was due to a typo in a surface reference when transitioning to the `COIN_TOSS` state, which silently crashed the Android render thread.
 - **AI Personalities:** Story Mode AI opponents now have distinct playstyles and difficulties based on their character (e.g., aggressive, defensive, balanced).

@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 124 💍"
+VERSION = "3.0 Build 123 Revision 4 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -4027,7 +4027,7 @@ class WinCurl3:
                 snap = self.current_throw_buffer[self.replay_frame]
                 for i, s_data in enumerate(snap):
                     if i < len(self.stones):
-                        self.stones[i].pos = s_data["pos"].copy()
+                        self.stones[i].pos = pygame.math.Vector2(s_data["pos"])
                         self.stones[i].team = s_data["team"]
                         self.stones[i].is_moving = s_data["is_moving"]
                 self.replay_frame += 1
@@ -4068,7 +4068,7 @@ class WinCurl3:
 
             if not hasattr(self, "current_throw_buffer"):
                 self.current_throw_buffer = []
-            snap = [{"pos": s.pos.copy(), "team": s.team, "is_moving": s.is_moving} for s in self.stones]
+            snap = [{"pos": pygame.math.Vector2(s.pos), "team": s.team, "is_moving": s.is_moving} for s in self.stones]
             self.current_throw_buffer.append(snap)
 
             if self.is_sweeping_now:
