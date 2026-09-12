@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123 💍"
+VERSION = "3.0 Build 124 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -2210,6 +2210,7 @@ STORY_RINKS = [
             "Executive decision!",
         ],
         "difficulty": 3,
+        "personality": "aggressive",
     },
     {
         "name": "Crypto Mine Rink",
@@ -2251,6 +2252,7 @@ STORY_RINKS = [
             "Market cap exceeded!",
         ],
         "difficulty": 5,
+        "personality": "balanced",
     },
     {
         "name": "Social Media Hub",
@@ -2292,6 +2294,7 @@ STORY_RINKS = [
             "Getting demonetized!",
         ],
         "difficulty": 6,
+        "personality": "defensive",
     },
     {
         "name": "AI Startup Arena",
@@ -2332,6 +2335,7 @@ STORY_RINKS = [
             "You need more training data!",
         ],
         "difficulty": 7,
+        "personality": "aggressive",
     },
     {
         "name": "Metaverse Dome",
@@ -2372,6 +2376,7 @@ STORY_RINKS = [
             "Bandwidth throttled!",
         ],
         "difficulty": 8,
+        "personality": "defensive",
     },
     {
         "name": "Big Data Complex",
@@ -2412,6 +2417,7 @@ STORY_RINKS = [
             "Ransomware activated!",
         ],
         "difficulty": 9,
+        "personality": "balanced",
     },
     {
         "name": "Cloud Host Club",
@@ -3231,6 +3237,8 @@ class WinCurl3:
         self.turn_state = "AIMING"
         self.is_dragging = False
         self.virtual_pull = pygame.math.Vector2(0, 0)
+        self.current_throw_buffer = []
+        self.is_replaying = False
         self.selected_curl = 0.0
         self.sweep_power = 0.0
         self.is_sweeping_now = False
@@ -3390,6 +3398,19 @@ class WinCurl3:
         err_mult = max(0.01, 3.0 - ((diff - 1) * 0.40))
         takeout_chance = min(0.95, (diff - 1) * 0.12)
         guard_chance = min(0.85, 0.15 + (diff - 1) * 0.10)
+        
+        personality = "balanced"
+        if getattr(self, "story", None):
+            rink_idx = min(getattr(self.story, "current_rink", 0), len(STORY_RINKS) - 1)
+            personality = STORY_RINKS[rink_idx].get("personality", "balanced")
+            
+        if personality == "aggressive":
+            takeout_chance = min(0.95, takeout_chance + 0.3)
+            guard_chance = max(0.1, guard_chance - 0.2)
+        elif personality == "defensive":
+            guard_chance = min(0.95, guard_chance + 0.3)
+            takeout_chance = max(0.1, takeout_chance - 0.2)
+            
         params = {"error_multiplier": err_mult, "takeout_chance": takeout_chance, "guard_chance": guard_chance}
 
         if not hasattr(self, "ai_wait_start"):
@@ -4001,6 +4022,20 @@ class WinCurl3:
                     self.selected_curl = max(-1.0, min(1.0, self.selected_curl + event.dx * 3.0))
 
     def update_physics(self):
+        if getattr(self, "turn_state", "") == "REPLAY":
+            if hasattr(self, "current_throw_buffer") and self.current_throw_buffer and getattr(self, "replay_frame", 0) < len(self.current_throw_buffer):
+                snap = self.current_throw_buffer[self.replay_frame]
+                for i, s_data in enumerate(snap):
+                    if i < len(self.stones):
+                        self.stones[i].pos = s_data["pos"].copy()
+                        self.stones[i].team = s_data["team"]
+                        self.stones[i].is_moving = s_data["is_moving"]
+                self.replay_frame += 1
+                return
+            else:
+                self.turn_state = "END"
+                return
+
         for p in self.particles[:]:
             p["pos"] += p["vel"]
             p["life"] -= p["decay"]
@@ -4030,6 +4065,11 @@ class WinCurl3:
             is_sweeping = is_mouse_pressed and can_sweep_legally
             delta = (mouse_pos - self.last_mouse_pos).length()
             self.is_sweeping_now = is_sweeping
+
+            if not hasattr(self, "current_throw_buffer"):
+                self.current_throw_buffer = []
+            snap = [{"pos": s.pos.copy(), "team": s.team, "is_moving": s.is_moving} for s in self.stones]
+            self.current_throw_buffer.append(snap)
 
             if self.is_sweeping_now:
                 if delta > 4:
@@ -4163,7 +4203,12 @@ class WinCurl3:
                             )
                         elif self.c_type == "DOUBLE":
                             self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0
-                        self.turn_state = "END"
+                        
+                        if hasattr(self, "current_throw_buffer") and len(self.current_throw_buffer) > 0:
+                            self.turn_state = "REPLAY"
+                            self.replay_frame = 0
+                        else:
+                            self.turn_state = "END"
                 else:
                     if self.stones_thrown[0] >= self.stones_per_team and self.stones_thrown[1] >= self.stones_per_team:
                         in_house = [
@@ -4178,7 +4223,12 @@ class WinCurl3:
                             if pts > 0:
                                 self.score[winner][self.current_end - 1] = pts
                                 self.hammer_team = 0 if winner == 1 else 1
-                        self.turn_state = "END"
+                        
+                        if hasattr(self, "current_throw_buffer") and len(self.current_throw_buffer) > 0:
+                            self.turn_state = "REPLAY"
+                            self.replay_frame = 0
+                        else:
+                            self.turn_state = "END"
                     else:
                         self.current_team = 1 if self.current_team == 0 else 0
                         self.turn_state = "AIMING"
@@ -5131,7 +5181,7 @@ class WinCurl3:
         py = getattr(self, "parallax_y", 0)
         if py > 0.1 or getattr(self, "_coin_bg_cache", None) is None:
             self.draw_ice()
-            self.canvas.blit(self.get_dark_overlay(150), (0, 0))
+            self.canvas.blit(self.dark_overlay_150, (0, 0))
             if py <= 0.1:
                 self._coin_bg_cache = self.canvas.copy().convert()
         else:
@@ -5618,6 +5668,13 @@ class WinCurl3:
                 rotated_broom = getattr(self, "broom_cache", {}).get(angle_int, self.broom_surf)
                 b_rect = rotated_broom.get_rect(center=(m_pos.x, m_pos.y - 120))
                 self.canvas.blit(rotated_broom, b_rect.topleft)
+
+        elif self.turn_state == "REPLAY":
+            if (pygame.time.get_ticks() // 200) % 2 == 0:
+                txt = "HIGHLIGHT REPLAY"
+                lbl = self.font.render(txt, True, (255, 50, 50))
+                lbl_rect = lbl.get_rect(center=(BASE_WIDTH // 2, 80))
+                self.canvas.blit(lbl, lbl_rect)
 
         elif self.turn_state == "END":
             self.canvas.blit(self.dark_overlay_200, (0, 0))
