@@ -86,7 +86,10 @@ jobs:
         run: |
           cp main.py icon.png sc_driver.py sc_haptics.py portraits_data.py wincurl_web/
           pygbag --build wincurl_web
-          sed -i "s/if platform.window.location.host.find('.itch.zone')>0:/if True:/g" wincurl_web/build/web/index.html
+          cd wincurl_web/build/web
+          rm -f wincurl_web.tar.gz
+          mv wincurl_web.apk wincurl_web.data
+          sed -i 's/wincurl_web\.apk/wincurl_web.data/g' index.html
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
