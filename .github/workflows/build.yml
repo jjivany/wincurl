@@ -119,7 +119,11 @@ jobs:
         run: |
           sed -i '' 's/requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer,pyjnius/requirements = python3,sdl2,sdl2_image,sdl2_mixer,sdl2_ttf,pygame,plyer/' buildozer.spec
       - name: Build with Buildozer
-        run: buildozer ios debug
+        run: |
+          buildozer ios debug
+          mkdir -p bin Payload
+          cp -r .buildozer/ios/platform/kivy-ios/wincurl3-ios/build/Debug-iphoneos/wincurl3.app Payload/
+          zip -qr bin/wincurl-ios.ipa Payload
       - name: Upload iOS Binary
         uses: actions/upload-artifact@v4
         with:
