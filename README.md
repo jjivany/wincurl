@@ -43,7 +43,7 @@ WinCurl 3 has **native support** for both the original Steam Controller and the 
 
 It uses the [steamcontroller-haptics](https://pypi.org/project/steamcontroller-haptics/) library to provide incredibly low-latency haptic feedback, including cursor clicks, UI hover effects, and physics-based collision rumbles, while allowing the controller to remain in standard OS Lizard Mode.
 
-**Linux / Arch Linux users:**
+**Arch Linux users:**
 You no longer need `python-libusb1`. Simply ensure you have the `steamcontroller-haptics` library installed:
 ```bash
 pip install steamcontroller-haptics
