@@ -5,7 +5,7 @@ package.domain = org.jason.wincurl
 source.dir = .
 source.include_exts = py,png,jpg,ttf,json,wav,ogg
 source.exclude_patterns = setup.py, *_test.py, test_*.py, test_*.js, *.apk
-source.exclude_dirs = wincurl_web, bin, wincurl_build_clean, scripts, .venv, build, dist, AI generated games, __pycache__, .git
+source.exclude_dirs = wincurl_web, bin, wincurl_build_clean, scripts, .venv, build, dist, AI generated games, __pycache__, .git, Android, itch_deploy, .buildozer, .github, scratch, node_modules
 version = 1.2.3
 # (str) Icon of the application
 icon.filename = icon.png
