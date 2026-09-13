@@ -18,8 +18,8 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123, Revision 9 💍"
-GAME_TITLE = f"WinCurl {VERSION}"
+VERSION = "3.0 Build 123, Revision 8 ☮"
+GAME_TITLE = "WinCurl 3.0 Build 123"
 
 
 class CachedFont:
@@ -2841,7 +2841,8 @@ class WinCurl3:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             if self.is_fullscreen:
-                self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
+                info = pygame.display.Info()
+                self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN | pygame.DOUBLEBUF)
             else:
                 info = pygame.display.Info()
                 desk_h = info.current_h
