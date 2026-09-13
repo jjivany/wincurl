@@ -4,7 +4,7 @@ WinCurl 3 is a Python-based curling simulation built with Pygame. It offers a ph
 
 ## 📋 Overview
 
-"WinCurl" is a modern curling game featuring realistic physics, network matchmaking, and a clean, responsive UI with procedural graphics and 2D pixel art cutscenes.
+"WinCurl 3" is a modern curling game featuring realistic physics, network matchmaking, and a clean, responsive UI with procedural graphics and 2D pixel art cutscenes.
 
 ## 🚀 Features
 
