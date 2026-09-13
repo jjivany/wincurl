@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123 Revision 5 💍"
+VERSION = "3.0 Build 123 Revision 6 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -6000,7 +6000,7 @@ class WinCurl3:
             if not getattr(self, "is_web", False):
                 if not getattr(self, "is_headless", False):
                     if IS_ANDROID:
-                        ms_passed = self.clock.tick(FPS)
+                        ms_passed = self.clock.tick(0)
                     else:
                         ms_passed = self.clock.tick_busy_loop(FPS)
                 else:

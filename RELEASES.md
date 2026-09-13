@@ -1,5 +1,10 @@
 # WinCurl Releases History
 
+## Build 123 (Revision 6) 💍
+
+- **Universal APK Harmonization:** We have harmonized what used to be two separate downloads (64-bit and 32-bit legacy) into a single, unified Android file. This single APK automatically runs at peak efficiency on both modern and older legacy devices.
+- **Uncapped GL Performance:** Removed the Pygame software framerate limit (`clock.tick(60)`) on Android. The game now relies entirely on native hardware VSync, allowing it to run at the absolute maximum refresh rate of your display (e.g., 90Hz, 120Hz, or 144Hz) for buttery-smooth rendering without frame pacing stutters.
+
 ## Build 123 (Revision 5) 💍
 
 - **Replay System Disabled:** Removed the "action replay" feature at the end of ends and matches, as it was causing glitches and breaking the bot mode simulation.
