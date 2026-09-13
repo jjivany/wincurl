@@ -117,7 +117,7 @@ jobs:
           pip install buildozer cython virtualenv kivy-ios sh pbxproj cookiecutter
       - name: Configure buildozer.spec for iOS
         run: |
-          sed -i '' 's/requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer,pyjnius/requirements = python3,pygame,plyer/' buildozer.spec
+          sed -i '' 's/requirements = python3==3.10.14,hostpython3==3.10.14,pygame,plyer,pyjnius/requirements = python3,sdl2,sdl2_image,sdl2_mixer,sdl2_ttf,pygame,plyer/' buildozer.spec
       - name: Build with Buildozer
         run: buildozer ios debug
       - name: Upload iOS Binary
