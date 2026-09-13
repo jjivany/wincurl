@@ -139,7 +139,7 @@ jobs:
           npm init -y
           npm install @capacitor/cli @capacitor/core @capacitor/ios
           npx cap init WinCurl org.jason.wincurl --web-dir wincurl_web/build/web
-          npx cap add ios
+          npx cap add ios --packagemanager SPM
           npx cap sync ios
       - name: Build iOS App
         run: |
