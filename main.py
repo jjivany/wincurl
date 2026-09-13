@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123, Revision 9"
+VERSION = "3.0 Build 123, Final Revision"
 GAME_TITLE = "WinCurl 3, build 123"
 
 
@@ -2096,7 +2096,7 @@ class AnimatedCurler:
             oy = q_prog * 70 if self.state == "BACKSWING" else 0
             ld = (1.0 - q_prog) * -190 if self.state == "LUNGING" else 0
 
-            frame_surf = pygame.Surface((240, 320), pygame.SRCALPHA).convert_alpha()
+            frame_surf = pygame.Surface((240, 450), pygame.SRCALPHA).convert_alpha()
             frame_surf.fill((0, 0, 0, 0))
             
             # Shadow

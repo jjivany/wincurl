@@ -1,5 +1,8 @@
 # WinCurl Releases History
 
+## Build 123 (Final Revision) 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
+- **Animation Fix:** Fixed a rendering issue on mobile where the curler's legs were getting cut off at the bottom of the screen during the throwing animation!
+
 ## Build 123 (Revision 9) 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
 - **Web Build Fixes:** Fixed a critical bug causing the game to fail to load on Itch.io CDNs.
 - **Hair Customization:** The in-game curler animation now perfectly reflects your chosen hair length and style!
