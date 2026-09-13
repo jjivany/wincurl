@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123 Revision 7 💍"
+VERSION = "3.0 Build 123, Revision 8 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -1975,14 +1975,14 @@ class AnimatedCurler:
                         hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
                     pygame.draw.polygon(surface, hair_color, hair_poly)
                 
-                # Always draw the toque over the hair
-                hat_rw, hat_rh = head_rw + 2, head_rh + 2
+                # Always draw the toque over the hair, sitting higher so hair is visible
+                hat_rw, hat_rh = head_rw + 1, head_rh - 2
                 hat_shade = (max(0, self.tc[0]-60), max(0, self.tc[1]-60), max(0, self.tc[2]-60))
-                pygame.draw.ellipse(surface, hat_shade, (cx - hat_rw, cy - head_rh - 4, hat_rw*2, hat_rh*2))
-                pygame.draw.ellipse(surface, self.tc, (cx - hat_rw + 1, cy - head_rh - 3, hat_rw*2 - 2, hat_rh*2 - 2))
-                pygame.draw.rect(surface, hat_shade, (cx - hat_rw - 1, cy - head_rh + 6, hat_rw*2 + 2, 8), border_radius=2)
-                pygame.draw.rect(surface, self.tc, (cx - hat_rw, cy - head_rh + 7, hat_rw*2, 6), border_radius=2)
-                pygame.draw.circle(surface, (180, 180, 180), (cx, cy - head_rh - 6), 7)
+                pygame.draw.ellipse(surface, hat_shade, (cx - hat_rw, cy - head_rh - 8, hat_rw*2, hat_rh*2))
+                pygame.draw.ellipse(surface, self.tc, (cx - hat_rw + 1, cy - head_rh - 7, hat_rw*2 - 2, hat_rh*2 - 2))
+                pygame.draw.rect(surface, hat_shade, (cx - hat_rw - 1, cy - 4, hat_rw*2 + 2, 8), border_radius=2)
+                pygame.draw.rect(surface, self.tc, (cx - hat_rw, cy - 3, hat_rw*2, 6), border_radius=2)
+                pygame.draw.circle(surface, (180, 180, 180), (cx, cy - head_rh - 8), 7)
             else:
                 pygame.draw.ellipse(surface, c((80, 50, 30)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
@@ -2729,8 +2729,9 @@ class WinCurl3:
         self.curler_anim = AnimatedCurler(self.hack_pos)
         self.starfield = Starfield(count=50 if IS_ANDROID else 150)
         if self.is_4k:
-            self.border_starfield = Starfield(count=400, max_w=4000, max_h=4000)
-
+            dsurf = pygame.display.get_surface()
+            sw, sh = dsurf.get_size() if dsurf else (4000, 4000)
+            self.border_starfield = Starfield(count=400, max_w=sw, max_h=sh)
         self.game_mode = "LOCAL"
         self.stones_per_team = 8
         self.challenge_level = 1
