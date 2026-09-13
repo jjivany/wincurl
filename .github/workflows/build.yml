@@ -103,25 +103,51 @@ jobs:
           path: wincurl_web/build/web/
 
   build-ios:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Install dependencies
+          python-version: '3.12'
+      - name: Install pygbag and pygame
+        run: pip install pygbag==0.8.5 pygame-ce ffmpeg-python
+      - name: Synthesize Web Assets
         run: |
-          brew install autoconf automake libtool pkg-config
-          python -m pip install --upgrade pip
-          pip install cython buildozer sh pbxproj cookiecutter Pillow
-      - name: Build with Buildozer
-        run: buildozer ios debug
-      - name: Package IPA
+          brew install ffmpeg
+          python generate_web_assets.py
+      - name: Build WebAssembly
         run: |
-          mkdir -p dist/Payload
-          cp -r .buildozer/ios/platform/kivy-ios/wincurl-ios/build/Release-iphonesimulator/wincurl.app dist/Payload/ 2>/dev/null || cp -r .buildozer/ios/platform/kivy-ios/wincurl-ios/build/Release-iphoneos/wincurl.app dist/Payload/ 2>/dev/null || cp -r wincurl-ios/build/Release-iphoneos/wincurl.app dist/Payload/ || echo "App not found"
-          cd dist
+          cp main.py icon.png sc_driver.py wincurl_web/
+          pygbag --build wincurl_web
+          cd wincurl_web/build/web
+          rm -f wincurl_web.tar.gz
+          mv wincurl_web.apk wincurl_web.data
+          python3 -c "
+          with open('index.html', 'r') as f: code = f.read()
+          code = code.replace('wincurl_web.apk', 'wincurl_web.data')
+          code = code.replace('if platform.window.location.host.find(\'.itch.zone\')>0:', 'if True:')
+          code = code.replace('async defer', '')
+          with open('index.html', 'w') as f: f.write(code)
+          "
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Create iOS Wrapper with Capacitor
+        run: |
+          npm init -y
+          npm install @capacitor/cli @capacitor/core @capacitor/ios
+          npx cap init WinCurl org.jason.wincurl --web-dir wincurl_web/build/web
+          npx cap add ios
+          npx cap sync ios
+      - name: Build iOS App
+        run: |
+          cd ios/App
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+          mkdir -p ../../dist/Payload
+          cp -r build/Release-iphoneos/App.app ../../dist/Payload/wincurl.app || cp -r build/Release-iphonesimulator/App.app ../../dist/Payload/wincurl.app || echo "App not found"
+          cd ../../dist
           zip -r wincurl-ios.ipa Payload/
       - name: Upload iOS Binary
         uses: actions/upload-artifact@v4
