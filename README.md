@@ -12,7 +12,7 @@ WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a 
 - 🌐 **Global Multiplayer**: Built-in network matchmaking for online competitive play.
 - 🎨 **Modern Visuals**: A responsive UI featuring glassmorphism, procedural graphics, and 2D pixel art.
 - 🎶 **Procedural Phonk Audio**: An insanely fast, non-blocking audio engine that bumps custom synthesized beats while keeping the gameplay buttery smooth!
-- 📱 **Cross-Platform**: Playable on desktop and Android devices.
+- 📱 **Cross-Platform**: Playable on desktop and mobile devices.
 
 ## 🛠 Technology Stack
 
