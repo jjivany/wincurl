@@ -1,5 +1,9 @@
 # WinCurl Releases History
 
+## Build 123 (Revision 5) 💍
+
+- **Replay System Disabled:** Removed the "action replay" feature at the end of ends and matches, as it was causing glitches and breaking the bot mode simulation.
+
 ## Build 123 (Revision 4) 💍
 
 - **Critical Lockup Fix:** Addressed a severe bug introduced in Revision 3 (Build 123) that caused the game to completely lock up (freeze) immediately upon clicking "New Match" or completing the first Story Mode cutscene. This was due to a typo in a surface reference when transitioning to the `COIN_TOSS` state, which silently crashed the Android render thread.
