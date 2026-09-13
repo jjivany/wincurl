@@ -18,8 +18,8 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123, Revision 8 ☮"
-GAME_TITLE = "WinCurl 3.0 Build 123"
+VERSION = "3.0 Build 123, Revision 9"
+GAME_TITLE = "WinCurl 3, build 123"
 
 
 class CachedFont:
@@ -1966,14 +1966,40 @@ class AnimatedCurler:
                 style = getattr(self, "hair_style", "short")
                 if str(style) != "bald":
                     hair_poly = []
-                    for angle in range(0, 361, 10):
-                        rad = math.radians(angle)
-                        base_r = head_rw * 1.05
-                        if str(style) == "short": r = base_r + 3
-                        elif str(style) == "long": r = base_r + (14 * math.sin(rad) if 0 <= angle <= 180 else 0)
-                        else: r = base_r
-                        hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
-                    pygame.draw.polygon(surface, hair_color, hair_poly)
+                    if str(style) == "short":
+                        for angle in range(0, 361, 15):
+                            rad = math.radians(angle)
+                            r = head_rw * 1.05 + (4 if angle % 30 == 0 else 1)
+                            hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
+                        pygame.draw.polygon(surface, hair_color, hair_poly)
+                        dark_hair = (max(0, hair_color[0]-30), max(0, hair_color[1]-30), max(0, hair_color[2]-30))
+                        pygame.draw.lines(surface, dark_hair, False, [(cx-6, cy-8), (cx-4, cy-12), (cx, cy-10)], 2)
+                        pygame.draw.lines(surface, dark_hair, False, [(cx+4, cy-12), (cx+6, cy-8)], 2)
+                    elif str(style) == "long":
+                        for angle in range(180, 361, 15):
+                            rad = math.radians(angle)
+                            r = head_rw * 1.1
+                            hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
+                        hair_poly.extend([
+                            (cx + head_rw * 1.5, cy + 15),
+                            (cx + head_rw * 1.2, cy + 30),
+                            (cx + 5, cy + 20),
+                            (cx, cy + 40),
+                            (cx - 5, cy + 20),
+                            (cx - head_rw * 1.2, cy + 30),
+                            (cx - head_rw * 1.5, cy + 15)
+                        ])
+                        pygame.draw.polygon(surface, hair_color, hair_poly)
+                        dark_hair = (max(0, hair_color[0]-40), max(0, hair_color[1]-40), max(0, hair_color[2]-40))
+                        pygame.draw.lines(surface, dark_hair, False, [(cx+head_rw, cy), (cx+head_rw*1.2, cy+25)], 2)
+                        pygame.draw.lines(surface, dark_hair, False, [(cx, cy+5), (cx, cy+35)], 2)
+                        pygame.draw.lines(surface, dark_hair, False, [(cx-head_rw, cy), (cx-head_rw*1.2, cy+25)], 2)
+                    else:
+                        for angle in range(0, 361, 10):
+                            rad = math.radians(angle)
+                            r = head_rw * 1.05
+                            hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
+                        pygame.draw.polygon(surface, hair_color, hair_poly)
                 
                 # Always draw the toque over the hair, sitting higher so hair is visible
                 hat_rw, hat_rh = head_rw + 1, head_rh - 2
@@ -2597,7 +2623,7 @@ class WinCurl3:
 
         pygame.display.init()
         gm = getattr(self, "game_mode", "MENU")
-        pygame.display.set_caption(f"WinCurl {VERSION}{'' if gm == 'MENU' else ' - ' + gm}")
+        pygame.display.set_caption(f"{GAME_TITLE}{'' if gm == 'MENU' else ' - ' + gm}")
 
         info = pygame.display.Info()
 
@@ -3802,7 +3828,7 @@ class WinCurl3:
                 self.app_state = "PLAY"
             elif self.btn_options_pause.collidepoint(mx, my):
                 self.audio.play_click()
-                self.app_state = "MENU"
+                self.app_state = "OPTIONS_MENU"
                 self.prev_state = "PAUSED"
             elif self.btn_save_quit.collidepoint(mx, my) and self.game_mode not in ["HOST", "JOIN", "CHALLENGE"]:
                 self.audio.play_click()
@@ -4696,8 +4722,15 @@ class WinCurl3:
                     scale = (rect.w - 40) / img.get_width()
                     img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
                 self.canvas.blit(img, img.get_rect(center=rect.center))
-                if btn["id"] == "back":
-                    self.draw_back_icon(self.canvas, rect.x + 30, rect.centery - 10)
+
+            if btn["id"] == "back":
+                self.draw_back_icon(self.canvas, rect.x + 30, rect.centery - 10)
+
+        if getattr(self, "curler_anim", None):
+            self.curler_anim.hair_style = getattr(self, "hair_style", "short")
+            self.curler_anim.hair_color = getattr(self, "hair_color", 0)
+            team_color = TEAM_YELLOW if getattr(self, "preferred_color", 0) else HOUSE_RED
+            self.curler_anim.render_portrait(self.canvas, 960, 420 + getattr(self, "menu_dy", 0), 240, team_color, is_evil=False)
 
         self.draw_global_ui()
 
@@ -6294,6 +6327,8 @@ class WinCurl3:
                 self.draw_ice()
                 [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
                 is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
+                self.curler_anim.hair_style = getattr(self, "hair_style", "short")
+                self.curler_anim.hair_color = getattr(self, "hair_color", 0)
                 self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
                 self.draw_ui()
             elif self.app_state == "PAUSED":
@@ -6301,6 +6336,8 @@ class WinCurl3:
                     self.draw_ice()
                     [s.draw(self.canvas, getattr(self, "parallax_x", 0), getattr(self, "parallax_y", 0)) for s in self.stones]
                     is_evil = self.game_mode == "STORY" and self.current_team != getattr(self, "preferred_color", 0)
+                    self.curler_anim.hair_style = getattr(self, "hair_style", "short")
+                    self.curler_anim.hair_color = getattr(self, "hair_color", 0)
                     self.curler_anim.draw(self.canvas, HOUSE_RED if self.current_team == 0 else TEAM_YELLOW, is_evil=is_evil)
                     
                     if getattr(self, "_prev_app_state", None) == "PLAY":

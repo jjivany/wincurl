@@ -1,27 +1,37 @@
 # WinCurl Releases History
 
-## Build 123 (Revision 6) 💍
+## Build 123 (Revision 9) 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
+- **Web Build Fixes:** Fixed a critical bug causing the game to fail to load on Itch.io CDNs.
+- **Hair Customization:** The in-game curler animation now perfectly reflects your chosen hair length and style!
+- **Options Preview:** Character customization choices are now instantly previewed in the Options Menu! 
+- **Menu Navigation:** Fixed an issue where clicking Options from the pause menu incorrectly directed to the Main Menu.
+
+## Build 123 (Revision 8)
+- **Game Customization:** Corrected the UI option handling so characters inside the game use the selected hair style and colour.
+- **Window Title:** Cleaned up the window title formatting and removed emojis.
+
+## Build 123 (Revision 6)
 
 - **Universal APK Harmonization:** We have harmonized what used to be two separate downloads (64-bit and 32-bit legacy) into a single, unified Android file. This single APK automatically runs at peak efficiency on both modern and older legacy devices.
 - **Uncapped GL Performance:** Removed the Pygame software framerate limit (`clock.tick(60)`) on Android. The game now relies entirely on native hardware VSync, allowing it to run at the absolute maximum refresh rate of your display (e.g., 90Hz, 120Hz, or 144Hz) for buttery-smooth rendering without frame pacing stutters.
 
-## Build 123 (Revision 5) 💍
+## Build 123 (Revision 5)
 
 - **Replay System Disabled:** Removed the "action replay" feature at the end of ends and matches, as it was causing glitches and breaking the bot mode simulation.
 
-## Build 123 (Revision 4) 💍
+## Build 123 (Revision 4)
 
 - **Critical Lockup Fix:** Addressed a severe bug introduced in Revision 3 (Build 123) that caused the game to completely lock up (freeze) immediately upon clicking "New Match" or completing the first Story Mode cutscene. This was due to a typo in a surface reference when transitioning to the `COIN_TOSS` state, which silently crashed the Android render thread.
 - **AI Personalities:** Story Mode AI opponents now have distinct playstyles and difficulties based on their character (e.g., aggressive, defensive, balanced).
 - **Match Highlight Replays:** The very last stone of an end is now automatically recorded and played back seamlessly as a highlight replay, adding dramatic flair without slowing down the pacing of the rest of the game.
 
-## Build 123 (Revision 3) 💍
+## Build 123 (Revision 3)
 *Note: This should be the final revision to build 123.*
 
 - **Android GL Performance:** Enforced explicit matching of the native Android `ABGR8888` GL texture format in the Pygame-CE software canvas. This completely bypassed the heavy CPU-bound pixel conversions and effectively eliminated the Android framerate bottleneck, achieving peak performance.
 - **Full Screen Fix:** Added the missing `pygame.SCALED` flag when toggling full screen on desktop, ensuring the window correctly scales rather than awkwardly resizing.
 - **Story Mode Crash Fix:** Resolved an internal Pygame-CE crash on Android (`ValueError: width greater than radius`) triggered when completing the first match by safely rendering solid inner geometry for the trophies.
-- **Ring Emoji:** Added the ring emoji (💍) to the version identifier to commemorate the ring choice feature update.
+- **Ring Emoji:** Added the ring emoji to the version identifier to commemorate the ring choice feature update.
 
 ## Build 120 (Latest)
 
@@ -44,9 +54,10 @@ To put it bluntly: we have genocided all of the bugs in WinCurl 3, especially th
 
 ### Build 120 (Revision 1)
 - **IRC Matchmaking:** Replaced the legacy Dalnet IRC server with a newer, less laggy server (Rizon) for much faster and more reliable matchmaking connection speeds.
-- **Outer Rings 💎:** Re-styled the "Outer Rings" settings menu option to feature colored text and drop shadows for better contrast and legibility.
+- **Outer Rings:** Re-styled the "Outer Rings" settings menu option to feature colored text and drop shadows for better contrast and legibility.
 - **Android Heat Management:** Restructured the main game loop from a `tick_busy_loop` to a standard `tick` on Android to drastically reduce processor load and prevent thermal throttling.
 - **UI Enhancements:** Restored background rendering on the options menu that was occasionally being clipped, fixed head/hat aspect ratios for the character portrait, and added a green curling rock icon to the pause menu.
+
 ## Build 119
 - Initial optimizations for the Android build pipeline.
 - Gameplay balance tweaks for Story Mode.
