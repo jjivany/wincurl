@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123 Revision 4 💍"
+VERSION = "3.0 Build 123 Revision 5 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -4204,11 +4204,7 @@ class WinCurl3:
                         elif self.c_type == "DOUBLE":
                             self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0
                         
-                        if hasattr(self, "current_throw_buffer") and len(self.current_throw_buffer) > 0:
-                            self.turn_state = "REPLAY"
-                            self.replay_frame = 0
-                        else:
-                            self.turn_state = "END"
+                        self.turn_state = "END"
                 else:
                     if self.stones_thrown[0] >= self.stones_per_team and self.stones_thrown[1] >= self.stones_per_team:
                         in_house = [
@@ -4224,11 +4220,7 @@ class WinCurl3:
                                 self.score[winner][self.current_end - 1] = pts
                                 self.hammer_team = 0 if winner == 1 else 1
                         
-                        if hasattr(self, "current_throw_buffer") and len(self.current_throw_buffer) > 0:
-                            self.turn_state = "REPLAY"
-                            self.replay_frame = 0
-                        else:
-                            self.turn_state = "END"
+                        self.turn_state = "END"
                     else:
                         self.current_team = 1 if self.current_team == 0 else 0
                         self.turn_state = "AIMING"
