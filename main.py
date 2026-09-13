@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123, Revision 8 💍"
+VERSION = "3.0 Build 123, Revision 9 💍"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -1969,8 +1969,8 @@ class AnimatedCurler:
                     for angle in range(0, 361, 10):
                         rad = math.radians(angle)
                         base_r = head_rw * 1.05
-                        if str(style) == "short": r = base_r + (4 if angle % 20 == 0 else 0)
-                        elif str(style) == "long": r = base_r + (rng.uniform(4, 12) if 0 <= angle <= 180 else 0)
+                        if str(style) == "short": r = base_r + 3
+                        elif str(style) == "long": r = base_r + (14 * math.sin(rad) if 0 <= angle <= 180 else 0)
                         else: r = base_r
                         hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
                     pygame.draw.polygon(surface, hair_color, hair_poly)
