@@ -1,6 +1,6 @@
 # 🥌 WINCURL 3
 
-WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and online multiplayer capabilities.
+WinCurl 3 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and online multiplayer capabilities.
 
 ## 📋 Overview
 
@@ -39,7 +39,7 @@ WinCurl 3.0 is a Python-based curling simulation built with Pygame. It offers a 
 
 ### 🎮 Steam Controller Support
 
-WinCurl has **native support** for both the original Steam Controller and the new 2026 IBEX models!
+WinCurl 3 has **native support** for both the original Steam Controller and the new 2026 IBEX models!
 
 It uses the [steamcontroller-haptics](https://pypi.org/project/steamcontroller-haptics/) library to provide incredibly low-latency haptic feedback, including cursor clicks, UI hover effects, and physics-based collision rumbles, while allowing the controller to remain in standard OS Lizard Mode.
 
