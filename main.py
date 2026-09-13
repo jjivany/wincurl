@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123 Revision 6 💍"
+VERSION = "3.0 Build 123 Revision 7 🤖"
 GAME_TITLE = f"WinCurl {VERSION}"
 
 
@@ -1904,9 +1904,9 @@ class AnimatedCurler:
             mid_col = (max(0, color[0] - 20), max(0, color[1] - 20), max(0, color[2] - 20))
             hl_col = (min(255, color[0] + 80), min(255, color[1] + 80), min(255, color[2] + 80))
             pygame.draw.line(surf, shadow_col, start, end, width)
-            pygame.draw.line(surf, mid_col, start, end, max(2, width - 4))
-            pygame.draw.line(surf, color, start, end, max(1, width - 8))
-            pygame.draw.line(surf, hl_col, (start[0] - 2, start[1]), (end[0] - 2, end[1]), max(1, width - 12))
+            pygame.draw.line(surf, mid_col, start, end, max(2, width - int(width*0.25)))
+            pygame.draw.line(surf, color, start, end, max(1, width - int(width*0.5)))
+            pygame.draw.line(surf, hl_col, (start[0] - 1, start[1]), (end[0] - 1, end[1]), max(1, width - int(width*0.75)))
 
         def draw_cylinder_rect(surf, color, rect, border_radius=0):
             if override_color:
@@ -1915,247 +1915,181 @@ class AnimatedCurler:
             x, y, w, h = rect
             shadow_col = (max(0, color[0] - 60), max(0, color[1] - 60), max(0, color[2] - 60))
             hl_col = (min(255, color[0] + 50), min(255, color[1] + 50), min(255, color[2] + 50))
-
             pygame.draw.rect(surf, shadow_col, (x, y, w, h), border_radius=border_radius)
             if w > 8 and h > 4:
-                pygame.draw.rect(surf, color, (x + 4, y + 2, w - 8, h - 4), border_radius=max(0, border_radius - 2))
+                pygame.draw.rect(surf, color, (x + 3, y + 2, w - 6, h - 4), border_radius=max(0, border_radius - 2))
+                
+            # 90s FUNKADELIC PATTERN!
+            if w > 20 and h > 20:
+                import random
+                # Deterministic pattern based on color
+                rng = random.Random(color[0] + color[1] + color[2])
+                neon_1 = (255, 0, 255) # Hot Pink
+                neon_2 = (0, 255, 255) # Cyan
+                neon_3 = (255, 255, 0) # Neon Yellow
+                pats = [neon_1, neon_2, neon_3]
+                for _ in range(4):
+                    px = rng.randint(int(x + 5), int(x + w - 15))
+                    py = rng.randint(int(y + 5), int(y + h - 15))
+                    pw = rng.randint(10, 25)
+                    ph = rng.randint(10, 25)
+                    col = rng.choice(pats)
+                    shape_type = rng.randint(0, 1)
+                    if shape_type == 0:
+                        # Triangle
+                        pygame.draw.polygon(surf, col, [(px, py), (px + pw, py + ph//2), (px - pw//2, py + ph)])
+                    else:
+                        # Zig Zag / Polygon
+                        pygame.draw.polygon(surf, col, [(px, py), (px+pw//2, py-ph//2), (px+pw, py+ph//3), (px+pw//2, py+ph)])
+
             if w > 20 and h > 8:
-                pygame.draw.rect(surf, hl_col, (x + 10, y + 4, w // 2 - 6, h - 8), border_radius=max(0, border_radius - 4))
-                pygame.draw.rect(surf, color, (x + 14, y + 6, w // 2 - 12, h - 12), border_radius=max(0, border_radius - 6))
+                pygame.draw.rect(surf, hl_col, (x + int(w*0.2), y + 4, int(w*0.4), h - 8), border_radius=max(0, border_radius - 4))
 
         def head(ix, iy, is_evil=False):
-            cache_key = (self.tc, override_color, is_evil, getattr(self, "hair_style", 0), getattr(self, "hair_color", 0))
-            if cache_key not in AnimatedCurler._head_cache:
-                surf = pygame.Surface((60, 80), pygame.SRCALPHA)
-                cx, cy = 30, 40
+            cx, cy = int(ix), int(iy)
+            head_rw, head_rh = 14, 16
+            
+            skin_col = (230, 180, 150)
+            pygame.draw.ellipse(surface, c(skin_col), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
-                head_rw, head_rh = 18, 22
-                # Base skin tone
-                pygame.draw.ellipse(surf, c((240, 200, 180)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
+            if is_evil and not override_color:
+                pygame.draw.polygon(surface, (20, 20, 20), [(cx - head_rw, cy), (cx - head_rw - 10, cy - 6), (cx - head_rw, cy + 4)])
+                pygame.draw.polygon(surface, (20, 20, 20), [(cx + head_rw, cy), (cx + head_rw + 10, cy - 6), (cx + head_rw, cy + 4)])
 
-                if is_evil and not override_color:
-                    # Jagged Wario mustache sticking out the sides
-                    pygame.draw.polygon(
-                        surf,
-                        (20, 20, 20),
-                        [(cx - head_rw + 2, cy), (cx - head_rw - 8, cy - 8), (cx - head_rw - 2, cy + 6), (cx - head_rw - 12, cy)],
-                    )
-                    pygame.draw.polygon(
-                        surf,
-                        (20, 20, 20),
-                        [(cx + head_rw - 2, cy), (cx + head_rw + 8, cy - 8), (cx + head_rw + 2, cy + 6), (cx + head_rw + 12, cy)],
-                    )
+            if not override_color:
+                import math, random
+                rng = random.Random(self.tc[0] + self.tc[1])
+                
+                hc_idx = getattr(self, "hair_color", 0) % 6
+                colors = [(70, 40, 20), (220, 190, 90), (30, 30, 30), (180, 40, 40), (40, 40, 180), (40, 180, 40)]
+                hair_color = colors[hc_idx]
+                style = getattr(self, "hair_style", "short")
+                if str(style) != "bald":
+                    hair_poly = []
+                    for angle in range(0, 361, 10):
+                        rad = math.radians(angle)
+                        base_r = head_rw * 1.05
+                        if str(style) == "short": r = base_r + (4 if angle % 20 == 0 else 0)
+                        elif str(style) == "long": r = base_r + (rng.uniform(4, 12) if 0 <= angle <= 180 else 0)
+                        else: r = base_r
+                        hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
+                    pygame.draw.polygon(surface, hair_color, hair_poly)
+                
+                # Always draw the toque over the hair
+                hat_rw, hat_rh = head_rw + 2, head_rh + 2
+                hat_shade = (max(0, self.tc[0]-60), max(0, self.tc[1]-60), max(0, self.tc[2]-60))
+                pygame.draw.ellipse(surface, hat_shade, (cx - hat_rw, cy - head_rh - 4, hat_rw*2, hat_rh*2))
+                pygame.draw.ellipse(surface, self.tc, (cx - hat_rw + 1, cy - head_rh - 3, hat_rw*2 - 2, hat_rh*2 - 2))
+                pygame.draw.rect(surface, hat_shade, (cx - hat_rw - 1, cy - head_rh + 6, hat_rw*2 + 2, 8), border_radius=2)
+                pygame.draw.rect(surface, self.tc, (cx - hat_rw, cy - head_rh + 7, hat_rw*2, 6), border_radius=2)
+                pygame.draw.circle(surface, (180, 180, 180), (cx, cy - head_rh - 6), 7)
+            else:
+                pygame.draw.ellipse(surface, c((80, 50, 30)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
 
-                if not override_color:
-                    import math
-                    import random
-
-                    rng = random.Random(self.tc[0] + self.tc[1])  # Deterministic seed based on team color
-                    
-                    hc_idx = getattr(self, "hair_color", 0) % 6
-                    if hc_idx == 0: hair_color = (80, 50, 30) # Brown
-                    elif hc_idx == 1: hair_color = (220, 180, 80) # Blonde
-                    elif hc_idx == 2: hair_color = (30, 30, 30) # Black
-                    elif hc_idx == 3: hair_color = (200, 50, 50) # Red
-                    elif hc_idx == 4: hair_color = (50, 50, 200) # Blue
-                    else: hair_color = (50, 200, 50) # Green
-
-                    style = getattr(self, "hair_style", "short")
-                    if str(style) != "bald":  # Not Bald
-                        hair_poly = []
-                        for angle in range(0, 361, 15):
-                            rad = math.radians(angle)
-                            base_r = head_rw * 1.05
-                            
-                            if str(style) == "short": # Spiky short
-                                r = base_r + (5 if angle % 30 == 0 else 0)
-                            elif str(style) == "long": # Long
-                                if 0 <= angle <= 180:
-                                    r = base_r + rng.uniform(5, 15)
-                                else:
-                                    r = base_r
-                            else:
-                                r = base_r
-                            hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
-
-                        pygame.draw.polygon(surf, hair_color, hair_poly)
-                else:
-                    pygame.draw.ellipse(surf, c((80, 50, 30)), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
-
-                # Beanie Base
-                hat_rw, hat_rh = head_rw + 3, head_rh + 2
-                hat_shade = (max(0, self.tc[0] - 80), max(0, self.tc[1] - 80), max(0, self.tc[2] - 80))
-
-                # The beanie pulled down over the back of the head
-                pygame.draw.ellipse(surf, c(hat_shade), (cx - hat_rw - 1, cy - head_rh - 6, hat_rw * 2 + 2, hat_rh * 2 + 2))
-                pygame.draw.ellipse(surf, c(self.tc), (cx - hat_rw, cy - head_rh - 5, hat_rw * 2, hat_rh * 2))
-
-                if not override_color:
-                    pygame.draw.ellipse(
-                        surf,
-                        (min(255, self.tc[0] + 40), min(255, self.tc[1] + 40), min(255, self.tc[2] + 40)),
-                        (cx - hat_rw + 4, cy - head_rh - 3, hat_rw * 2 - 8, 6),
-                    )
-
-                # Beanie Brim (Curves across the back of the head)
-                pygame.draw.rect(surf, c(hat_shade), (cx - hat_rw - 2, cy - head_rh + 4, hat_rw * 2 + 4, 10), border_radius=4)
-                pygame.draw.rect(surf, c(self.tc), (cx - hat_rw - 1, cy - head_rh + 5, hat_rw * 2 + 2, 8), border_radius=3)
-                pygame.draw.rect(surf, c(CYAN_ACCENT), (cx - hat_rw - 1, cy - head_rh + 7, hat_rw * 2 + 2, 3), border_radius=1)
-
-                # Pom-pom (Slightly shifted up for back perspective)
-                if not override_color:
-                    for r in range(9, 0, -1):
-                        if is_evil:
-                            s = (80 + r * 10, 20 + r * 5, 120 + r * 12)
-                            pygame.draw.circle(surf, s, (cx, cy - head_rh - 9), r)
-                        else:
-                            s = 140 + r * 11
-                            pygame.draw.circle(surf, (s, s, s), (cx, cy - head_rh - 9), r)
-                else:
-                    pygame.draw.circle(surf, c((180, 180, 180)), (cx, cy - head_rh - 9), 9)
-
-                AnimatedCurler._head_cache[cache_key] = surf
-
-            surface.blit(AnimatedCurler._head_cache[cache_key], (ix - 30, iy - 40))
-
-        PURPLE_SUIT = (106, 13, 173)
-        CYAN_ACCENT = (50, 200, 255)
+        PURPLE_SUIT = (80, 20, 120)
+        CYAN_ACCENT = (30, 180, 220)
         accent_color = PURPLE_SUIT if is_evil else CYAN_ACCENT
 
         if self.state == "BACKSWING":
-            # 3D Legs
-            draw_cylinder_line(surface, (30, 30, 35), (hx - 15, hy + 90 + offset_y), (hx - 20, hy + 140 + offset_y), 16)
-            draw_cylinder_line(surface, (30, 30, 35), (hx + 15, hy + 90 + offset_y), (hx + 20, hy + 140 + offset_y), 16)
+            # Tracksuit Pants
+            draw_cylinder_line(surface, c((25, 25, 30)), (hx - 12, hy + 85 + offset_y), (hx - 14, hy + 140 + offset_y), 16)
+            draw_cylinder_line(surface, c((25, 25, 30)), (hx + 12, hy + 85 + offset_y), (hx + 14, hy + 140 + offset_y), 16)
 
-            # SHOES
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 28, hy + 135 + offset_y, 20, 30))
-            pygame.draw.ellipse(surface, c((240, 240, 240)), (hx - 26, hy + 137 + offset_y, 16, 26))
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 12, hy + 135 + offset_y, 20, 30))
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 14, hy + 137 + offset_y, 16, 26))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 24, hy + 135 + offset_y, 22, 35))
+            pygame.draw.ellipse(surface, c((220, 220, 220)), (hx - 22, hy + 137 + offset_y, 18, 31))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 10, hy + 135 + offset_y, 22, 35))
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 12, hy + 137 + offset_y, 18, 31))
 
-            # Back of Neck
-            if override_color:
-                pygame.draw.rect(surface, c((240, 200, 180)), (int(hx - 8), int(hy + offset_y), 16, 20))
-            else:
-                pygame.draw.rect(surface, (200, 150, 130), (int(hx - 8), int(hy + offset_y), 16, 20))
-                # Hair shadow cast onto the back of the neck
-                pygame.draw.rect(surface, (160, 110, 90), (int(hx - 8), int(hy + offset_y), 16, 6))
+            # Neck
+            pygame.draw.rect(surface, c((220, 170, 140)), (int(hx - 6), int(hy + offset_y), 12, 16))
 
-            # 90s Tracksuit Body (Back View)
-            if override_color:
-                pygame.draw.rect(surface, c(PURPLE_SUIT), (hx - 35, hy + 20 + offset_y, 70, 80), border_radius=16)
-            else:
-                draw_cylinder_rect(surface, self.tc, (hx - 36, hy + 18 + offset_y, 72, 84), border_radius=16)
+            # Full 90s Tracksuit Jacket
+            draw_cylinder_rect(surface, self.tc, (hx - 28, hy + 14 + offset_y, 56, 75), border_radius=12)
 
-            # Tracksuit accent lines (Center zipper removed for back view)
-            pygame.draw.line(surface, c(accent_color), (hx - 20, hy + 30 + offset_y), (hx - 20, hy + 92 + offset_y), 4)
-            pygame.draw.line(surface, c(accent_color), (hx + 20, hy + 30 + offset_y), (hx + 20, hy + 92 + offset_y), 4)
+            # Arms
+            pygame.draw.line(surface, c(accent_color), (hx - 16, hy + 20 + offset_y), (hx - 16, hy + 85 + offset_y), 3)
+            pygame.draw.line(surface, c(accent_color), (hx + 16, hy + 20 + offset_y), (hx + 16, hy + 85 + offset_y), 3)
+            draw_cylinder_rect(surface, self.tc, (hx - 12, hy + 8 + offset_y, 24, 12), border_radius=4)
 
-            # Tracksuit Collar (Wraps fully around the back of the neck)
-            if override_color:
-                pygame.draw.rect(
-                    surface, c(PURPLE_SUIT) if is_evil else c(accent_color), (hx - 16, hy + 10 + offset_y, 32, 14), border_radius=4
-                )
-            else:
-                draw_cylinder_rect(surface, self.tc, (hx - 17, hy + 9 + offset_y, 34, 16), border_radius=4)
+            head(hx, hy - 4 + offset_y, is_evil)
 
-            # Full Head Overlap
-            head(hx, hy - 8 + offset_y, is_evil)
+            draw_cylinder_line(surface, (200, 170, 50), (hx - 45, hy + 10 + offset_y), (hx - 15, hy + 45 + offset_y), 12)
+            pygame.draw.ellipse(surface, c((80, 10, 15)), (hx - 58, hy + 1 + offset_y, 24, 18))
 
-            # 3D Forward Arm
-            draw_cylinder_line(surface, (210, 180, 50), (hx - 55, hy + 10 + offset_y), (hx - 15, hy + 45 + offset_y), 10)
-
-            # Hand & Hack Foot Shadows
-            pygame.draw.ellipse(surface, c((90, 10, 15)), (hx - 71, hy - 1 + offset_y, 28, 20))
-            if not override_color:
-                pygame.draw.ellipse(surface, HOUSE_RED, (hx - 69, hy + 1 + offset_y, 24, 16))
-
-            pygame.draw.ellipse(surface, c(PURPLE_SHADOW), (hx - 48, hy + 28 + offset_y, 31, 56))
-            pygame.draw.ellipse(surface, c(self.tc), (hx - 45, hy + 30 + offset_y, 25, 50))
-            pygame.draw.ellipse(surface, c(PURPLE_SHADOW), (hx + 17, hy + 28 + offset_y, 31, 56))
-            pygame.draw.ellipse(surface, c(self.tc), (hx + 20, hy + 30 + offset_y, 25, 50))
-
-            if not override_color:
-                hl = (min(255, self.tc[0] + 40), min(255, self.tc[1] + 40), min(255, self.tc[2] + 40))
-                pygame.draw.ellipse(surface, hl, (hx - 42, hy + 32 + offset_y, 10, 40))
-                pygame.draw.ellipse(surface, hl, (hx + 22, hy + 32 + offset_y, 10, 40))
+            pygame.draw.ellipse(surface, c((40, 10, 40)), (hx - 40, hy + 28 + offset_y, 28, 52))
+            pygame.draw.ellipse(surface, c(self.tc), (hx - 38, hy + 30 + offset_y, 24, 48))
+            pygame.draw.ellipse(surface, c((40, 10, 40)), (hx + 12, hy + 28 + offset_y, 28, 52))
+            pygame.draw.ellipse(surface, c(self.tc), (hx + 14, hy + 30 + offset_y, 24, 48))
 
         elif self.state == "LUNGING":
             ly = hy + lunge_dist
 
-            # 3D Forward Leg (moves with body)
-            draw_cylinder_line(surface, (30, 30, 35), (hx - 12, ly + 60), (hx - 15, ly + 110), 18)
-            # SHOE (Forward)
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 25, ly + 105, 24, 34))
-            pygame.draw.ellipse(surface, c((240, 240, 240)), (hx - 23, ly + 107, 20, 30))
+            # LUNGING LEGS (Tracksuit pants)
+            draw_cylinder_line(surface, c((25, 25, 30)), (hx - 10, ly + 55), (hx - 12, ly + 100), 18)
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx - 22, ly + 95, 26, 38))
+            pygame.draw.ellipse(surface, c((220, 220, 220)), (hx - 20, ly + 97, 22, 34))
 
-            # Trailing Leg (stretches from moving body to stationary hack, but drags when too far)
-            drag_y = max(0, -lunge_dist - 60)
+            drag_y = max(0, -lunge_dist - 50)
             hy_eff = hy - drag_y
-            pygame.draw.polygon(surface, c((15, 15, 20)), [(hx + 6, ly + 48), (hx + 34, hy_eff + 99), (hx + 10, hy_eff + 104)])
+            pygame.draw.polygon(surface, c((20, 20, 25)), [(hx + 8, ly + 45), (hx + 28, hy_eff + 90), (hx + 12, hy_eff + 95)])
             if not override_color:
-                pygame.draw.polygon(surface, (50, 50, 55), [(hx + 10, ly + 52), (hx + 30, hy_eff + 94), (hx + 14, hy_eff + 97)])
-            # SHOE (Trailing)
-            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 22, hy_eff + 94, 20, 30))
+                pygame.draw.polygon(surface, (40, 40, 45), [(hx + 12, ly + 48), (hx + 25, hy_eff + 87), (hx + 14, hy_eff + 90)])
+            pygame.draw.ellipse(surface, c((20, 20, 20)), (hx + 20, hy_eff + 87, 20, 32))
 
-            # Back of Neck
-            if override_color:
-                pygame.draw.rect(surface, c((240, 200, 180)), (int(hx - 8), int(ly - 48), 16, 20))
-            else:
-                pygame.draw.rect(surface, (200, 150, 130), (int(hx - 8), int(ly - 48), 16, 20))
-                # Hair shadow
-                pygame.draw.rect(surface, (160, 110, 90), (int(hx - 8), int(ly - 48), 16, 6))
+            # NECK
+            pygame.draw.rect(surface, c((220, 170, 140)), (int(hx - 6), int(ly - 40), 12, 16))
 
-            # 90s Tracksuit Body (Back View)
-            if override_color:
-                pygame.draw.rect(surface, c(PURPLE_SUIT), (hx - 30, ly - 30, 60, 90), border_radius=15)
-            else:
-                draw_cylinder_rect(surface, self.tc, (hx - 32, ly - 32, 64, 94), border_radius=15)
+            # FULL 90s TRACKSUIT JACKET
+            draw_cylinder_rect(surface, self.tc, (hx - 26, ly - 28, 52, 78), border_radius=12)
+            pygame.draw.line(surface, c(accent_color), (hx - 14, ly - 15), (hx - 14, ly + 45), 3)
+            pygame.draw.line(surface, c(accent_color), (hx + 14, ly - 15), (hx + 14, ly + 45), 3)
+            draw_cylinder_rect(surface, self.tc, (hx - 12, ly - 34, 24, 12), border_radius=4)
 
-            # Tracksuit accent lines (Center zipper removed for back view)
-            pygame.draw.line(surface, c(accent_color), (hx - 15, ly - 15), (hx - 15, ly + 50), 4)
-            pygame.draw.line(surface, c(accent_color), (hx + 15, ly - 15), (hx + 15, ly + 50), 4)
+            head(hx, ly - 38, is_evil)
 
-            # Tracksuit Collar
-            if override_color:
-                pygame.draw.rect(
-                    surface, c(PURPLE_SUIT) if is_evil else c(accent_color), (hx - 16, ly - 39, 32, 14), border_radius=4
-                )
-            else:
-                draw_cylinder_rect(surface, self.tc, (hx - 17, ly - 40, 34, 16), border_radius=4)
-
-            # Full Head Overlap
-            head(hx, ly - 45, is_evil)
-
-            # 3D Lunging Arm
-            draw_cylinder_line(surface, (210, 180, 50), (hx - 75, ly - 10), (hx - 20, ly + 20), 10)
-
-            # Slider Hand
-            pygame.draw.ellipse(surface, c((90, 10, 15)), (hx - 92, ly - 19, 32, 20))
-            if not override_color:
-                pygame.draw.ellipse(surface, HOUSE_RED, (hx - 90, ly - 17, 28, 16))
+            draw_cylinder_line(surface, (200, 170, 50), (hx - 60, ly - 10), (hx - 20, ly + 15), 12)
+            pygame.draw.ellipse(surface, c((80, 10, 15)), (hx - 75, ly - 18, 28, 20))
 
             # Broom Arm
-            draw_cylinder_line(surface, self.tc, (hx - 25, ly - 10), (hx - 10, ly - 60), 16)
+            draw_cylinder_line(surface, self.tc, (hx - 20, ly - 15), (hx - 5, ly - 50), 14)
+            if not override_color:
+                pygame.draw.ellipse(surface, (180, 40, 40), (hx - 73, ly - 16, 24, 16))
 
     def draw(self, surface, team_color, is_evil=False):
         if self.state == "IDLE" and self.delivery_progress == 0.0:
             return
         self.tc = team_color
-        oy = self.delivery_progress * 70 if self.state == "BACKSWING" else 0
-        ld = (1.0 - self.delivery_progress) * -190 if self.state == "LUNGING" else 0
 
-        if not hasattr(self, "shadow_surf"):
-            self.shadow_surf = pygame.Surface((240, 320), pygame.SRCALPHA).convert_alpha()
-        self.shadow_surf.fill((0, 0, 0, 0))
-        self._draw_char_geometry(self.shadow_surf, 120, 160, oy, ld, (0, 0, 0, 100), is_evil)
-        surface.blit(self.shadow_surf, (self.hack_pos.x + 18 - 120, self.hack_pos.y + 18 - 160))
+        if not hasattr(AnimatedCurler, "_anim_cache"):
+            AnimatedCurler._anim_cache = {}
 
-        self._draw_char_geometry(surface, self.hack_pos.x, self.hack_pos.y, oy, ld, None, is_evil)
+        q_prog = round(self.delivery_progress * 30) / 30.0
+        cache_key = (self.state, q_prog, team_color, is_evil, getattr(self, "hair_style", "short"), getattr(self, "hair_color", 0))
+
+        if cache_key not in AnimatedCurler._anim_cache:
+            oy = q_prog * 70 if self.state == "BACKSWING" else 0
+            ld = (1.0 - q_prog) * -190 if self.state == "LUNGING" else 0
+
+            frame_surf = pygame.Surface((240, 320), pygame.SRCALPHA).convert_alpha()
+            frame_surf.fill((0, 0, 0, 0))
+            
+            # Shadow
+            self._draw_char_geometry(frame_surf, 120, 160, oy, ld, (0, 0, 0, 100), is_evil)
+            # Main Body
+            self._draw_char_geometry(frame_surf, 120, 160, oy, ld, None, is_evil)
+
+            AnimatedCurler._anim_cache[cache_key] = frame_surf
+
+        surface.blit(AnimatedCurler._anim_cache[cache_key], (self.hack_pos.x - 120, self.hack_pos.y - 160))
 
     def render_portrait(self, surface, x, y, size, team_color, is_evil=False, bob_y=0):
-        if not hasattr(self, "cached_portrait") or getattr(self, "cached_portrait_size", 0) != size:
-            self.tc = team_color
+        self.tc = team_color
+        cache_key = (size, team_color, is_evil, getattr(self, "hair_style", "short"), getattr(self, "hair_color", 0))
+        
+        if not hasattr(AnimatedCurler, "_portrait_cache"):
+            AnimatedCurler._portrait_cache = {}
+
+        if cache_key not in AnimatedCurler._portrait_cache:
             old_state = self.state
             self.state = "BACKSWING"
 
@@ -2164,11 +2098,10 @@ class AnimatedCurler:
             self._draw_char_geometry(temp_surf, 90, 60, 0, 0, None, is_evil)
 
             scaled = pygame.transform.smoothscale(temp_surf, (size, int(size * 260 / 180))).convert_alpha()
-            self.cached_portrait = scaled
-            self.cached_portrait_size = size
+            AnimatedCurler._portrait_cache[cache_key] = scaled
             self.state = old_state
 
-        surface.blit(self.cached_portrait, (x, y + bob_y))
+        surface.blit(AnimatedCurler._portrait_cache[cache_key], (x, y + bob_y))
 
 
 STORY_RINKS = [
@@ -3006,7 +2939,7 @@ class WinCurl3:
                 self.preferred_color = data.get("color", 0)
                 self.ring_color_idx = data.get("ring_color", 0)
                 style = data.get("hair_style", "short")
-                self.hair_style = "short" if style in [0, "short"] else "long"
+                self.hair_style = style if style in ["short", "long", "bald"] else "short"
                 hc = data.get("hair_color", 0)
                 if isinstance(hc, list): hc = hc[0] if hc else 0
                 try: hc = int(hc)
