@@ -18,8 +18,8 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 123, Final Revision"
-GAME_TITLE = "WinCurl 3, build 123"
+VERSION = "3.0 Build 124"
+GAME_TITLE = "WinCurl 3, build 124"
 
 
 class CachedFont:
@@ -474,6 +474,7 @@ class WinCurlAudioEngine:
         self.snd_music = None
         self.snd_speech = None
         self.snd_cheer = None
+        self.snd_groan = None
         self.snd_end_match = None
         self.snd_hurry = None
         self.snd_hard = None
@@ -518,6 +519,7 @@ class WinCurlAudioEngine:
             self.snd_music = None
         load_sound("snd_speech", "sega_speech.ogg", self._synthesize_sega_speech)
         load_sound("snd_cheer", "cheer.ogg", self._synthesize_cheer)
+        load_sound("snd_groan", "groan.ogg", self._synthesize_groan)
         load_sound("snd_end_match", "end_match.ogg", self._synthesize_end_of_match)
         load_sound(
             "snd_hurry",
@@ -578,6 +580,7 @@ class WinCurlAudioEngine:
         for attr in [
             "snd_speech",
             "snd_cheer",
+            "snd_groan",
             "snd_end_match",
             "snd_hurry",
             "snd_hard",
@@ -884,6 +887,27 @@ class WinCurlAudioEngine:
             sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t * 12)))
             struct.pack_into("<hh", buf, i * 4, sample, sample)
         return self._create_wav_sound(buf, SR, cache_key="cheer", return_bytes=return_bytes)
+
+    def _synthesize_groan(self, return_bytes=False):
+        cached = self._get_cached_sound("groan", return_bytes=return_bytes)
+        if cached:
+            return cached
+        SR = 11025
+        duration = 2.5
+        steps = int(SR * duration)
+        buf = bytearray(steps * 4)
+        val = 0.0
+        for i in range(steps):
+            if i % 4000 == 0:
+                import time
+
+                time.sleep(0.001)
+            t = i / SR
+            val += (random.uniform(-1.0, 1.0) - val) * 0.015
+            envelope = math.sin((t / duration) * math.pi)
+            sample = int((val + 0.3 * math.sin(t * 30)) * envelope * 12000)
+            struct.pack_into("<hh", buf, i * 4, sample, sample)
+        return self._create_wav_sound(buf, SR, cache_key="groan", return_bytes=return_bytes)
 
     def _synthesize_rumble(self, return_bytes=False):
         cached = self._get_cached_sound("whoosh", return_bytes=return_bytes)
@@ -1456,6 +1480,11 @@ class WinCurlAudioEngine:
             self.ch_crowd.set_volume(getattr(self, "master_volume", 1.0))
             self.ch_crowd.play(self.snd_cheer)
 
+    def play_groan(self):
+        if not self.ch_crowd.get_busy() and getattr(self, "snd_groan", None):
+            self.ch_crowd.set_volume(getattr(self, "master_volume", 1.0))
+            self.ch_crowd.play(self.snd_groan)
+
     def update_slide(self, speed):
         self.ch_slide.set_volume((min(0.15, speed * 0.04) if speed > 0.05 else 0.0) * getattr(self, "master_volume", 1.0))
 
@@ -1605,6 +1634,98 @@ class Starfield:
             blit_seq.append((self.star_surfs[(size, color)], (int(x), int(y))))
         surface.blits(blit_seq)
 
+class Crowd:
+    def __init__(self, w, h):
+        self.w = w
+        self.h = h
+        self.members = []
+        self.variations_resting = []
+        self.variations_cheering = []
+        
+        # Pre-render 30 detailed pixel-art crowd member variations
+        for _ in range(30):
+            skin = random.choice([(255, 220, 190), (230, 190, 160), (160, 100, 70), (110, 65, 45), (80, 45, 30)])
+            shirt = (random.randint(40, 255), random.randint(40, 255), random.randint(40, 255))
+            shirt_shadow = (max(0, shirt[0]-40), max(0, shirt[1]-40), max(0, shirt[2]-40))
+            hair = random.choice([(30, 30, 30), (100, 50, 20), (220, 200, 90), (160, 160, 160), (180, 80, 80)])
+            hair_style = random.choice(["short", "long", "bald", "cap"])
+            has_shades = random.random() > 0.7
+            
+            for is_cheering in [False, True]:
+                surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+                
+                # Hair (back) for long hair
+                if hair_style == "long":
+                    pygame.draw.rect(surf, hair, (20, 15, 20, 15), border_radius=4)
+                
+                # Body
+                pygame.draw.rect(surf, shirt_shadow, (20, 25, 20, 35), border_radius=6)
+                pygame.draw.rect(surf, shirt, (22, 25, 16, 35), border_radius=6)
+                
+                # Collar/Neck
+                pygame.draw.rect(surf, skin, (26, 20, 8, 8))
+                
+                # Head
+                pygame.draw.circle(surf, skin, (30, 15), 11)
+                
+                # Face details
+                if has_shades:
+                    pygame.draw.rect(surf, (20, 20, 20), (22, 12, 16, 5), border_radius=2)
+                else:
+                    # Eyes
+                    pygame.draw.rect(surf, (40, 30, 30), (25, 13, 2, 2))
+                    pygame.draw.rect(surf, (40, 30, 30), (33, 13, 2, 2))
+                    
+                # Hair (front)
+                if hair_style in ["short", "long"]:
+                    pygame.draw.arc(surf, hair, (18, 3, 24, 24), 0, math.pi, 7)
+                elif hair_style == "cap":
+                    pygame.draw.arc(surf, shirt, (18, 3, 24, 24), 0, math.pi, 7)
+                    pygame.draw.rect(surf, shirt, (18, 10, 26, 4), border_radius=2)
+                
+                # Arms
+                if is_cheering:
+                    # Cheering Hands (up)
+                    pygame.draw.rect(surf, shirt_shadow, (10, 5, 8, 20), border_radius=4)
+                    pygame.draw.rect(surf, shirt_shadow, (42, 5, 8, 20), border_radius=4)
+                    pygame.draw.rect(surf, skin, (10, 2, 8, 8), border_radius=4)
+                    pygame.draw.rect(surf, skin, (42, 2, 8, 8), border_radius=4)
+                else:
+                    # Resting Hands
+                    pygame.draw.rect(surf, shirt_shadow, (15, 30, 8, 20), border_radius=4)
+                    pygame.draw.rect(surf, shirt_shadow, (37, 30, 8, 20), border_radius=4)
+                    pygame.draw.rect(surf, skin, (15, 45, 8, 8), border_radius=4)
+                    pygame.draw.rect(surf, skin, (37, 45, 8, 8), border_radius=4)
+                
+                if is_cheering:
+                    self.variations_cheering.append(surf)
+                else:
+                    self.variations_resting.append(surf)
+
+        for side in [0, 1]:
+            for y in range(0, h, 60):
+                if random.random() > 0.2:  # 80% chance of a person in each spot
+                    x = random.randint(-10, 15) if side == 0 else w - 45 + random.randint(-15, 10)
+                    self.members.append({
+                        "x": x, "y": y, "type": random.choice([0, 1, 2]),
+                        "offset": random.random() * math.pi * 2,
+                        "var_idx": random.randint(0, 29),
+                        "side": side
+                    })
+
+    def draw(self, surface, offset_x=0, offset_y=0):
+        t = pygame.time.get_ticks() / 300.0
+        blit_seq = []
+        for m in self.members:
+            bob = math.sin(t * (1.2 if m["type"] == 0 else 1.8) + m["offset"]) * 6
+            x, y = m["x"] + offset_x, m["y"] + offset_y + bob
+            
+            is_cheering = m["type"] == 1 and bob > 2
+            surf = self.variations_cheering[m["var_idx"]] if is_cheering else self.variations_resting[m["var_idx"]]
+            
+            blit_seq.append((surf, (int(x - 10), int(y))))
+            
+        surface.blits(blit_seq)
 
 # OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
 class ThreeDStone:
@@ -1684,6 +1805,10 @@ class Stone:
         self.team, self.radius, self.mass, self.is_moving, self.curl, self.rotation = team, 32, 1.0, False, 0.0, 0.0
 
         if Stone.cached_red_base is None:
+            Stone.cached_shadow = pygame.Surface((self.radius * 2 + 20, self.radius * 2 + 20), pygame.SRCALPHA).convert_alpha()
+            Stone.cached_shadow.fill((0, 0, 0, 0))
+            pygame.draw.circle(Stone.cached_shadow, (0, 0, 0, 100), (self.radius + 10, self.radius + 10), self.radius)
+            
             Stone.cached_hl = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA).convert_alpha()
             pygame.draw.ellipse(
                 Stone.cached_hl, HIGHLIGHT_COLOR, (self.radius * 0.6, self.radius * 0.2, self.radius * 0.8, self.radius * 0.4)
@@ -1695,7 +1820,6 @@ class Stone:
     def _render_base(self, color):
         # BUILD 14 PREVIEW 2: Advanced 3D Geometry
         s = pygame.Surface((self.radius * 2 + 15, self.radius * 2 + 15), pygame.SRCALPHA).convert_alpha()
-        pygame.draw.circle(s, (0, 0, 0, 80), (self.radius + 8, self.radius + 8), self.radius)
 
         for r in range(self.radius, 0, -1):
             t = (self.radius - r) / self.radius
@@ -1805,6 +1929,10 @@ class Stone:
         self.pos.x += offset_x
         self.pos.y += offset_y
         surface.blit(
+            Stone.cached_shadow,
+            (self.pos.x - self.radius - 6, self.pos.y - self.radius - 2),
+        )
+        surface.blit(
             Stone.cached_red_base if self.team == 0 else Stone.cached_ylw_base,
             (self.pos.x - self.radius - 5, self.pos.y - self.radius - 5),
         )
@@ -1913,11 +2041,17 @@ class AnimatedCurler:
                 pygame.draw.rect(surf, override_color, rect, border_radius=border_radius)
                 return
             x, y, w, h = rect
-            shadow_col = (max(0, color[0] - 60), max(0, color[1] - 60), max(0, color[2] - 60))
-            hl_col = (min(255, color[0] + 50), min(255, color[1] + 50), min(255, color[2] + 50))
+            
+            # Enhanced Deep Shadow
+            shadow_col = (max(0, color[0] - 80), max(0, color[1] - 80), max(0, color[2] - 80))
+            mid_col = (max(0, color[0] - 40), max(0, color[1] - 40), max(0, color[2] - 40))
+            hl_col = (min(255, color[0] + 60), min(255, color[1] + 60), min(255, color[2] + 60))
+            
             pygame.draw.rect(surf, shadow_col, (x, y, w, h), border_radius=border_radius)
+            if w > 4 and h > 2:
+                pygame.draw.rect(surf, mid_col, (x + 2, y + 1, w - 4, h - 2), border_radius=max(0, border_radius - 1))
             if w > 8 and h > 4:
-                pygame.draw.rect(surf, color, (x + 3, y + 2, w - 6, h - 4), border_radius=max(0, border_radius - 2))
+                pygame.draw.rect(surf, color, (x + 4, y + 2, w - 8, h - 4), border_radius=max(0, border_radius - 2))
                 
             # 90s FUNKADELIC PATTERN!
             if w > 20 and h > 20:
@@ -1945,6 +2079,21 @@ class AnimatedCurler:
             if w > 20 and h > 8:
                 pygame.draw.rect(surf, hl_col, (x + int(w*0.2), y + 4, int(w*0.4), h - 8), border_radius=max(0, border_radius - 4))
 
+        def draw_broom_head(surf, bx, by, color, angle_offset=0):
+            base_color = (40, 40, 40)
+            if override_color: base_color = override_color
+            
+            if angle_offset == 0:
+                pygame.draw.polygon(surf, base_color, [(bx - 8, by - 5), (bx + 8, by + 5), (bx + 4, by + 10), (bx - 12, by)])
+                pygame.draw.polygon(surf, c(color), [(bx - 14, by + 2), (bx + 6, by + 14), (bx + 12, by + 5), (bx - 8, by - 7)])
+                hl = (min(255, color[0]+50), min(255, color[1]+50), min(255, color[2]+50))
+                pygame.draw.polygon(surf, c(hl), [(bx - 12, by + 1), (bx + 4, by + 11), (bx + 8, by + 5), (bx - 8, by - 5)])
+            else:
+                pygame.draw.polygon(surf, base_color, [(bx - 12, by - 3), (bx + 12, by - 3), (bx + 10, by + 4), (bx - 10, by + 4)])
+                pygame.draw.polygon(surf, c(color), [(bx - 14, by + 4), (bx + 14, by + 4), (bx + 12, by + 10), (bx - 12, by + 10)])
+                hl = (min(255, color[0]+50), min(255, color[1]+50), min(255, color[2]+50))
+                pygame.draw.polygon(surf, c(hl), [(bx - 12, by + 5), (bx + 12, by + 5), (bx + 10, by + 9), (bx - 10, by + 9)])
+
         def head(ix, iy, is_evil=False):
             cx, cy = int(ix), int(iy)
             head_rw, head_rh = 14, 16
@@ -1963,6 +2112,11 @@ class AnimatedCurler:
                 hc_idx = getattr(self, "hair_color", 0) % 6
                 colors = [(70, 40, 20), (220, 190, 90), (30, 30, 30), (180, 40, 40), (40, 40, 180), (40, 180, 40)]
                 hair_color = colors[hc_idx]
+                
+                # Compute shadow and highlight colors
+                dark_hair = (max(0, hair_color[0]-40), max(0, hair_color[1]-40), max(0, hair_color[2]-40))
+                light_hair = (min(255, hair_color[0]+40), min(255, hair_color[1]+40), min(255, hair_color[2]+40))
+                
                 style = getattr(self, "hair_style", "short")
                 if str(style) != "bald":
                     hair_poly = []
@@ -1971,8 +2125,16 @@ class AnimatedCurler:
                             rad = math.radians(angle)
                             r = head_rw * 1.05 + (4 if angle % 30 == 0 else 1)
                             hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
-                        pygame.draw.polygon(surface, hair_color, hair_poly)
-                        dark_hair = (max(0, hair_color[0]-30), max(0, hair_color[1]-30), max(0, hair_color[2]-30))
+                            
+                        # Outer shadow layer
+                        pygame.draw.polygon(surface, dark_hair, hair_poly)
+                        # Inner color layer
+                        inner_poly = [(cx + (p[0]-cx)*0.85, cy + (p[1]-cy)*0.85 + 2) for p in hair_poly]
+                        pygame.draw.polygon(surface, hair_color, inner_poly)
+                        # Inner highlight layer
+                        high_poly = [(cx + (p[0]-cx)*0.65, cy + (p[1]-cy)*0.65 + 4) for p in hair_poly]
+                        pygame.draw.polygon(surface, light_hair, high_poly)
+                        
                         pygame.draw.lines(surface, dark_hair, False, [(cx-6, cy-8), (cx-4, cy-12), (cx, cy-10)], 2)
                         pygame.draw.lines(surface, dark_hair, False, [(cx+4, cy-12), (cx+6, cy-8)], 2)
                     elif str(style) == "long":
@@ -1981,16 +2143,30 @@ class AnimatedCurler:
                             r = head_rw * 1.1
                             hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
                         hair_poly.extend([
-                            (cx + head_rw * 1.5, cy + 15),
-                            (cx + head_rw * 1.2, cy + 30),
-                            (cx + 5, cy + 20),
-                            (cx, cy + 40),
-                            (cx - 5, cy + 20),
-                            (cx - head_rw * 1.2, cy + 30),
-                            (cx - head_rw * 1.5, cy + 15)
+                            (cx + head_rw * 1.5, cy + 10),
+                            (cx + head_rw * 1.8, cy + 25),
+                            (cx + head_rw * 1.2, cy + 20),
+                            (cx + head_rw * 1.3, cy + 45),
+                            (cx + head_rw * 0.5, cy + 25),
+                            (cx + head_rw * 0.2, cy + 55),
+                            (cx, cy + 30),
+                            (cx - head_rw * 0.3, cy + 50),
+                            (cx - head_rw * 0.6, cy + 25),
+                            (cx - head_rw * 1.4, cy + 40),
+                            (cx - head_rw * 1.2, cy + 15),
+                            (cx - head_rw * 1.7, cy + 20),
+                            (cx - head_rw * 1.4, cy + 10)
                         ])
-                        pygame.draw.polygon(surface, hair_color, hair_poly)
-                        dark_hair = (max(0, hair_color[0]-40), max(0, hair_color[1]-40), max(0, hair_color[2]-40))
+                        
+                        # Outer shadow layer
+                        pygame.draw.polygon(surface, dark_hair, hair_poly)
+                        # Inner color layer
+                        inner_poly = [(cx + (p[0]-cx)*0.85, cy + (p[1]-cy)*0.85 + 2) for p in hair_poly]
+                        pygame.draw.polygon(surface, hair_color, inner_poly)
+                        # Inner highlight layer
+                        high_poly = [(cx + (p[0]-cx)*0.65, cy + (p[1]-cy)*0.65 + 4) for p in hair_poly]
+                        pygame.draw.polygon(surface, light_hair, high_poly)
+                        
                         pygame.draw.lines(surface, dark_hair, False, [(cx+head_rw, cy), (cx+head_rw*1.2, cy+25)], 2)
                         pygame.draw.lines(surface, dark_hair, False, [(cx, cy+5), (cx, cy+35)], 2)
                         pygame.draw.lines(surface, dark_hair, False, [(cx-head_rw, cy), (cx-head_rw*1.2, cy+25)], 2)
@@ -1999,7 +2175,12 @@ class AnimatedCurler:
                             rad = math.radians(angle)
                             r = head_rw * 1.05
                             hair_poly.append((cx + math.cos(rad) * r, cy + math.sin(rad) * r))
-                        pygame.draw.polygon(surface, hair_color, hair_poly)
+                        
+                        pygame.draw.polygon(surface, dark_hair, hair_poly)
+                        inner_poly = [(cx + (p[0]-cx)*0.85, cy + (p[1]-cy)*0.85 + 2) for p in hair_poly]
+                        pygame.draw.polygon(surface, hair_color, inner_poly)
+                        high_poly = [(cx + (p[0]-cx)*0.65, cy + (p[1]-cy)*0.65 + 4) for p in hair_poly]
+                        pygame.draw.polygon(surface, light_hair, high_poly)
                 
                 # Always draw the toque over the hair, sitting higher so hair is visible
                 hat_rw, hat_rh = head_rw + 1, head_rh - 2
@@ -2040,7 +2221,7 @@ class AnimatedCurler:
             head(hx, hy - 4 + offset_y, is_evil)
 
             draw_cylinder_line(surface, (200, 170, 50), (hx - 45, hy + 10 + offset_y), (hx - 15, hy + 45 + offset_y), 12)
-            pygame.draw.ellipse(surface, c((80, 10, 15)), (hx - 58, hy + 1 + offset_y, 24, 18))
+            draw_broom_head(surface, hx - 45, hy + 10 + offset_y, (80, 10, 15), 0)
 
             pygame.draw.ellipse(surface, c((40, 10, 40)), (hx - 40, hy + 28 + offset_y, 28, 52))
             pygame.draw.ellipse(surface, c(self.tc), (hx - 38, hy + 30 + offset_y, 24, 48))
@@ -2074,12 +2255,10 @@ class AnimatedCurler:
             head(hx, ly - 38, is_evil)
 
             draw_cylinder_line(surface, (200, 170, 50), (hx - 60, ly - 10), (hx - 20, ly + 15), 12)
-            pygame.draw.ellipse(surface, c((80, 10, 15)), (hx - 75, ly - 18, 28, 20))
+            draw_broom_head(surface, hx - 60, ly - 10, (80, 10, 15), 1)
 
             # Broom Arm
             draw_cylinder_line(surface, self.tc, (hx - 20, ly - 15), (hx - 5, ly - 50), 14)
-            if not override_color:
-                pygame.draw.ellipse(surface, (180, 40, 40), (hx - 73, ly - 16, 24, 16))
 
     def draw(self, surface, team_color, is_evil=False):
         if self.state == "IDLE" and self.delivery_progress == 0.0:
@@ -2096,17 +2275,21 @@ class AnimatedCurler:
             oy = q_prog * 70 if self.state == "BACKSWING" else 0
             ld = (1.0 - q_prog) * -190 if self.state == "LUNGING" else 0
 
-            frame_surf = pygame.Surface((240, 450), pygame.SRCALPHA).convert_alpha()
+            frame_surf = pygame.Surface((240, 600), pygame.SRCALPHA).convert_alpha()
             frame_surf.fill((0, 0, 0, 0))
             
             # Shadow
-            self._draw_char_geometry(frame_surf, 120, 160, oy, ld, (0, 0, 0, 100), is_evil)
+            shadow_surf = pygame.Surface((240, 600), pygame.SRCALPHA).convert_alpha()
+            shadow_surf.fill((0, 0, 0, 0))
+            self._draw_char_geometry(shadow_surf, 128, 258, oy, ld, (0, 0, 0, 255), is_evil)
+            shadow_surf.set_alpha(100)
+            frame_surf.blit(shadow_surf, (0, 0))
             # Main Body
-            self._draw_char_geometry(frame_surf, 120, 160, oy, ld, None, is_evil)
+            self._draw_char_geometry(frame_surf, 120, 250, oy, ld, None, is_evil)
 
             AnimatedCurler._anim_cache[cache_key] = frame_surf
 
-        surface.blit(AnimatedCurler._anim_cache[cache_key], (self.hack_pos.x - 120, self.hack_pos.y - 160))
+        surface.blit(AnimatedCurler._anim_cache[cache_key], (self.hack_pos.x - 120, self.hack_pos.y - 250))
 
     def render_portrait(self, surface, x, y, size, team_color, is_evil=False, bob_y=0):
         self.tc = team_color
@@ -2646,9 +2829,9 @@ class WinCurl3:
         elif IS_ANDROID:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
-            desk_h = info.current_h
-            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
-                target_h = int(desk_h * 0.85)
+            desk_h = pygame.display.get_desktop_sizes()[0][1]
+            if desk_h > 0 and BASE_HEIGHT > desk_h * 0.75:
+                target_h = int(desk_h * 0.75)
                 target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                 self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
             else:
@@ -2754,6 +2937,7 @@ class WinCurl3:
         self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 + 650)
         self.curler_anim = AnimatedCurler(self.hack_pos)
         self.starfield = Starfield(count=50 if IS_ANDROID else 150)
+        self.crowd = Crowd(BASE_WIDTH, BASE_HEIGHT)
         if self.is_4k:
             dsurf = pygame.display.get_surface()
             sw, sh = dsurf.get_size() if dsurf else (4000, 4000)
@@ -2867,13 +3051,11 @@ class WinCurl3:
             self.screen = pygame.display.set_mode((BASE_WIDTH, BASE_HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.SCALED)
         else:
             if self.is_fullscreen:
-                info = pygame.display.Info()
-                self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN | pygame.DOUBLEBUF)
+                self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF)
             else:
-                info = pygame.display.Info()
-                desk_h = info.current_h
-                if desk_h > 0 and BASE_HEIGHT > desk_h * 0.85:
-                    target_h = int(desk_h * 0.85)
+                desk_h = pygame.display.get_desktop_sizes()[0][1]
+                if desk_h > 0 and BASE_HEIGHT > desk_h * 0.75:
+                    target_h = int(desk_h * 0.75)
                     target_w = int(target_h * (BASE_WIDTH / BASE_HEIGHT))
                     self.screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE | pygame.DOUBLEBUF)
                 else:
@@ -2888,6 +3070,13 @@ class WinCurl3:
                 self.static_ice_surface, (max(0, ICE_COLOR[0] - int((y / BASE_HEIGHT) * 18)),) * 3, (0, y, BASE_WIDTH, 45)
             )
         self.static_ice_surface.blit(self.bg_pebble_layer, (0, 0))
+        
+        # Draw side boards
+        pygame.draw.rect(self.static_ice_surface, (30, 35, 40), (0, 0, 50, BASE_HEIGHT))
+        pygame.draw.rect(self.static_ice_surface, (180, 50, 50), (45, 0, 5, BASE_HEIGHT))
+        
+        pygame.draw.rect(self.static_ice_surface, (30, 35, 40), (BASE_WIDTH - 50, 0, 50, BASE_HEIGHT))
+        pygame.draw.rect(self.static_ice_surface, (180, 50, 50), (BASE_WIDTH - 50, 0, 5, BASE_HEIGHT))
         for y in range(0, BASE_HEIGHT, 80):
             pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
         pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
@@ -3332,6 +3521,7 @@ class WinCurl3:
                         s1.vel -= normal * (impulse * s2.mass)
                         s2.vel += normal * (impulse * s1.mass)
                         s1.is_moving, s2.is_moving = True, True
+                        self.current_throw_score = getattr(self, "current_throw_score", 0) + int(impulse * 10)
                         if impulse * 12 > 0.8:
                             s1.last_collision_time = pygame.time.get_ticks()
                             s2.last_collision_time = pygame.time.get_ticks()
@@ -3681,13 +3871,14 @@ class WinCurl3:
                 self.app_state = "MENU"
                 self.set_typing_target(None)
 
-        elif event.type == KEYDOWN and self.typing_target == "room":
-            if event.key == K_ESCAPE:
+        elif event.type == KEYDOWN:
+            if event.key == K_ESCAPE or event.key == getattr(pygame, "K_AC_BACK", -1):
                 self.app_state = "MENU"
                 self.set_typing_target(None)
-            elif event.key == K_BACKSPACE:
-                self.room_text = self.room_text[:-1]
-                self.save_progress()
+            elif self.typing_target == "room":
+                if event.key == K_BACKSPACE:
+                    self.room_text = self.room_text[:-1]
+                    self.save_progress()
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -3852,15 +4043,33 @@ class WinCurl3:
                 self.fetch_leaderboard()
             elif self.btn_return_menu.collidepoint(mx, my):
                 self.audio.play_click()
-                if getattr(self, "game_mode", None) == "STORY":
-                    if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
-                        self.app_state = "STORY_WIN"
-                        if getattr(self.audio, "snd_you_win", None):
-                            self.audio.ch_voice.play(self.audio.snd_you_win)
-                    else:
-                        self.app_state = "STORY_MAP"
+                if hasattr(self, "highlight_buffer") and self.highlight_buffer:
+                    self.app_state = "HIGHLIGHT_REPLAY"
+                    self.replay_frame = 0
                 else:
-                    self.return_to_menu()
+                    self.exit_match()
+
+    def exit_match(self):
+        if getattr(self, "game_mode", None) == "STORY":
+            if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
+                self.app_state = "STORY_WIN"
+                if getattr(self.audio, "snd_you_win", None):
+                    self.audio.ch_voice.play(self.audio.snd_you_win)
+            else:
+                self.app_state = "STORY_MAP"
+        else:
+            self.return_to_menu()
+
+    def handle_highlight_replay_events(self, event):
+        if event.type == KEYDOWN and (event.key == K_ESCAPE or event.key == K_SPACE or event.key == getattr(pygame, "K_AC_BACK", -1)):
+            self.audio.play_click()
+            self.exit_match()
+        elif event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            m = getattr(event, "pos", self.get_pointer_pos())
+            mx, my = m[0] if isinstance(m, tuple) else m.x, m[1] if isinstance(m, tuple) else m.y
+            if hasattr(self, "btn_skip_replay") and self.btn_skip_replay.collidepoint(mx, my):
+                self.audio.play_click()
+                self.exit_match()
 
     def handle_story_win_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -4013,6 +4222,8 @@ class WinCurl3:
             self.curler_anim.update("LUNGING")
 
         if self.turn_state == "SLIDING":
+            if not getattr(self, "stone_in_motion", False):
+                self.stone_in_motion = True
             mouse_pos = self.get_pointer_pos()
             is_mouse_pressed = self.get_pointer_pressed()
             my_team = self.preferred_color if self.game_mode in ["BOT", "HOST", "JOIN", "STORY"] else self.current_team
@@ -4126,6 +4337,15 @@ class WinCurl3:
             self.audio.update_slide(max_speed)
 
             if not moving:
+                if getattr(self, "stone_in_motion", False):
+                    self.stone_in_motion = False
+                    if self.stones:
+                        last_stone = self.stones[-1]
+                        dist = (last_stone.pos - self.house_pos).length()
+                        if dist < 240:
+                            self.audio.play_cheer()
+                        elif dist > 350:
+                            self.audio.play_groan()
                 self.audio.update_slide(0.0)
                 self.audio.update_sweep(0.0)
 
@@ -4136,6 +4356,26 @@ class WinCurl3:
                     if s.pos.y - s.radius < hog_line_y and s.pos.y + s.radius > back_line_y:
                         valid_stones_final.append(s)
                 self.stones = valid_stones_final
+                
+                # Highlight capture logic
+                if not hasattr(self, "highlight_buffer"):
+                    self.highlight_buffer = []
+                if not hasattr(self, "highlight_score"):
+                    self.highlight_score = -1
+                
+                # We determine the "excitement" of a throw by how many opponent stones were knocked out,
+                # or just being the final throw.
+                current_score = getattr(self, "current_throw_score", 0) 
+                # Let's count how many stones were removed from play during this throw
+                # Actually a simpler way: just save the last throw's buffer, or if there was a collision.
+                # Let's just accumulate points.
+                if current_score >= self.highlight_score or len(self.highlight_buffer) == 0:
+                    self.highlight_score = current_score
+                    self.highlight_buffer = list(getattr(self, "current_throw_buffer", []))
+                
+                # Reset throw score for next throw
+                self.current_throw_score = 0
+
 
                 # Absolute End of Slide Sync Broadcast for Netcode
                 if self.game_mode == "HOST" and hasattr(self, "was_moving_last_frame") and self.was_moving_last_frame:
@@ -4587,7 +4827,13 @@ class WinCurl3:
                     hc_val = int(getattr(self, 'hair_color', 0))
                 except (TypeError, ValueError):
                     hc_val = 0
-                text = f"Hair Colour: {color_names[hc_val % 6]}"
+                
+                if getattr(self, "hair_style", "short") == "bald":
+                    text = f"Hair Colour: N/A"
+                    btn["color"] = (100, 100, 100)
+                else:
+                    text = f"Hair Colour: {color_names[hc_val % 6]}"
+                    btn["color"] = (150, 180, 200)
             elif btn["id"] == "ring_color":
                 ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
                 text = f"Outer Ring: {ring_names[getattr(self, 'ring_color_idx', 0) % 6]}"
@@ -4647,7 +4893,21 @@ class WinCurl3:
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x - 12, swatch_y), 3)
                     pygame.draw.circle(self.canvas, stone_c, (swatch_x + 12, swatch_y), 3)
 
-                elif btn["id"] in ["hair_color", "hair_style"]:
+                elif btn["id"] == "hair_color":
+                    hc_idx = getattr(self, "hair_color", 0) % 6
+                    if hc_idx == 0: hair_color = (80, 50, 30)
+                    elif hc_idx == 1: hair_color = (220, 180, 80)
+                    elif hc_idx == 2: hair_color = (30, 30, 30)
+                    elif hc_idx == 3: hair_color = (200, 50, 50)
+                    elif hc_idx == 4: hair_color = (50, 50, 200)
+                    else: hair_color = (50, 200, 50)
+                    
+                    if getattr(self, "hair_style", "short") != "bald":
+                        pygame.draw.circle(self.canvas, (100, 105, 110), (swatch_x, swatch_y), 18)
+                        pygame.draw.circle(self.canvas, hair_color, (swatch_x, swatch_y), 16)
+                        pygame.draw.circle(self.canvas, (min(255, hair_color[0]+50), min(255, hair_color[1]+50), min(255, hair_color[2]+50)), (swatch_x, swatch_y), 16, 2)
+
+                elif btn["id"] == "hair_style":
                     head_rw, head_rh = 12, 15
                     pygame.draw.ellipse(self.canvas, (240, 200, 180), (swatch_x - head_rw, swatch_y - head_rh, head_rw * 2, head_rh * 2))
                     
@@ -4663,19 +4923,31 @@ class WinCurl3:
                     if str(style) != "bald":
                         hair_poly = []
                         rng = random.Random(TEAM_YELLOW[0] if getattr(self, "preferred_color", 0) else HOUSE_RED[0])
-                        for angle in range(0, 361, 15):
-                            rad = math.radians(angle)
-                            base_r = head_rw * 1.05
-                            if str(style) == "short":
-                                r = base_r + (5 if angle % 30 == 0 else 0)
-                            elif str(style) == "long":
-                                if 0 <= angle <= 180:
-                                    r = base_r + rng.uniform(5, 15)
-                                else:
-                                    r = base_r
-                            else:
-                                r = base_r
-                            hair_poly.append((swatch_x + math.cos(rad) * r, swatch_y + math.sin(rad) * r))
+                        if str(style) == "long":
+                            for angle in range(180, 361, 15):
+                                rad = math.radians(angle)
+                                hair_poly.append((swatch_x + math.cos(rad) * head_rw * 1.1, swatch_y + math.sin(rad) * head_rw * 1.1))
+                            hair_poly.extend([
+                                (swatch_x + head_rw * 1.5, swatch_y + 10),
+                                (swatch_x + head_rw * 1.8, swatch_y + 25),
+                                (swatch_x + head_rw * 1.2, swatch_y + 20),
+                                (swatch_x + head_rw * 1.3, swatch_y + 45),
+                                (swatch_x + head_rw * 0.5, swatch_y + 25),
+                                (swatch_x + head_rw * 0.2, swatch_y + 55),
+                                (swatch_x, swatch_y + 30),
+                                (swatch_x - head_rw * 0.3, swatch_y + 50),
+                                (swatch_x - head_rw * 0.6, swatch_y + 25),
+                                (swatch_x - head_rw * 1.4, swatch_y + 40),
+                                (swatch_x - head_rw * 1.2, swatch_y + 15),
+                                (swatch_x - head_rw * 1.7, swatch_y + 20),
+                                (swatch_x - head_rw * 1.4, swatch_y + 10)
+                            ])
+                        else:
+                            for angle in range(0, 361, 15):
+                                rad = math.radians(angle)
+                                base_r = head_rw * 1.05
+                                r = base_r + (5 if angle % 30 == 0 else 0) if str(style) == "short" else base_r
+                                hair_poly.append((swatch_x + math.cos(rad) * r, swatch_y + math.sin(rad) * r))
                         pygame.draw.polygon(self.canvas, hair_color, hair_poly)
 
                     tc = TEAM_YELLOW if getattr(self, "preferred_color", 0) else HOUSE_RED
@@ -4793,12 +5065,13 @@ class WinCurl3:
                             else: self.hair_style = "short"
                             self.save_progress()
                         elif b["id"] == "hair_color":
-                            try:
-                                hc_val = int(getattr(self, "hair_color", 0))
-                            except (TypeError, ValueError):
-                                hc_val = 0
-                            self.hair_color = (hc_val + 1) % 6
-                            self.save_progress()
+                            if getattr(self, "hair_style", "short") != "bald":
+                                try:
+                                    hc_val = int(getattr(self, "hair_color", 0))
+                                except (TypeError, ValueError):
+                                    hc_val = 0
+                                self.hair_color = (hc_val + 1) % 6
+                                self.save_progress()
                         elif b["id"] == "hi_res_mode":
                             self.hi_res_mode = not getattr(self, "hi_res_mode", False)
                             self.save_progress()
@@ -5071,12 +5344,17 @@ class WinCurl3:
             start_x_base = -200
             start_y_base = -200
             
-            for x in range(0, BASE_WIDTH + 600, 100):
-                px = start_x_base + x + offset_x
-                pygame.draw.line(self.canvas, grid_color, (px, start_y_base), (px - 400, start_y_base + BASE_HEIGHT + 400), 2)
-            for y in range(0, BASE_HEIGHT + 600, 100):
-                py = start_y_base + y + offset_y
-                pygame.draw.line(self.canvas, grid_color, (start_x_base, py), (start_x_base + BASE_WIDTH + 400, py - 400), 2)
+            if not getattr(self, "_grid_cache_surf", None):
+                self._grid_cache_surf = pygame.Surface((BASE_WIDTH + 600, BASE_HEIGHT + 600)).convert()
+                self._grid_cache_surf.fill((10, 12, 16))
+                for x in range(0, BASE_WIDTH + 600, 100):
+                    px = start_x_base + x
+                    pygame.draw.line(self._grid_cache_surf, grid_color, (px, start_y_base), (px - 400, start_y_base + BASE_HEIGHT + 400), 2)
+                for y in range(0, BASE_HEIGHT + 600, 100):
+                    py = start_y_base + y
+                    pygame.draw.line(self._grid_cache_surf, grid_color, (start_x_base, py), (start_x_base + BASE_WIDTH + 400, py - 400), 2)
+            
+            self.canvas.blit(self._grid_cache_surf, ((offset_x % 100) - 100, (offset_y % 100) - 100))
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5120,15 +5398,9 @@ class WinCurl3:
             chars_to_show = dt_ticks // 5
             typed_text = full_text[:chars_to_show]
 
-            if not hasattr(self, "dialog_text_cache_index") or self.dialog_text_cache_index != self.dialog_index:
-                self.dialog_text_cache = {}
-                self.dialog_text_cache_index = self.dialog_index
-
-            if typed_text not in self.dialog_text_cache:
-                lines = textwrap.wrap(typed_text, width=50)
-                self.dialog_text_cache[typed_text] = [self.font.render(line, True, (220, 220, 220)) for line in lines]
-
-            for j, line_lbl in enumerate(self.dialog_text_cache[typed_text]):
+            lines = textwrap.wrap(typed_text, width=50)
+            for j, line in enumerate(lines):
+                line_lbl = self.font.render(line, True, (220, 220, 220))
                 self.canvas.blit(line_lbl, (dialog_rect.x + 40, dialog_rect.y + 80 + j * 45))
 
             if chars_to_show >= len(full_text) and (pygame.time.get_ticks() % 1000 > 500):
@@ -5203,6 +5475,7 @@ class WinCurl3:
         if py > 0 or px != 0:
             self.canvas.fill((10, 12, 16))
         self.canvas.blit(self.static_ice_surface, (px, py))
+        self.crowd.draw(self.canvas, px, py)
 
         t = pygame.time.get_ticks()
         if not IS_ANDROID:
@@ -5826,27 +6099,56 @@ class WinCurl3:
                 self.canvas.blit(self.font.render(str(self.score[1][e - 1]), True, WHITE), (cx - 320 + (e * spacing), 570))
             self.canvas.blit(self.font.render(str(y_tot), True, TEAM_YELLOW), (cx + 380, 570))
 
-        m_pos = self.get_pointer_pos()
-        draw_glass_rect(
-            self.canvas,
-            self.btn_return_menu,
-            HOUSE_BLUE,
-            self.btn_return_menu.h // 2,
-            self.btn_return_menu.collidepoint(m_pos.x, m_pos.y),
-        )
-        lbl_btn = self.font.render("MAIN MENU", True, WHITE)
-        self.canvas.blit(lbl_btn, lbl_btn.get_rect(center=self.btn_return_menu.center))
+            if self.game_mode not in ["HOST", "JOIN"]:
+                self.btn_save_quit = pygame.Rect(cx - 300, 800, 600, 80)
+                self.draw_button(self.canvas, self.btn_save_quit, "SAVE & QUIT", (100, 200, 100), (30, 40, 50))
+            self.btn_quit_main = pygame.Rect(cx - 300, 900, 600, 80)
+            if self.game_mode in ["HOST", "JOIN", "CHALLENGE"]:
+                self.btn_quit_main.y = 800
+            self.draw_button(self.canvas, self.btn_quit_main, "RETURN TO MENU", (200, 100, 100), (30, 40, 50))
 
-        self.btn_leaderboard = pygame.Rect(cx - 150, 750, 300, 70)
-        draw_glass_rect(
-            self.canvas,
-            self.btn_leaderboard,
-            (50, 60, 80),
-            self.btn_leaderboard.h // 2,
-            self.btn_leaderboard.collidepoint(m_pos.x, m_pos.y),
-        )
-        lbl_lb = self.font.render("LEADERBOARD", True, WHITE)
-        self.canvas.blit(lbl_lb, lbl_lb.get_rect(center=self.btn_leaderboard.center))
+        if getattr(self, "game_mode", None) == "STORY":
+            self.btn_return_menu = pygame.Rect(cx - 200, 800, 400, 80)
+            self.draw_button(self.canvas, self.btn_return_menu, "CONTINUE", (100, 200, 100), (30, 40, 50))
+        else:
+            self.btn_return_menu = pygame.Rect(cx - 300, 900, 600, 80)
+            if getattr(self, "game_mode", None) in ["HOST", "JOIN", "CHALLENGE"]:
+                self.btn_return_menu.y = 800
+            self.draw_button(self.canvas, self.btn_return_menu, "CONTINUE", (100, 200, 100), (30, 40, 50))
+
+        self.btn_leaderboard = None
+        if getattr(self, "game_mode", None) != "STORY":
+            self.btn_leaderboard = pygame.Rect(cx - 200, 700, 400, 80)
+            if getattr(self, "game_mode", None) in ["HOST", "JOIN", "CHALLENGE"]:
+                self.btn_leaderboard.y = 680
+            self.draw_button(self.canvas, self.btn_leaderboard, "LEADERBOARDS", (150, 150, 255), (30, 40, 50))
+
+        self.draw_global_ui()
+
+    def draw_highlight_replay_screen(self):
+        self.draw_ice()
+        
+        if hasattr(self, "highlight_buffer") and self.highlight_buffer:
+            if getattr(self, "replay_frame", 0) < len(self.highlight_buffer):
+                snap = self.highlight_buffer[self.replay_frame]
+                px = getattr(self, "parallax_x", 0)
+                py = getattr(self, "parallax_y", 0)
+                for s_data in snap:
+                    dummy = Stone(s_data["pos"], s_data["team"])
+                    dummy.draw(self.canvas, px, py)
+                self.replay_frame += 1
+            else:
+                self.exit_match()
+        
+        pygame.draw.rect(self.canvas, (0, 0, 0, 150), (0, 0, BASE_WIDTH, 120))
+        pygame.draw.rect(self.canvas, (0, 0, 0, 150), (0, BASE_HEIGHT - 120, BASE_WIDTH, 120))
+        
+        cx = BASE_WIDTH // 2
+        lbl = self.font_72.render("HIGHLIGHT REPLAY", True, TEAM_YELLOW)
+        self.canvas.blit(lbl, (cx - lbl.get_width() // 2, 20))
+        
+        self.btn_skip_replay = pygame.Rect(cx - 150, BASE_HEIGHT - 100, 300, 80)
+        self.draw_button(self.canvas, self.btn_skip_replay, "SKIP REPLAY", (255, 100, 100), WHITE)
 
     def draw_leaderboard_screen(self):
         self.canvas.fill((16, 22, 34))
@@ -6078,7 +6380,7 @@ class WinCurl3:
                                     pass
                                 continue
 
-                    if event.key == K_ESCAPE:
+                    if event.key == K_ESCAPE or event.key == getattr(pygame, "K_AC_BACK", -1):
                         if self.app_state == "PLAY":
                             self.audio.play_click()
                             if self.game_mode in ["HOST", "JOIN"]:
@@ -6094,7 +6396,7 @@ class WinCurl3:
                         elif self.app_state == "ROOM_PROMPT":
                             self.app_state = "MENU"
                             self.set_typing_target(None)
-                        elif self.app_state in ["OPTIONS_MENU", "CHALLENGE_MENU", "CREDITS", "MULTIPLAYER_LOBBY"]:
+                        elif self.app_state in ["OPTIONS_MENU", "CHALLENGE_MENU", "CREDITS", "MULTIPLAYER_LOBBY", "BOT_MENU", "LEADERBOARD", "SAVE_SLOTS", "STORY_DIALOG", "MATCH_OVER", "HIGHLIGHT_REPLAY"]:
                             self.audio.play_click()
                             self.app_state = "MENU"
                             self.set_typing_target(None)
@@ -6258,6 +6560,8 @@ class WinCurl3:
                     self.handle_pause_events(event)
                 elif self.app_state == "MATCH_OVER":
                     self.handle_match_over_events(event)
+                elif self.app_state == "HIGHLIGHT_REPLAY":
+                    self.handle_highlight_replay_events(event)
                 elif self.app_state == "STORY_WIN":
                     self.handle_story_win_events(event)
                 elif self.app_state == "CREDITS":
@@ -6355,6 +6659,8 @@ class WinCurl3:
                 self.draw_pause_screen()
             elif self.app_state == "MATCH_OVER":
                 self.draw_match_over_screen()
+            elif self.app_state == "HIGHLIGHT_REPLAY":
+                self.draw_highlight_replay_screen()
             elif self.app_state == "STORY_WIN":
                 self.draw_story_win()
             elif self.app_state == "CREDITS":
