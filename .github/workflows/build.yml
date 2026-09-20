@@ -84,7 +84,7 @@ jobs:
           python generate_web_assets.py
       - name: Build WebAssembly
         run: |
-          python3 patch_pygbag.py
+          python3 prepare_web_build.py
           rm -rf wincurl_web/build
           cp icon.png sc_driver.py sc_haptics.py portraits_data.py wincurl_web/
           cp main-pygbag.py wincurl_web/main.py
