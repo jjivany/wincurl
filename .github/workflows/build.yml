@@ -88,7 +88,7 @@ jobs:
           rm -rf wincurl_web/build
           cp icon.png sc_driver.py sc_haptics.py portraits_data.py wincurl_web/
           cp main-pygbag.py wincurl_web/main.py
-          pygbag --build wincurl_web
+          python -m pygbag --build wincurl_web
           cd wincurl_web/build/web
           rm -f wincurl_web.tar.gz
           mv wincurl_web.apk wincurl_web.data
