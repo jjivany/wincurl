@@ -536,9 +536,21 @@ class WinCurlAudioEngine:
             "vosim_YOU_WIN.ogg",
             lambda return_bytes=False: self._synthesize_vosim_phrase("YOU_WIN", 1.2, return_bytes=return_bytes),
         )
-        load_sound("snd_chal_comp", "challenge_complete.ogg", None)
-        load_sound("snd_red_wins", "red_wins.ogg", None)
-        load_sound("snd_ylw_wins", "yellow_wins.ogg", None)
+        load_sound(
+            "snd_chal_comp",
+            "snd_chal_comp.ogg",
+            lambda return_bytes=False: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 1.2, return_bytes=return_bytes),
+        )
+        load_sound(
+            "snd_red_wins",
+            "snd_red_wins.ogg",
+            lambda return_bytes=False: self._synthesize_vosim_phrase("RED_TEAM_WINS", 1.2, return_bytes=return_bytes),
+        )
+        load_sound(
+            "snd_ylw_wins",
+            "snd_ylw_wins.ogg",
+            lambda return_bytes=False: self._synthesize_vosim_phrase("YELLOW_TEAM_WINS", 1.2, return_bytes=return_bytes),
+        )
 
         load_sound("snd_slide", "snd_slide.ogg", self._synthesize_rumble)
         load_sound("snd_sweep", "snd_sweep.ogg", self._synthesize_sweep)
