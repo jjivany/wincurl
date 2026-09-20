@@ -88,17 +88,13 @@ jobs:
           source .venv/bin/activate
           python3 patch_pygbag.py
           rm -rf wincurl_web/build
-          cp main.py icon.png sc_driver.py sc_haptics.py portraits_data.py wincurl_web/
+          cp icon.png sc_driver.py sc_haptics.py portraits_data.py wincurl_web/
+          cp main-pygbag.py wincurl_web/main.py
           pygbag --build wincurl_web
-          python3 -c "
-          with open('wincurl_web/build/web/index.html', 'r') as f: code = f.read()
-          code = code.replace('wincurl_web.apk', 'wincurl_web.data')
-          code = code.replace('if platform.window.location.host.find(\'.itch.zone\')>0:', 'if True:')
-          code = code.replace('async defer', '')
-          with open('wincurl_web/build/web/index.html', 'w') as f: f.write(code)
-          "
-          mv wincurl_web/build/web/wincurl_web.apk wincurl_web/build/web/wincurl_web.data
-          rm -f wincurl_web/build/web/wincurl_web.tar.gz
+          cd wincurl_web/build/web
+          rm -f wincurl_web.tar.gz
+          mv wincurl_web.apk wincurl_web.data
+          sed -i 's/wincurl_web\.apk/wincurl_web.data/g' index.html
       - name: Upload Web Binary
         uses: actions/upload-artifact@v4
         with:
