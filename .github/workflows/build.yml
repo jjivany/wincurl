@@ -81,11 +81,9 @@ jobs:
       - name: Synthesize Web Assets
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          source .venv/bin/activate
           python generate_web_assets.py
       - name: Build WebAssembly
         run: |
-          source .venv/bin/activate
           python3 patch_pygbag.py
           rm -rf wincurl_web/build
           cp icon.png sc_driver.py sc_haptics.py portraits_data.py wincurl_web/
