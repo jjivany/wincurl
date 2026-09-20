@@ -1,6 +1,6 @@
 # 🥌 WINCURL 3
 
-WinCurl 3 is a Python-based curling simulation built with Pygame. It offers a physics-driven curling experience with local and online multiplayer capabilities.
+WinCurl version 3.0, for desktop, mobile and everything else with transistors, simply by running the main.py file! It offers a physics-driven curling experience with local and online multiplayer capabilities.
 
 ## 📋 Overview
 
@@ -66,3 +66,4 @@ Contributions are welcome. Feel free to open an issue or submit a pull request i
 
 *WinCurl 3.0 is a spiritual successor and derives inspiration from the original WinCurl 2.0:*
 [View the original on Archive.org](https://archive.org/details/WCURLD)
+
