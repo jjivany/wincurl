@@ -75,9 +75,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - name: Install pygbag and pygame
-        run: pip install pygbag==0.8.5 pygame-ce ffmpeg-python
+        run: pip install pygbag==0.8.5 pygame-ce==2.3.2 ffmpeg-python
       - name: Synthesize Web Assets
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
