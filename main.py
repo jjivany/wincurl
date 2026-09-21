@@ -18,8 +18,8 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "3.0 Build 124"
-GAME_TITLE = "WinCurl 3, build 124"
+VERSION = "WinCurl 3, build 125"
+GAME_TITLE = "WinCurl 3, build 125"
 
 
 class CachedFont:
@@ -1725,8 +1725,28 @@ class Crowd:
                         "side": side
                     })
 
-    def draw(self, surface, offset_x=0, offset_y=0):
+    def draw(self, surface, offset_x=0, offset_y=0, mode="ON"):
+        if mode == "OFF":
+            return
         t = pygame.time.get_ticks() / 300.0
+
+        if mode == "HOLIDAY LIGHTS":
+            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
+            for m in self.members:
+                # String them neatly down the center of the sideboards (width=50)
+                base_w = surface.get_width()
+                light_x = 25 if m["side"] == 0 else base_w - 25
+                x, y = light_x + offset_x, m["y"] + offset_y
+                color_idx = int((m["offset"] * 10 + t * 2) % 4)
+                if math.sin(t * 3 + m["offset"]) > 0:
+                    # Draw classic C9 Christmas light bulb shape
+                    bulb_rect = pygame.Rect(int(x) - 5, int(y + 25), 10, 16)
+                    pygame.draw.ellipse(surface, colors[color_idx], bulb_rect)
+                    # Base of the bulb
+                    base_rect = pygame.Rect(int(x) - 3, int(y + 20), 6, 6)
+                    pygame.draw.rect(surface, (30, 60, 30), base_rect)
+            return
+
         blit_seq = []
         for m in self.members:
             bob = math.sin(t * (1.2 if m["type"] == 0 else 1.8) + m["offset"]) * 6
@@ -2112,6 +2132,15 @@ class AnimatedCurler:
             
             skin_col = (230, 180, 150)
             pygame.draw.ellipse(surface, c(skin_col), (cx - head_rw, cy - head_rh, head_rw * 2, head_rh * 2))
+
+            if not override_color:
+                # Stylish sunglasses!
+                pygame.draw.polygon(surface, (20, 20, 20), [(cx - 14, cy - 2), (cx - 2, cy - 2), (cx - 4, cy + 4), (cx - 12, cy + 4)])
+                pygame.draw.polygon(surface, (20, 20, 20), [(cx + 2, cy - 2), (cx + 14, cy - 2), (cx + 12, cy + 4), (cx + 4, cy + 4)])
+                pygame.draw.line(surface, (20, 20, 20), (cx - 2, cy - 1), (cx + 2, cy - 1), 2)
+                # Sunglasses reflections
+                pygame.draw.line(surface, (200, 200, 255), (cx - 10, cy), (cx - 6, cy + 2), 1)
+                pygame.draw.line(surface, (200, 200, 255), (cx + 6, cy), (cx + 10, cy + 2), 1)
 
             if is_evil and not override_color:
                 pygame.draw.polygon(surface, (20, 20, 20), [(cx - head_rw, cy), (cx - head_rw - 10, cy - 6), (cx - head_rw, cy + 4)])
@@ -2745,11 +2774,11 @@ class WinCurl3:
         self.title_rainbow_frame = pygame.Surface(self.title_base.get_size(), pygame.SRCALPHA).convert_alpha()
 
         # Realistic Olympic Push Broom Rendering
-        self.broom_surf = pygame.Surface((80, 260), pygame.SRCALPHA)
-        pygame.draw.rect(self.broom_surf, (215, 215, 30), (35, 0, 10, 220), border_radius=4)
-        pygame.draw.rect(self.broom_surf, (40, 40, 45), (20, 220, 40, 20), border_radius=4)
-        pygame.draw.rect(self.broom_surf, (225, 225, 225), (10, 240, 60, 18), border_radius=6)
-        pygame.draw.line(self.broom_surf, (150, 150, 150), (12, 248), (68, 248), 2)
+        self.broom_surf = pygame.Surface((100, 260), pygame.SRCALPHA)
+        pygame.draw.rect(self.broom_surf, (215, 215, 30), (45, 0, 10, 220), border_radius=4)
+        pygame.draw.rect(self.broom_surf, (40, 40, 45), (20, 220, 60, 20), border_radius=4)
+        pygame.draw.rect(self.broom_surf, (225, 225, 225), (10, 240, 80, 18), border_radius=6)
+        pygame.draw.line(self.broom_surf, (150, 150, 150), (15, 248), (85, 248), 2)
 
         self.broom_cache = {}
         for i in range(-30, 32, 2):
@@ -2945,9 +2974,27 @@ class WinCurl3:
             pass
         self.load_progress()
 
+        self._grid_cache_surf = pygame.Surface((BASE_WIDTH + 600, BASE_HEIGHT + 600)).convert()
+        self._grid_cache_surf.fill((10, 12, 16))
+        for px in range(-300, BASE_WIDTH + 300, 100):
+            grid_color = (20, 24, 30)
+            if px % 400 == 0:
+                grid_color = (30, 36, 45)
+            pygame.draw.line(self._grid_cache_surf, grid_color, (px + 300, 0), (px - 400 + 300, BASE_HEIGHT + 600), 2)
+        for py in range(-300, BASE_HEIGHT + 300, 100):
+            grid_color = (20, 24, 30)
+            if py % 400 == 0:
+                grid_color = (30, 36, 45)
+            pygame.draw.line(self._grid_cache_surf, grid_color, (0, py + 300), (BASE_WIDTH + 600, py - 400 + 300), 2)
         self.house_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 - 650)
         self.hack_pos = pygame.math.Vector2(BASE_WIDTH // 2, (BASE_HEIGHT // 2) + 100 + 650)
         self.curler_anim = AnimatedCurler(self.hack_pos)
+        for rink in STORY_RINKS:
+            if "avatar_base64" in rink:
+                try:
+                    self.curler_anim.get_pixel_portrait(rink["avatar_base64"])
+                except Exception:
+                    pass
         self.starfield = Starfield(count=50 if IS_ANDROID else 150)
         self.crowd = Crowd(BASE_WIDTH, BASE_HEIGHT)
         if self.is_4k:
@@ -2997,11 +3044,13 @@ class WinCurl3:
             {"id": "hair_style", "y": 750, "text": "Hair Style:", "color": (150, 180, 200), "scale": 1.0},
             {"id": "hair_color", "y": 840, "text": "Hair Colour:", "color": (150, 180, 200), "scale": 1.0},
             {"id": "ring_color", "y": 930, "text": "Ring Color:", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "hi_res_mode", "y": 1020, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "smoothscale", "y": 1110, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1200, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1290, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "crowd", "y": 1020, "text": "Crowd:", "color": (150, 180, 200), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 1110, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "smoothscale", "y": 1200, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1290, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1380, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
         ]
+        self.crowd_mode = getattr(self, "crowd_mode", "ON")
         self.last_hovered = None
 
         self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
@@ -3184,6 +3233,7 @@ class WinCurl3:
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
                 self.hi_res_mode = data.get("hi_res_mode", False)
+                self.crowd_mode = data.get("crowd_mode", "ON")
 
                 if "slots" in data:
                     self.slots_data = data["slots"]
@@ -3287,6 +3337,7 @@ class WinCurl3:
                 "bilinear_on": getattr(self, "bilinear_on", False),
                 "lighter_filter": getattr(self, "lighter_filter", False),
                 "hi_res_mode": getattr(self, "hi_res_mode", False),
+                "crowd_mode": getattr(self, "crowd_mode", "ON"),
                 "master_vol": getattr(self.audio, "master_volume", 1.0) if getattr(self, "audio", None) else 1.0,
             }
             import os
@@ -4410,12 +4461,12 @@ class WinCurl3:
                                         break
 
                         elif self.c_type == "TAKEOUT":
-                            self.challenge_success = (self.challenge_takeout_target not in self.stones) and any(
+                            self.challenge_success = (self.challenge_takeout_target not in self.stones or (pygame.math.Vector2(self.challenge_takeout_target.pos) - pygame.math.Vector2(cx, cy)).length() > 252) and any(
                                 s.team == 0 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(cx, cy)).length() <= 252
                                 for s in self.stones
                             )
                         elif self.c_type == "DOUBLE":
-                            self.challenge_success = len([s for s in self.stones if s.team == 1]) == 0
+                            self.challenge_success = len([s for s in self.stones if s.team == 1 and (pygame.math.Vector2(s.pos) - pygame.math.Vector2(cx, cy)).length() <= 252]) == 0
                         
                         self.turn_state = "END"
                 else:
@@ -4849,6 +4900,8 @@ class WinCurl3:
             elif btn["id"] == "ring_color":
                 ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
                 text = f"Outer Ring: {ring_names[getattr(self, 'ring_color_idx', 0) % 6]}"
+            elif btn["id"] == "crowd":
+                text = f"Crowd: {getattr(self, 'crowd_mode', 'ON')}"
             elif btn["id"] == "master_vol":
                 text = "Volume"
             elif btn["id"] == "hi_res_mode":
@@ -5000,6 +5053,26 @@ class WinCurl3:
                 vol = getattr(self.audio, "master_volume", 1.0)
                 pygame.draw.line(self.canvas, (200, 210, 220), (bar_x, rect.centery), (bar_x + int(bar_w * vol), rect.centery), 10)
                 pygame.draw.circle(self.canvas, WHITE, (bar_x + int(bar_w * vol), rect.centery), 12)
+            elif btn["id"] == "crowd":
+                img = self.font.render(text, True, WHITE)
+                if img.get_width() > rect.w - 40:
+                    scale = (rect.w - 40) / img.get_width()
+                    img = pygame.transform.smoothscale(img, (int(rect.w - 40), int(img.get_height() * scale)))
+                self.canvas.blit(img, img.get_rect(center=rect.center))
+                
+                if getattr(self, "crowd_mode", "ON") == "HOLIDAY LIGHTS":
+                    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
+                    t = pygame.time.get_ticks() / 300.0
+                    # Draw a mini string of lights across the bottom edge of the button
+                    for i in range(12):
+                        x = rect.left + 20 + i * ((rect.w - 40) / 11)
+                        y = rect.bottom - 15
+                        color_idx = int((i * 0.5 + t * 2) % 4)
+                        if math.sin(t * 3 + i) > 0:
+                            bulb_rect = pygame.Rect(int(x) - 4, int(y), 8, 12)
+                            pygame.draw.ellipse(self.canvas, colors[color_idx], bulb_rect)
+                            base_rect = pygame.Rect(int(x) - 2, int(y) - 4, 4, 4)
+                            pygame.draw.rect(self.canvas, (30, 60, 30), base_rect)
             else:
                 img = self.font.render(text, True, WHITE) if btn["id"] != "fxaa" else self.chat_font.render(text, True, WHITE)
                 if img.get_width() > rect.w - 40:
@@ -5089,6 +5162,11 @@ class WinCurl3:
                             self.save_progress()
                         elif b["id"] == "smoothscale":
                             self.fxaa_on = not getattr(self, "fxaa_on", False)
+                            self.save_progress()
+                        elif b["id"] == "crowd":
+                            modes = ["ON", "OFF", "HOLIDAY LIGHTS"]
+                            curr = getattr(self, "crowd_mode", "ON")
+                            self.crowd_mode = modes[(modes.index(curr) + 1) % 3] if curr in modes else "ON"
                             self.save_progress()
 
                         elif b["id"] == "update":
@@ -5356,17 +5434,8 @@ class WinCurl3:
             start_x_base = -200
             start_y_base = -200
             
-            if not getattr(self, "_grid_cache_surf", None):
-                self._grid_cache_surf = pygame.Surface((BASE_WIDTH + 600, BASE_HEIGHT + 600)).convert()
-                self._grid_cache_surf.fill((10, 12, 16))
-                for x in range(0, BASE_WIDTH + 600, 100):
-                    px = start_x_base + x
-                    pygame.draw.line(self._grid_cache_surf, grid_color, (px, start_y_base), (px - 400, start_y_base + BASE_HEIGHT + 400), 2)
-                for y in range(0, BASE_HEIGHT + 600, 100):
-                    py = start_y_base + y
-                    pygame.draw.line(self._grid_cache_surf, grid_color, (start_x_base, py), (start_x_base + BASE_WIDTH + 400, py - 400), 2)
-            
-            self.canvas.blit(self._grid_cache_surf, ((offset_x % 100) - 100, (offset_y % 100) - 100))
+            if getattr(self, "_grid_cache_surf", None):
+                self.canvas.blit(self._grid_cache_surf, ((offset_x % 100) - 100, (offset_y % 100) - 100))
 
             dialog_rect = pygame.Rect(cx - 500, BASE_HEIGHT - 350, 1000, 250)
 
@@ -5383,8 +5452,9 @@ class WinCurl3:
             def draw_shadow(surf, key_name, x, y):
                 shadow_key = key_name + "_shadow"
                 if shadow_key not in PIXEL_PORTRAIT_CACHE:
-                    mask = pygame.mask.from_surface(surf)
-                    PIXEL_PORTRAIT_CACHE[shadow_key] = mask.to_surface(setcolor=(0, 0, 0, 180), unsetcolor=(0, 0, 0, 0))
+                    shadow = surf.copy()
+                    shadow.fill((0, 0, 0, 180), special_flags=pygame.BLEND_RGBA_MULT)
+                    PIXEL_PORTRAIT_CACHE[shadow_key] = shadow
                 self.canvas.blit(PIXEL_PORTRAIT_CACHE[shadow_key], (x + 12, y + 15))
 
             player_bob = math.sin(pygame.time.get_ticks() * 0.005) * 6
@@ -5487,7 +5557,7 @@ class WinCurl3:
         if py > 0 or px != 0:
             self.canvas.fill((10, 12, 16))
         self.canvas.blit(self.static_ice_surface, (px, py))
-        self.crowd.draw(self.canvas, px, py)
+        self.crowd.draw(self.canvas, px, py, getattr(self, "crowd_mode", "ON"))
 
         t = pygame.time.get_ticks()
         if not IS_ANDROID:

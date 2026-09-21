@@ -1,5 +1,13 @@
 # WinCurl Releases History
 
+## Build 125 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
+- **Cut-Scene Visuals:** Fixed transparent pixel artifacting by using proper BLEND_RGBA_MULT masking.
+- **Customization Options:** Replaced generic goggles with stylized sunglasses on all avatars!
+- **Challenge Mode Tweaks:** The "clear the house" rules now count opponent stones knocked out of the active rings (distance > 252) as successes.
+- **Crowd Controls:** Added an option to completely toggle off the crowd to maximize FPS on low-end devices, along with a festive new "Holiday Lights" mode!
+- **Performance Polish:** Pre-generated cut-scene assets and boss portraits significantly reduce loading stutters.
+- **Onward and Upward:** The core engine is cleaner than ever. We're onward and upward from here!
+
 ## Build 123 (Final Revision) 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
 - **Animation Fix:** Fixed a rendering issue on mobile where the curler's legs were getting cut off at the bottom of the screen during the throwing animation!
 
