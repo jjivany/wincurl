@@ -3910,8 +3910,15 @@ class WinCurl3:
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             if self.prompt_rect.collidepoint(mx, my):
                 if self.typing_target == "room":
-                    self.room_text = ""
-                    self.save_progress()
+                    if mx > self.prompt_rect.right - 150:
+                        if len(self.typing_composition) > 0:
+                            self.typing_composition = self.typing_composition[:-1]
+                        else:
+                            self.room_text = self.room_text[:-1]
+                            self.save_progress()
+                    else:
+                        self.room_text = ""
+                        self.save_progress()
                 self.set_typing_target("room")
             elif self.prompt_btn_host.collidepoint(mx, my) and len(self.room_text) > 0:
                 self.audio.play_click()
@@ -4829,6 +4836,9 @@ class WinCurl3:
         txt = f"{self.room_text}{self.typing_composition}_" if self.typing_target == "room" else self.room_text
         img = self.font.render(txt, True, WHITE)
         self.canvas.blit(img, img.get_rect(center=self.prompt_rect.center))
+        if self.typing_target == "room":
+            del_img = self.font.render("[ < ]", True, (255, 100, 100))
+            self.canvas.blit(del_img, (self.prompt_rect.right - 120, self.prompt_rect.centery - del_img.get_height() // 2))
 
         draw_glass_rect(self.canvas, self.prompt_btn_host, TEAM_YELLOW, self.prompt_btn_host.h // 2, self.last_hovered == "prompt_host")
         lbl_h = self.font.render("HOST", True, WHITE)
@@ -4882,6 +4892,8 @@ class WinCurl3:
                 text = f"Name: {self.username}"
                 if self.typing_target == "name":
                     text += self.typing_composition + "_"
+                    del_img = self.font.render("[ < ]", True, (255, 100, 100))
+                    self.canvas.blit(del_img, (rect.right - 100, rect.centery - del_img.get_height() // 2))
             elif btn["id"] == "color":
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
@@ -5138,8 +5150,15 @@ class WinCurl3:
                         new_target = None
                         if b["id"] == "name":
                             if self.typing_target == "name":
-                                self.username = ""
-                                self.save_progress()
+                                if mx > 750:
+                                    if len(self.typing_composition) > 0:
+                                        self.typing_composition = self.typing_composition[:-1]
+                                    else:
+                                        self.username = self.username[:-1]
+                                        self.save_progress()
+                                else:
+                                    self.username = ""
+                                    self.save_progress()
                             new_target = "name"
                         elif b["id"] == "master_vol":
                             pass  # Handled by drag
