@@ -4888,6 +4888,20 @@ class WinCurl3:
             ):
                 continue
 
+            is_hovered = self.last_hovered == "opt_" + btn["id"]
+            target_scale = 1.07 if is_hovered else 1.0
+            if abs(btn["scale"] - target_scale) < 0.005:
+                btn["scale"] = target_scale
+            else:
+                btn["scale"] += (target_scale - btn["scale"]) * 0.3
+
+            rect = pygame.Rect(
+                cx - 300 * btn["scale"],
+                btn["y"] + getattr(self, "menu_dy", 0) - 15 * btn["scale"],
+                600 * btn["scale"],
+                95 * btn["scale"],
+            )
+
             if btn["id"] == "name":
                 text = f"Name: {self.username}"
                 if self.typing_target == "name":
@@ -4931,20 +4945,8 @@ class WinCurl3:
             else:
                 text = btn["text"]
 
-            is_hovered = self.last_hovered == "opt_" + btn["id"]
-            target_scale = 1.07 if is_hovered else 1.0
-            if abs(btn["scale"] - target_scale) < 0.005:
-                btn["scale"] = target_scale
-            else:
-                btn["scale"] += (target_scale - btn["scale"]) * 0.3
-
-            rect = pygame.Rect(
-                cx - 300 * btn["scale"],
-                btn["y"] + getattr(self, "menu_dy", 0) - 15 * btn["scale"],
-                600 * btn["scale"],
-                95 * btn["scale"],
-            )
             draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
+
 
             if btn["id"] in ["color", "hair_color", "hair_style"]:
                 img = self.font.render(text, True, WHITE)
@@ -6465,6 +6467,14 @@ class WinCurl3:
                             self.save_progress()
 
                 if event.type == KEYDOWN:
+                    if self.typing_target == "name" and event.key == K_BACKSPACE:
+                        if len(self.typing_composition) == 0:
+                            self.username = self.username[:-1]
+                            self.save_progress()
+                    elif self.typing_target == "room" and event.key == K_BACKSPACE:
+                        if len(self.typing_composition) == 0:
+                            self.room_text = self.room_text[:-1]
+                            self.save_progress()
                     if not IS_ANDROID and getattr(event, "key", None) == K_f:
                         self.audio.play_click()
                         self.toggle_fullscreen()
