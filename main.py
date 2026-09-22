@@ -5208,9 +5208,6 @@ class WinCurl3:
             if event.key in (K_RETURN, K_KP_ENTER):
                 self.set_typing_target(None)
                 self.save_progress()
-            elif event.key == K_BACKSPACE:
-                self.username = self.username[:-1]
-                self.save_progress()
         if self.is_pointer_pressed:
             for b in self.options_buttons:
                 if b["id"] == "master_vol" and 300 < mx < 900 and b["y"] < menu_my < b["y"] + 110 * b["scale"]:
@@ -6520,12 +6517,7 @@ class WinCurl3:
                             self.set_typing_target(None)
                         continue
 
-                    if self.typing_target == "name" and event.key == K_BACKSPACE:
-                        self.username = self.username[:-1]
-                        self.save_progress()
-                    elif self.typing_target == "room" and event.key == K_BACKSPACE:
-                        self.room_text = self.room_text[:-1]
-                        self.save_progress()
+                    # removed duplicated backspace block
 
                     if not self.typing_target and not self.typing_chat:
                         if event.key in (K_UP, K_w):
