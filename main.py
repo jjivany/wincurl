@@ -3012,6 +3012,7 @@ class WinCurl3:
         self.shake_amount = 0.0
         self.pause_anim = 0.0
         self.typing_target = None
+        self.typing_composition = ""
         self.net_action = None
         self.prompt_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 - 50, 700, 120)
         self.prompt_btn_host = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 + 110, 320, 100)
@@ -3097,6 +3098,7 @@ class WinCurl3:
         if was_typing:
             self.save_progress()
         self.typing_target = target
+        self.typing_composition = ""
         if IS_ANDROID:
             try:
                 if target is not None:
@@ -3885,10 +3887,6 @@ class WinCurl3:
             elif event.key == K_BACKSPACE:
                 self.username = self.username[:-1]
                 self.save_progress()
-            else:
-                if hasattr(event, "unicode") and event.unicode.isprintable() and len(self.username) + len(event.unicode) <= 12:
-                    self.username += event.unicode
-                    self.save_progress()
 
     def handle_room_prompt_events(self, event):
         mouse_pos = getattr(event, "pos", self.get_pointer_pos())
@@ -4827,7 +4825,8 @@ class WinCurl3:
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, cy - 150))
 
         draw_glass_rect(self.canvas, self.prompt_rect, HOUSE_BLUE, self.prompt_rect.h // 2, animate_sheen=False)
-        txt = f"{self.room_text}_" if self.typing_target == "room" else self.room_text
+        pygame.draw.rect(self.canvas, (50, 50, 50), self.prompt_rect, border_radius=16)
+        txt = f"{self.room_text}{self.typing_composition}_" if self.typing_target == "room" else self.room_text
         img = self.font.render(txt, True, WHITE)
         self.canvas.blit(img, img.get_rect(center=self.prompt_rect.center))
 
@@ -4880,7 +4879,9 @@ class WinCurl3:
                 continue
 
             if btn["id"] == "name":
-                text = f"Name: {self.username}" + ("_" if self.typing_target == "name" else "")
+                text = f"Name: {self.username}"
+                if self.typing_target == "name":
+                    text += self.typing_composition + "_"
             elif btn["id"] == "color":
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
@@ -5849,8 +5850,9 @@ class WinCurl3:
                         line_surf.fill((100, 110, 130, max_alpha))
                         self.canvas.blit(line_surf, (chat_rect.x + 20, y_offset))
                     y_offset += 15
-                    txt_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, TEAM_YELLOW).copy()
-                    shd_surf = self.chat_font.render("Say: " + self.chat_input + "_", True, (0, 0, 0)).copy()
+                    txt = f"Say: {self.chat_input}{self.typing_composition}_"
+                    txt_surf = self.chat_font.render(txt, True, TEAM_YELLOW).copy()
+                    shd_surf = self.chat_font.render(txt, True, (0, 0, 0)).copy()
                     if max_alpha < 255:
                         temp = pygame.Surface(txt_surf.get_size(), pygame.SRCALPHA)
                         temp.fill((255, 255, 255, max_alpha))
@@ -6418,7 +6420,11 @@ class WinCurl3:
                     self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE | pygame.DOUBLEBUF)
                     self.border_starfield = Starfield(count=400, max_w=event.w, max_h=event.h)
 
-                if event.type == getattr(pygame, "TEXTINPUT", 771):
+                if event.type == getattr(pygame, "TEXTEDITING", 770):
+                    if getattr(self, "typing_target", None) is not None:
+                        self.typing_composition = event.text
+                elif event.type == getattr(pygame, "TEXTINPUT", 771):
+                    self.typing_composition = ""
                     if self.app_state == "PLAY" and self.game_mode in ["HOST", "JOIN"] and self.typing_chat:
                         if event.text == '\x08' or event.text == '\b':
                             self.chat_input = self.chat_input[:-1]
