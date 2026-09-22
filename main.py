@@ -3911,7 +3911,10 @@ class WinCurl3:
             
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             if self.prompt_rect.collidepoint(mx, my):
-                self.set_typing_target("room" if self.typing_target != "room" else None)
+                if self.typing_target == "room":
+                    self.room_text = ""
+                    self.save_progress()
+                self.set_typing_target("room")
             elif self.prompt_btn_host.collidepoint(mx, my) and len(self.room_text) > 0:
                 self.audio.play_click()
                 self.save_progress()
@@ -5133,6 +5136,9 @@ class WinCurl3:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "name":
+                            if self.typing_target == "name":
+                                self.username = ""
+                                self.save_progress()
                             new_target = "name"
                         elif b["id"] == "master_vol":
                             pass  # Handled by drag
