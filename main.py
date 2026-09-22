@@ -4867,7 +4867,7 @@ class WinCurl3:
 
         lbl_v = self.font_72.render("OPTIONS", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, 320 + getattr(self, "menu_dy", 0)))
-        lbl_build = self.font.render(f"(Build {VERSION})", True, (150, 160, 180))
+        lbl_build = self.font.render(f"({VERSION})", True, (150, 160, 180))
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width() // 2, 385 + getattr(self, "menu_dy", 0)))
 
         for btn in self.options_buttons:
@@ -6418,14 +6418,14 @@ class WinCurl3:
                             self.chat_input = self.chat_input[:-1]
                         elif len(self.chat_input) + len(event.text) <= 30:
                             self.chat_input += event.text
-                    elif self.app_state == "OPTIONS_MENU" and self.typing_target == "name":
+                    elif self.typing_target == "name":
                         if event.text == '\x08' or event.text == '\b':
                             self.username = self.username[:-1]
                             self.save_progress()
                         elif len(self.username) + len(event.text) <= 15:
                             self.username += event.text
                             self.save_progress()
-                    elif self.app_state == "ROOM_PROMPT" and self.typing_target == "room":
+                    elif self.typing_target == "room":
                         if event.text == '\x08' or event.text == '\b':
                             self.room_text = self.room_text[:-1]
                             self.save_progress()
