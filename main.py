@@ -4836,9 +4836,6 @@ class WinCurl3:
         txt = f"{self.room_text}{self.typing_composition}_" if self.typing_target == "room" else self.room_text
         img = self.font.render(txt, True, WHITE)
         self.canvas.blit(img, img.get_rect(center=self.prompt_rect.center))
-        if self.typing_target == "room":
-            del_img = self.font.render("[ < ]", True, (255, 100, 100))
-            self.canvas.blit(del_img, (self.prompt_rect.right - 120, self.prompt_rect.centery - del_img.get_height() // 2))
 
         draw_glass_rect(self.canvas, self.prompt_btn_host, TEAM_YELLOW, self.prompt_btn_host.h // 2, self.last_hovered == "prompt_host")
         lbl_h = self.font.render("HOST", True, WHITE)
@@ -4906,8 +4903,6 @@ class WinCurl3:
                 text = f"Name: {self.username}"
                 if self.typing_target == "name":
                     text += self.typing_composition + "_"
-                    del_img = self.font.render("[ < ]", True, (255, 100, 100))
-                    self.canvas.blit(del_img, (rect.right - 100, rect.centery - del_img.get_height() // 2))
             elif btn["id"] == "color":
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
                 text = "My Team:"
