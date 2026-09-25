@@ -18,8 +18,8 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build 125"
-GAME_TITLE = "WinCurl 3, build 125"
+VERSION = "WinCurl 3, build 126"
+GAME_TITLE = "WinCurl 3, build 126"
 
 
 class CachedFont:
@@ -532,16 +532,6 @@ class WinCurlAudioEngine:
             lambda return_bytes=False: self._synthesize_vosim_phrase("HARD", 0.65, return_bytes=return_bytes),
         )
         load_sound(
-            "snd_you_win",
-            "vosim_YOU_WIN.ogg",
-            lambda return_bytes=False: self._synthesize_vosim_phrase("YOU_WIN", 1.2, return_bytes=return_bytes),
-        )
-        load_sound(
-            "snd_chal_comp",
-            "snd_chal_comp.ogg",
-            lambda return_bytes=False: self._synthesize_vosim_phrase("CHALLENGE_COMPLETE", 1.2, return_bytes=return_bytes),
-        )
-        load_sound(
             "snd_red_wins",
             "snd_red_wins.ogg",
             lambda return_bytes=False: self._synthesize_vosim_phrase("RED_TEAM_WINS", 1.2, return_bytes=return_bytes),
@@ -797,16 +787,6 @@ class WinCurlAudioEngine:
             f2_env = [(0.0, 1840), (0.3, 1200), (0.5, 1200), (0.8, 1600), (1.0, 1500)]
             f3_env = [(0.0, 2600), (0.3, 2000), (0.5, 2400), (1.0, 2600)]
             chord = [233.08, 293.66]
-        elif phrase == "CHALLENGE_COMPLETE":
-            f1_env = [(0.0, 600), (0.2, 500), (0.3, 300), (0.5, 600), (0.7, 300), (0.9, 400), (1.0, 200)]
-            f2_env = [(0.0, 1700), (0.3, 1200), (0.5, 1800), (0.7, 1100), (1.0, 1400)]
-            f3_env = [(0.0, 2400), (0.5, 2200), (0.8, 2500), (1.0, 2000)]
-            chord = [261.63, 311.13]
-        elif phrase == "YOU_WIN":
-            f1_env = [(0.0, 300), (0.2, 500), (0.4, 600), (0.6, 200), (0.8, 400), (1.0, 600)]
-            f2_env = [(0.0, 1000), (0.4, 1500), (0.6, 900), (1.0, 1200)]
-            f3_env = [(0.0, 2400), (0.5, 2600), (1.0, 2400)]
-            chord = [329.63, 440.00]
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -828,8 +808,10 @@ class WinCurlAudioEngine:
                 time.sleep(0.001)
             t_norm = i / steps
             env = min(1.0, t_norm / 0.1) * max(0.0, min(1.0, (1.0 - t_norm) / 0.2))
+
             if t_norm < 0.1:
                 env += random.uniform(-0.5, 0.5) * (0.1 - t_norm) * 15
+
             val = 0.0
             for f0 in chord:
                 phase = ((i / SR) * f0) % 1.0
@@ -839,7 +821,8 @@ class WinCurlAudioEngine:
                     + math.sin(2 * math.pi * get_val(t_norm, f2_env) * phase / f0) * 0.6
                     + math.sin(2 * math.pi * get_val(t_norm, f3_env) * phase / f0) * 0.3
                 ) * decay
-            sample = int(max(-1.0, min(1.0, (val / len(chord)) * env * 2.0)) * 24000)
+            mixed_val = (val / len(chord)) * env * 2.0
+            sample = int(max(-1.0, min(1.0, mixed_val)) * 24000)
             struct.pack_into("<hh", buf, i * 4, sample, sample)
         return self._create_wav_sound(buf, SR, cache_key=f"vosim_{phrase}", return_bytes=return_bytes)
 
@@ -3721,8 +3704,8 @@ class WinCurl3:
                         if self.app_state != "MATCH_OVER":
                             self.app_state = "MATCH_OVER"
                             self.audio.play_cheer()
-                            if not getattr(self, "challenge_announced", False) and getattr(self.audio, "snd_chal_comp", None):
-                                self.audio.ch_voice.play(self.audio.snd_chal_comp)
+                            if not getattr(self, "challenge_announced", False) and getattr(self.audio, "snd_speech", None):
+                                self.audio.ch_voice.play(self.audio.snd_speech)
                                 self.challenge_announced = True
                             self.challenge_completed_seen = True
                             self.save_progress()
@@ -4124,8 +4107,8 @@ class WinCurl3:
         if getattr(self, "game_mode", None) == "STORY":
             if getattr(self, "story", None) and getattr(self.story, "current_rink", 0) >= len(STORY_RINKS):
                 self.app_state = "STORY_WIN"
-                if getattr(self.audio, "snd_you_win", None):
-                    self.audio.ch_voice.play(self.audio.snd_you_win)
+                if getattr(self.audio, "snd_speech", None):
+                    self.audio.ch_voice.play(self.audio.snd_speech)
             else:
                 self.app_state = "STORY_MAP"
         else:
@@ -4876,7 +4859,7 @@ class WinCurl3:
 
         lbl_v = self.font_72.render("OPTIONS", True, WHITE)
         self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, 320 + getattr(self, "menu_dy", 0)))
-        lbl_build = self.font.render(f"({VERSION})", True, (150, 160, 180))
+        lbl_build = self.font.render(f"({VERSION})", True, (180, 150, 170))
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width() // 2, 385 + getattr(self, "menu_dy", 0)))
 
         for btn in self.options_buttons:
@@ -6237,7 +6220,7 @@ class WinCurl3:
                 px = getattr(self, "parallax_x", 0)
                 py = getattr(self, "parallax_y", 0)
                 for s_data in snap:
-                    dummy = Stone(s_data["pos"], s_data["team"])
+                    dummy = Stone(s_data["pos"][0], s_data["pos"][1], s_data["team"])
                     dummy.draw(self.canvas, px, py)
                 self.replay_frame += 1
             else:

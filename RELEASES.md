@@ -1,5 +1,9 @@
 # WinCurl Releases History
 
+## Build 126 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
+- **Audio Polish:** Cleaned up the experimental VOSIM engine for Challenge Mode, falling back to the iconic classic "WinCurl!" scream to ensure maximum retro legibility.
+- **Under the Hood:** Minor bug fixes and complete cleanup of experimental audio assets to keep the codebase pure and single-file accessible!
+
 ## Build 125 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
 - **Cut-Scene Visuals:** Fixed transparent pixel artifacting by using proper BLEND_RGBA_MULT masking.
 - **Customization Options:** Replaced generic goggles with stylized sunglasses on all avatars!
