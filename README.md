@@ -1,6 +1,6 @@
 # 🥌 WINCURL 3
 
-WinCurl version 3.0, for desktop, mobile and everything else with transistors, simply by running the main.py file! It offers a physics-driven curling experience with local and online multiplayer capabilities.
+WinCurl 3, for desktop, mobile and everything else with transistors, simply by running the main.py file! It offers a physics-driven curling experience with local and online multiplayer capabilities.
 
 ## 📋 Overview
 
