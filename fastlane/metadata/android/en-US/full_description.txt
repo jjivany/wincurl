@@ -1,0 +1,7 @@
+WinCurl 3.0 introduces a massive overhaul to the classic curling formula. Featuring a 3D isometric view, advanced physics simulation, dynamic UI, cross-platform network matchmaking, and an epic RPG-lite Story Mode, WinCurl brings the strategic depth of real curling right to your screen.
+
+Game Modes:
+- Quick Play (Local/Bot): Challenge friends on the same device or face off against 3 difficulties of AI.
+- Multiplayer: Play against anyone over the internet using a seamless lobby system.
+- Story Mode: A sprawling single-player campaign where you level up your stats and fight to save the environment across 8 boss battles.
+- Challenge Mode: 25 levels of target-based minigames and trick shots.
