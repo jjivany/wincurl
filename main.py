@@ -6139,6 +6139,12 @@ class WinCurl3:
 
         self.draw_global_ui()
 
+    def draw_button(self, surface, rect, text, bg_color, text_color=WHITE):
+        is_hovered = rect.collidepoint(self.get_pointer_pos())
+        draw_glass_rect(surface, rect, bg_color, min(rect.w, rect.h) // 4, is_hovered)
+        lbl = self.font.render(text, True, text_color)
+        surface.blit(lbl, lbl.get_rect(center=rect.center))
+
     def draw_match_over_screen(self):
         self.canvas.fill((16, 22, 34))
         cx = BASE_WIDTH // 2
