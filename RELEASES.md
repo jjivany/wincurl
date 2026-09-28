@@ -3,6 +3,7 @@
 ## Build 126 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
 - **Audio Polish:** Cleaned up the experimental VOSIM engine for Challenge Mode, falling back to the iconic classic "WinCurl!" scream to ensure maximum retro legibility.
 - **Under the Hood:** Minor bug fixes and complete cleanup of experimental audio assets to keep the codebase pure and single-file accessible!
+- **Crash Fix:** Resolved a fatal `AttributeError` crash occurring on the "Match Over" screen caused by a missing button rendering function.
 
 ## Build 125 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
 - **Cut-Scene Visuals:** Fixed transparent pixel artifacting by using proper BLEND_RGBA_MULT masking.
