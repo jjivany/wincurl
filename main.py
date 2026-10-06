@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build pre-127"
+VERSION = "WinCurl 3, build 127"
 
 TRANSLATIONS = {
     'fr': {
@@ -79,7 +79,7 @@ TRANSLATIONS = {
     }
 }
 
-GAME_TITLE = "WinCurl 3, build 126"
+GAME_TITLE = "WinCurl 3, build 127 preview"
 
 
 class CachedFont:
