@@ -2,16 +2,16 @@
 
 Welcome to the official builds page for WinCurl 3! 
 
-## Download Latest Version (Build 101)
+## Download Latest Version (Build 126)
 
 ### Android (APK)
-- **[WinCurl 3 - Build 101 (Android APK)](https://github.com/jjivany/wincurl/releases/latest/download/wincurl3-101-arm64-v8a_armeabi-v7a-debug.apk)** 
+- **[WinCurl 3 - Build 126 (Android APK)](https://github.com/jjivany/wincurl/releases/latest/download/wincurl_latest.apk)** 
   *(Make sure to allow installation from unknown sources)*
 
 ### PC (Python/PyPI)
 You can install the game directly from PyPI if you have Python installed:
 ```bash
-pip install wincurl3==101
+pip install wincurl3==126.0.0
 ```
 
 To run it:
@@ -20,8 +20,8 @@ python -m wincurl3
 ```
 
 ### Source Code
-- **[Source code (zip)](https://github.com/jjivany/wincurl/archive/refs/tags/v101.zip)**
-- **[Source code (tar.gz)](https://github.com/jjivany/wincurl/archive/refs/tags/v101.tar.gz)**
+- **[Source code (zip)](https://github.com/jjivany/wincurl/archive/refs/tags/v126.zip)**
+- **[Source code (tar.gz)](https://github.com/jjivany/wincurl/archive/refs/tags/v126.tar.gz)**
 
 ---
 

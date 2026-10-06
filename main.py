@@ -2711,6 +2711,12 @@ class StoryManager:
 
 # --- Main Engine ---
 class WinCurl3:
+    def _t(self, text):
+        lang = getattr(self, "current_language", "en")
+        if lang == "en":
+            return text
+        return TRANSLATIONS.get(lang, {}).get(text, text)
+
     def __init__(self):
         if not pygame.get_init():
             pygame.init()
