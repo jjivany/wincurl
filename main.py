@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build 126"
+VERSION = "WinCurl 3, build pre-127"
 
 TRANSLATIONS = {
     'fr': {
