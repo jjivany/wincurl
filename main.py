@@ -46,7 +46,7 @@ TRANSLATIONS = {
         "PAUSED": "PAUSE",
         "Press ENTER to connect | ESC to cancel": "Appuyez sur ENTRÉE pour vous connecter | ÉCHAP pour annuler",
         "QUIT TO MENU": "QUITTER VERS LE MENU",
-        "RED": "ROUGE",
+        "RED": "ROUG",
         "SAVE & QUIT": "SAUVEGARDER & QUITTER",
         "SELECT CHALLENGE": "SÉLECTIONNER UN DÉFI",
         "SELECT SAVE SLOT": "SÉLECTIONNER UN EMPLACEMENT",
