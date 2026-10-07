@@ -1560,9 +1560,7 @@ class WinCurlAudioEngine:
         self.ch_crowd.stop()
 
     def play_cheer(self):
-        if not self.ch_crowd.get_busy() and getattr(self, "snd_cheer", None):
-            self.ch_crowd.set_volume(getattr(self, "master_volume", 1.0))
-            self.ch_crowd.play(self.snd_cheer)
+        pass # Removed for now
 
     def play_groan(self):
         if not self.ch_crowd.get_busy() and getattr(self, "snd_groan", None):
@@ -1909,9 +1907,11 @@ class Stone:
         self.team, self.radius, self.mass, self.is_moving, self.curl, self.rotation = team, 32, 1.0, False, 0.0, 0.0
 
         if Stone.cached_red_base is None:
-            Stone.cached_shadow = pygame.Surface((self.radius * 2 + 20, self.radius * 2 + 20), pygame.SRCALPHA).convert_alpha()
+            Stone.cached_shadow = pygame.Surface((self.radius * 2 + 40, self.radius * 2 + 40), pygame.SRCALPHA).convert_alpha()
             Stone.cached_shadow.fill((0, 0, 0, 0))
-            pygame.draw.circle(Stone.cached_shadow, (0, 0, 0, 100), (self.radius + 10, self.radius + 10), self.radius)
+            for r in range(self.radius + 15, self.radius - 2, -1):
+                alpha = int(90 * (1.0 - (r - self.radius + 2) / 17.0))
+                pygame.draw.circle(Stone.cached_shadow, (0, 0, 0, max(0, min(255, alpha))), (self.radius + 20, self.radius + 20), r)
             
             Stone.cached_hl = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA).convert_alpha()
             pygame.draw.ellipse(
@@ -2034,7 +2034,7 @@ class Stone:
         self.pos.y += offset_y
         surface.blit(
             Stone.cached_shadow,
-            (self.pos.x - self.radius - 6, self.pos.y - self.radius - 2),
+            (self.pos.x - self.radius - 16, self.pos.y - self.radius - 12),
         )
         surface.blit(
             Stone.cached_red_base if self.team == 0 else Stone.cached_ylw_base,
@@ -5975,25 +5975,26 @@ class WinCurl3:
 
         for p in self.particles:
             if p["type"] == "spark":
-                pygame.draw.circle(
+                pygame.draw.line(
                     self.canvas,
-                    lerp_color((255, 200, 50), ICE_COLOR, 1.0 - p["life"]),
+                    lerp_color((255, 220, 100), ICE_COLOR, 1.0 - p["life"]),
                     (int(p["pos"].x), int(p["pos"].y)),
-                    int(p["life"] * 4),
+                    (int(p["pos"].x - p["vel"].x * 3), int(p["pos"].y - p["vel"].y * 3)),
+                    max(1, int(p["life"] * 3)),
                 )
             elif p["type"] == "trail":
                 pygame.draw.circle(
                     self.canvas,
                     lerp_color(WHITE, ICE_COLOR, 1.0 - p["life"]),
                     (int(p["pos"].x), int(p["pos"].y)),
-                    int(p["life"] * 6),
+                    max(1, int(p["life"] * 5)),
                 )
             elif p["type"] == "sweep":
                 pygame.draw.circle(
                     self.canvas,
-                    lerp_color((200, 240, 255), ICE_COLOR, 1.0 - p["life"]),
+                    lerp_color((220, 245, 255), ICE_COLOR, 1.0 - p["life"]),
                     (int(p["pos"].x), int(p["pos"].y)),
-                    int(p["life"] * 5),
+                    max(1, int(p["life"] * 4)),
                 )
 
         m_pos = self.get_pointer_pos()
