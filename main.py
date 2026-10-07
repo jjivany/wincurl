@@ -75,7 +75,46 @@ TRANSLATIONS = {
         "STORY RINK": "PATINOIRE",
         "XP: ": "XP : ",
         "CURL L": "CURL G",
-        "CURL R": "CURL D"
+        "CURL R": "CURL D",
+        "Story Mode": "Mode Histoire",
+        "Local 1v1": "Local 1c1",
+        "Local vs Bot": "Local Contre Bot",
+        "Challenge Mode": "Mode Défi",
+        "Options": "Options",
+        "IRC Matchmaking": "Matchmaking IRC",
+        "Exit Game": "Quitter le Jeu",
+        "Volume": "Volume",
+        "Name: ": "Nom : ",
+        "My Team:": "Mon Équipe :",
+        "Hair Length: ": "Longueur des Cheveux : ",
+        "Hair Colour: ": "Couleur des Cheveux : ",
+        "Hair Colour: N/A": "Couleur des Cheveux : N/A",
+        "Short": "Court",
+        "Long": "Long",
+        "Bald": "Chauve",
+        "Brown": "Brun",
+        "Blonde": "Blond",
+        "Black": "Noir",
+        "Red": "Roux",
+        "Blue": "Bleu",
+        "Green": "Vert",
+        "Purple": "Violet",
+        "Dark": "Sombre",
+        "Cyan": "Cyan",
+        "Outer Ring: ": "Cercle extérieur : ",
+        "Inner Ring: ": "Cercle intérieur : ",
+        "Left Bumper / Z": "Gâchette Gauche / Z",
+        "Right Bumper / C": "Gâchette Droite / C",
+        "Aim Speed: ": "Vitesse de Visée : ",
+        "Reset to Defaults": "Réinitialiser par Défaut",
+        "Left": "Gauche",
+        "Right": "Droite",
+        "Check for update": "Vérifier les mises à jour",
+        "Crowd: ": "Foule : ",
+        "ON": "OUI",
+        "OFF": "NON",
+        "Hi-Res Mode: ": "Mode Haute Rés. : ",
+        "Smoothscale: ": "Lissage : "
     }
 }
 
@@ -3286,6 +3325,16 @@ class WinCurl3:
                 self.bilinear_on = data.get("bilinear_on", False)
                 self.lighter_filter = data.get("lighter_filter", False)
                 self.current_language = data.get("language")
+                if not self.current_language:
+                    import locale
+                    try:
+                        loc, _ = locale.getdefaultlocale()
+                        if loc and loc.lower().startswith('fr'):
+                            self.current_language = 'fr'
+                        else:
+                            self.current_language = 'en'
+                    except:
+                        self.current_language = 'en'
                 self.hi_res_mode = data.get("hi_res_mode", False)
                 self.crowd_mode = data.get("crowd_mode", "ON")
 
@@ -4715,7 +4764,7 @@ class WinCurl3:
         self.canvas.blit(status_lbl, (cx - status_lbl.get_width() // 2, 210 + self.menu_dy))
 
         for btn in self.menu_buttons:
-            text = btn["text"]
+            text = self._t(btn["text"])
 
             is_hovered = self.last_hovered == btn["id"]
             target_scale = 1.07 if is_hovered else 1.0
@@ -4955,15 +5004,15 @@ class WinCurl3:
                 lang_text = self._t('ENGLISH') if self.current_language == 'en' else self._t('FRENCH')
                 text = f"{self._t('LANGUAGE: ')}{lang_text}"
             elif btn["id"] == "name":
-                text = f"Name: {self.username}"
+                text = f"{self._t('Name: ')}{self.username}"
                 if self.typing_target == "name":
                     text += self.typing_composition + "_"
             elif btn["id"] == "color":
                 btn["color"] = TEAM_YELLOW if self.preferred_color else HOUSE_RED
-                text = "My Team:"
+                text = self._t("My Team:")
             elif btn["id"] == "hair_style":
                 style = getattr(self, 'hair_style', 'short')
-                text = f"Hair Length: {style.capitalize()}"
+                text = f"{self._t('Hair Length: ')}{self._t(style.capitalize())}"
             elif btn["id"] == "hair_color":
                 color_names = ["Brown", "Blonde", "Black", "Red", "Blue", "Green"]
                 try:
@@ -4972,28 +5021,28 @@ class WinCurl3:
                     hc_val = 0
                 
                 if getattr(self, "hair_style", "short") == "bald":
-                    text = f"Hair Colour: N/A"
+                    text = self._t("Hair Colour: N/A")
                     btn["color"] = (100, 100, 100)
                 else:
-                    text = f"Hair Colour: {color_names[hc_val % 6]}"
+                    text = f"{self._t('Hair Colour: ')}{self._t(color_names[hc_val % 6])}"
                     btn["color"] = (150, 180, 200)
             elif btn["id"] == "ring_color":
                 ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
-                text = f"Outer Ring: {ring_names[getattr(self, 'ring_color_idx', 0) % 6]}"
+                text = f"{self._t('Outer Ring: ')}{self._t(ring_names[getattr(self, 'ring_color_idx', 0) % 6])}"
             elif btn["id"] == "crowd":
-                text = f"Crowd: {getattr(self, 'crowd_mode', 'ON')}"
+                text = f"{self._t('Crowd: ')}{self._t(getattr(self, 'crowd_mode', 'ON'))}"
             elif btn["id"] == "master_vol":
-                text = "Volume"
+                text = self._t("Volume")
             elif btn["id"] == "hi_res_mode":
-                text = "Hi-Res Mode: " + ("ON" if getattr(self, "hi_res_mode", False) else "OFF")
+                text = self._t("Hi-Res Mode: ") + (self._t("ON") if getattr(self, "hi_res_mode", False) else self._t("OFF"))
                 btn["color"] = (40, 120, 60) if getattr(self, "hi_res_mode", False) else TEAM_YELLOW
             elif btn["id"] == "smoothscale":
-                text = "Smoothscale: " + ("ON" if getattr(self, "fxaa_on", False) else "OFF")
+                text = self._t("Smoothscale: ") + (self._t("ON") if getattr(self, "fxaa_on", False) else self._t("OFF"))
                 btn["color"] = (40, 120, 60) if getattr(self, "fxaa_on", False) else TEAM_YELLOW
             elif btn["id"] == "update":
-                text = getattr(self, "update_status", "Check for update")
+                text = self._t(getattr(self, "update_status", "Check for update"))
             else:
-                text = btn["text"]
+                text = self._t(btn["text"])
 
             draw_glass_rect(self.canvas, rect, btn["color"], 16, is_hovered)
 
