@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build 127"
+VERSION = "WinCurl 3, build 127.1"
 
 TRANSLATIONS = {
     'fr': {
@@ -3105,7 +3105,8 @@ class WinCurl3:
         self.prompt_rect = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 - 50, 700, 120)
         self.prompt_btn_host = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 + 110, 320, 100)
         self.prompt_btn_join = pygame.Rect(BASE_WIDTH // 2 + 30, BASE_HEIGHT // 2 + 110, 320, 100)
-        self.prompt_btn_back = pygame.Rect(BASE_WIDTH // 2 - 150, BASE_HEIGHT // 2 + 250, 300, 80)
+        self.prompt_btn_browse = pygame.Rect(BASE_WIDTH // 2 - 350, BASE_HEIGHT // 2 + 250, 700, 100)
+        self.prompt_btn_back = pygame.Rect(BASE_WIDTH // 2 - 150, BASE_HEIGHT // 2 + 390, 300, 80)
 
         self.btn_curl_l, self.btn_curl_r = pygame.Rect(120, BASE_HEIGHT - 260, 200, 90), pygame.Rect(
             BASE_WIDTH - 320, BASE_HEIGHT - 260, 200, 90
@@ -4000,6 +4001,8 @@ class WinCurl3:
             curr_hov = "prompt_host"
         elif self.prompt_btn_join.collidepoint(mx, my):
             curr_hov = "prompt_join"
+        elif self.prompt_btn_browse.collidepoint(mx, my):
+            curr_hov = "prompt_browse"
         elif self.prompt_btn_back.collidepoint(mx, my):
             curr_hov = "prompt_back"
             
@@ -4035,6 +4038,14 @@ class WinCurl3:
                 self.set_typing_target(None)
                 self.game_mode = "JOIN"
                 self.net.connect(self.username, False, self.room_text, getattr(self, "preferred_color", 0))
+            elif self.prompt_btn_browse.collidepoint(mx, my):
+                self.audio.play_click()
+                self.app_state = "SERVER_BROWSER"
+                self.set_typing_target(None)
+                self.server_list = []
+                self.server_list_loading = True
+                self.server_browser_scroll = 0.0
+                self.net.connect(self.username, is_host=False, mode="BROWSE")
             elif self.prompt_btn_back.collidepoint(mx, my):
                 self.audio.play_click()
                 self.app_state = "MENU"
@@ -4051,6 +4062,48 @@ class WinCurl3:
                 if event.key == K_BACKSPACE:
                     self.room_text = self.room_text[:-1]
                     self.save_progress()
+
+    def handle_server_browser_events(self, event):
+        mouse_pos = getattr(event, "pos", self.get_pointer_pos())
+        mx, my = mouse_pos[0] if isinstance(mouse_pos, tuple) else mouse_pos.x, (
+            mouse_pos[1] if isinstance(mouse_pos, tuple) else mouse_pos.y
+        )
+        
+        curr_hov = None
+        if getattr(self, "prompt_btn_back", pygame.Rect(0,0,0,0)).collidepoint(mx, my):
+            curr_hov = "prompt_back"
+            
+        list_rect = pygame.Rect(BASE_WIDTH // 2 - 400, 300, 800, BASE_HEIGHT - 600)
+        
+        if list_rect.collidepoint(mx, my):
+            for i, server in enumerate(getattr(self, "server_list", [])):
+                item_y = 320 + i * 110 - getattr(self, "server_browser_scroll", 0)
+                item_rect = pygame.Rect(BASE_WIDTH // 2 - 380, item_y, 760, 90)
+                if list_rect.contains(item_rect) or list_rect.colliderect(item_rect):
+                    if item_rect.collidepoint(mx, my):
+                        curr_hov = f"server_{i}"
+                        
+        if curr_hov != getattr(self, "last_hovered", None):
+            if curr_hov:
+                self.audio.play_hover()
+            self.last_hovered = curr_hov
+            
+        if getattr(event, "type", None) == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            if curr_hov == "prompt_back":
+                self.audio.play_click()
+                self.app_state = "ROOM_PROMPT"
+                self.net.close()
+            elif curr_hov and curr_hov.startswith("server_"):
+                idx = int(curr_hov.split("_")[1])
+                server = self.server_list[idx]
+                self.audio.play_click()
+                self.room_text = server["room"]
+                self.save_progress()
+                self.app_state = "NET_CONNECTING"
+                self.game_mode = "JOIN"
+                self.net.connect(self.username, False, self.room_text, getattr(self, "preferred_color", 0))
+        elif getattr(event, "type", None) == MOUSEWHEEL:
+            self.server_browser_scroll = max(0, getattr(self, "server_browser_scroll", 0) - getattr(event, "y", 0) * 30)
 
     def handle_challenge_menu_events(self, event):
         if event.type == MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -4946,6 +4999,10 @@ class WinCurl3:
         lbl_j = self.font.render(self._t("JOIN"), True, WHITE)
         self.canvas.blit(lbl_j, lbl_j.get_rect(center=self.prompt_btn_join.center))
 
+        draw_glass_rect(self.canvas, self.prompt_btn_browse, HOUSE_BLUE, self.prompt_btn_browse.h // 2, self.last_hovered == "prompt_browse")
+        lbl_browse = self.font.render(self._t("BROWSE SERVERS"), True, WHITE)
+        self.canvas.blit(lbl_browse, lbl_browse.get_rect(center=self.prompt_btn_browse.center))
+
         draw_glass_rect(self.canvas, self.prompt_btn_back, HOUSE_RED, self.prompt_btn_back.h // 2, self.last_hovered == "prompt_back")
         lbl_b = self.font.render(self._t("BACK"), True, WHITE)
         self.canvas.blit(lbl_b, lbl_b.get_rect(center=self.prompt_btn_back.center))
@@ -4956,7 +5013,60 @@ class WinCurl3:
             sub = self.small_font.render(self._t("Tap here to connect | Tap outside to cancel"), True, (150, 160, 180))
         else:
             sub = self.small_font.render(self._t("Press ENTER to connect | ESC to cancel"), True, (150, 160, 180))
-        self.canvas.blit(sub, (cx - sub.get_width() // 2, cy + 120))
+        self.canvas.blit(sub, (cx - sub.get_width() // 2, cy + 250))
+        self.draw_global_ui()
+
+    def draw_server_browser(self):
+        self.draw_menu()
+        self.canvas.blit(self.dark_overlay_200, (0, 0))
+        cx, cy = BASE_WIDTH // 2, BASE_HEIGHT // 2
+
+        lbl_v = self.font_62.render(self._t("SERVER BROWSER"), True, WHITE)
+        self.canvas.blit(lbl_v, (cx - lbl_v.get_width() // 2, 150))
+        
+        if getattr(self, "server_list_loading", True):
+            lbl_load = self.font.render(self._t("Loading..."), True, (200, 200, 200))
+            self.canvas.blit(lbl_load, (cx - lbl_load.get_width() // 2, cy))
+            
+            # Check for network responses
+            while True:
+                msg = self.net.receive_action()
+                if not msg:
+                    break
+                if msg.get("cmd") == "server_list_item":
+                    self.server_list.append({"room": msg["room"], "users": msg["users"]})
+                elif msg.get("cmd") == "server_list_done":
+                    self.server_list_loading = False
+        else:
+            list_rect = pygame.Rect(cx - 400, 300, 800, BASE_HEIGHT - 600)
+            pygame.draw.rect(self.canvas, (30, 35, 40), list_rect, border_radius=16)
+            
+            clip_rect = list_rect.inflate(-20, -20)
+            self.canvas.set_clip(clip_rect)
+            
+            if not self.server_list:
+                lbl_none = self.font.render(self._t("No active rooms found."), True, (150, 150, 150))
+                self.canvas.blit(lbl_none, (cx - lbl_none.get_width() // 2, cy))
+            else:
+                for i, server in enumerate(self.server_list):
+                    item_y = 320 + i * 110 - getattr(self, "server_browser_scroll", 0)
+                    item_rect = pygame.Rect(cx - 380, item_y, 760, 90)
+                    
+                    is_hovered = getattr(self, "last_hovered", None) == f"server_{i}"
+                    draw_glass_rect(self.canvas, item_rect, TEAM_YELLOW if is_hovered else HOUSE_BLUE, 16, animate_sheen=is_hovered)
+                    
+                    lbl_room = self.font.render(server["room"], True, WHITE)
+                    self.canvas.blit(lbl_room, (item_rect.x + 30, item_rect.y + 20))
+                    
+                    lbl_users = self.font.render(f"{server['users']} players", True, (200, 200, 200))
+                    self.canvas.blit(lbl_users, (item_rect.right - 30 - lbl_users.get_width(), item_rect.y + 20))
+            
+            self.canvas.set_clip(None)
+
+        draw_glass_rect(self.canvas, self.prompt_btn_back, HOUSE_RED, self.prompt_btn_back.h // 2, getattr(self, "last_hovered", None) == "prompt_back")
+        lbl_b = self.font.render(self._t("BACK"), True, WHITE)
+        self.canvas.blit(lbl_b, lbl_b.get_rect(center=self.prompt_btn_back.center))
+
         self.draw_global_ui()
 
     def draw_options_menu(self):
@@ -5746,12 +5856,14 @@ class WinCurl3:
             pygame.draw.circle(self.canvas, HOUSE_RED, (30, 35), 12)
             pygame.draw.circle(self.canvas, (60, 60, 60), (30, 35), 12, 2)
             pygame.draw.circle(self.canvas, (100, 100, 100), (30, 35), 6, 2)
-            self.canvas.blit(self.score_font.render(self._t("RED"), True, HOUSE_RED), (55, 20))
+            lbl_r = self.score_font.render(self._t("RED"), True, HOUSE_RED)
+            self.canvas.blit(lbl_r, (50, 20))
 
             pygame.draw.circle(self.canvas, TEAM_YELLOW, (30, 85), 12)
             pygame.draw.circle(self.canvas, (60, 60, 60), (30, 85), 12, 2)
             pygame.draw.circle(self.canvas, (100, 100, 100), (30, 85), 6, 2)
-            self.canvas.blit(self.score_font.render(self._t("YLW"), True, TEAM_YELLOW), (55, 70))
+            lbl_y = self.score_font.render(self._t("YLW"), True, TEAM_YELLOW)
+            self.canvas.blit(lbl_y, (50, 70))
 
             rem_r = self.stones_per_team - self.stones_thrown[0]
             rem_y = self.stones_per_team - self.stones_thrown[1]
@@ -5760,10 +5872,13 @@ class WinCurl3:
                     rem_r -= 1
                 else:
                     rem_y -= 1
+            start_rx = max(140, 50 + lbl_r.get_width() + 10)
+            start_yx = max(140, 50 + lbl_y.get_width() + 10)
+            start_x = max(start_rx, start_yx)
             for i in range(max(0, rem_r)):
-                pygame.draw.circle(self.canvas, HOUSE_RED, (140 + i * 18, 30), 6)
+                pygame.draw.circle(self.canvas, HOUSE_RED, (start_x + i * 16, 30), 6)
             for i in range(max(0, rem_y)):
-                pygame.draw.circle(self.canvas, TEAM_YELLOW, (140 + i * 18, 80), 6)
+                pygame.draw.circle(self.canvas, TEAM_YELLOW, (start_x + i * 16, 80), 6)
 
             spacing = min(80, (BASE_WIDTH - 420) // 8)
             for e in range(1, 9):
@@ -6625,6 +6740,9 @@ class WinCurl3:
                         elif self.app_state == "ROOM_PROMPT":
                             self.app_state = "MENU"
                             self.set_typing_target(None)
+                        elif self.app_state == "SERVER_BROWSER":
+                            self.app_state = "ROOM_PROMPT"
+                            self.net.close()
                         elif self.app_state in ["OPTIONS_MENU", "CHALLENGE_MENU", "CREDITS", "MULTIPLAYER_LOBBY", "BOT_MENU", "LEADERBOARD", "SAVE_SLOTS", "STORY_DIALOG", "MATCH_OVER", "HIGHLIGHT_REPLAY"]:
                             self.audio.play_click()
                             self.app_state = "MENU"
@@ -6768,6 +6886,8 @@ class WinCurl3:
                     self.handle_menu_events(event)
                 elif self.app_state == "ROOM_PROMPT":
                     self.handle_room_prompt_events(event)
+                elif self.app_state == "SERVER_BROWSER":
+                    self.handle_server_browser_events(event)
                 elif self.app_state == "CHALLENGE_MENU":
                     self.handle_challenge_menu_events(event)
                 elif self.app_state == "SAVE_SLOTS":
@@ -6827,6 +6947,8 @@ class WinCurl3:
                 self.draw_menu()
             elif self.app_state == "ROOM_PROMPT":
                 self.draw_room_prompt()
+            elif self.app_state == "SERVER_BROWSER":
+                self.draw_server_browser()
             elif self.app_state == "CHALLENGE_MENU":
                 self.draw_challenge_menu()
             elif self.app_state == "SAVE_SLOTS":
@@ -6917,7 +7039,7 @@ class IRCNetworkManager:
         self.rx_queue = queue.Queue()
         self.is_host = False
 
-    def connect(self, username, is_host, room_name="", preferred_color=0):
+    def connect(self, username, is_host, room_name="", preferred_color=0, mode="PLAY"):
         self.username = "WC_" + "".join(c for c in username if c.isalnum())[:10]
         if len(self.username) == 3:
             self.username += str(random.randint(100, 999))
@@ -6929,6 +7051,7 @@ class IRCNetworkManager:
         self.preferred_color = preferred_color
         self.connection_error = ""
         self.is_host = is_host
+        self.mode = mode
         self.connecting = True
         self.running = True
         import sys
@@ -6978,12 +7101,26 @@ class IRCNetworkManager:
                             self.username += "too"
                             self.sock.send(f"NICK {self.username}\r\n".encode())
                         elif len(parts) > 1 and parts[1] in ("001", "376", "422"):
-                            self.sock.send(f"JOIN {self.channel}\r\n".encode())
-                            if self.is_host:
-                                self.connecting = False
+                            if getattr(self, "mode", "PLAY") == "BROWSE":
+                                self.sock.send(b"LIST #wc3_*\r\n")
                             else:
-                                self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
-                                self.connecting = False
+                                self.sock.send(f"JOIN {self.channel}\r\n".encode())
+                                if self.is_host:
+                                    self.connecting = False
+                                else:
+                                    self.sock.send(f"PRIVMSG {self.channel} :{json.dumps({'cmd': 'hello'})}\r\n".encode())
+                                    self.connecting = False
+                        elif len(parts) > 3 and parts[1] == "322":
+                            chan_name = parts[3]
+                            try:
+                                users = int(parts[4])
+                            except:
+                                users = 0
+                            if chan_name.startswith("#wc3_"):
+                                self.rx_queue.put({"cmd": "server_list_item", "room": chan_name[5:], "users": users})
+                        elif len(parts) > 1 and parts[1] == "323":
+                            self.rx_queue.put({"cmd": "server_list_done"})
+                            self.close()
                         elif len(parts) > 2 and parts[1] in ("PART", "QUIT"):
                             sender = parts[0].split("!")[0][1:]
                             if sender == getattr(self, "opponent", ""):
