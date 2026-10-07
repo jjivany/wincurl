@@ -4557,7 +4557,7 @@ class WinCurl3:
                     if self.stones:
                         last_stone = self.stones[-1]
                         dist = (last_stone.pos - self.house_pos).length()
-                        if dist < 240:
+                        if dist < 40:
                             self.audio.play_cheer()
                         elif dist > 350:
                             self.audio.play_groan()
