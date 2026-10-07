@@ -891,8 +891,11 @@ class WinCurlAudioEngine:
             f1_env = [(0.0, 400), (0.2, 600), (0.5, 650), (0.8, 600), (1.0, 400)]
             f2_env = [(0.0, 1000), (0.2, 1300), (0.5, 1400), (0.8, 1300), (1.0, 1000)]
             f3_env = [(0.0, 2400), (0.5, 2600), (1.0, 2400)]
-            # Use a dense, slightly detuned major chord to simulate a crowd
-            chord = [110.0, 130.81, 164.81, 196.00, 220.0, 261.63, 329.63, 392.00]
+            # Massive detuned chorus simulating a crowd in the stands
+            base_chord = [110.0, 130.81, 164.81, 196.00, 220.0, 261.63, 329.63, 392.00]
+            chord = []
+            for note in base_chord:
+                chord.extend([note * 0.98, note, note * 1.02, note * 1.05])
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -928,6 +931,9 @@ class WinCurlAudioEngine:
                     + math.sin(2 * math.pi * get_val(t_norm, f3_env) * phase / f0) * 0.3
                 ) * decay
             mixed_val = (val / len(chord)) * env * 2.0
+            if phrase == "CHEER":
+                # Mix in raw crowd roar noise
+                mixed_val += random.uniform(-0.15, 0.15) * env
             sample = int(max(-1.0, min(1.0, mixed_val)) * 24000)
             struct.pack_into("<hh", buf, i * 4, sample, sample)
         return self._create_wav_sound(buf, SR, cache_key=f"vosim_{phrase}", return_bytes=return_bytes)
