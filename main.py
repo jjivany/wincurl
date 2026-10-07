@@ -118,7 +118,7 @@ TRANSLATIONS = {
     }
 }
 
-GAME_TITLE = "WinCurl 3, build 127 preview"
+GAME_TITLE = "WinCurl 3"
 
 
 class CachedFont:

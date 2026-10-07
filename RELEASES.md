@@ -1,5 +1,17 @@
 # WinCurl Releases History
 
+## Build 127 🇨🇦 ⚜️ 🏒
+
+**Bienvenue à la Build 127 !**
+Cette mise à jour apporte une localisation complète en français canadien à WinCurl 3. Le jeu détecte désormais automatiquement la langue de votre système au démarrage et affiche tous les menus, paramètres et éléments de l'interface en français si votre appareil est configuré pour le français. 
+Nous avons également corrigé les bugs persistants liés à l'interface utilisateur et harmonisé le menu des options pour une expérience plus fluide. Préparez-vous à lancer vos pierres et à balayer la glace en français !
+
+---
+
+**Welcome to Build 127!**
+This update brings full Canadian French localization to WinCurl 3. The game now automatically detects your system language on startup and displays all menus, settings, and UI elements in French if your device is set to French.
+We've also fixed lingering UI bugs and harmonized the options menu for a smoother experience. Get ready to throw your stones and sweep the ice in French!
+
 ## Build 126 💍 ☮️ 😄 💍 ✌️ 😃 💍 ☮️
 - **Audio Polish:** Cleaned up the experimental VOSIM engine for Challenge Mode, falling back to the iconic classic "WinCurl!" scream to ensure maximum retro legibility.
 - **Under the Hood:** Minor bug fixes and complete cleanup of experimental audio assets to keep the codebase pure and single-file accessible!
