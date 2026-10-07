@@ -887,10 +887,12 @@ class WinCurlAudioEngine:
             f3_env = [(0.0, 2600), (0.3, 2000), (0.5, 2400), (1.0, 2600)]
             chord = [233.08, 293.66]
         elif phrase == "CHEER":
-            f1_env = [(0.0, 300), (0.1, 700), (0.5, 800), (0.8, 700), (1.0, 300)]
-            f2_env = [(0.0, 1500), (0.1, 1200), (0.5, 1300), (0.8, 1200), (1.0, 1500)]
-            f3_env = [(0.0, 2500), (0.1, 2400), (0.5, 2600), (0.8, 2400), (1.0, 2500)]
-            chord = [110.0, 164.81, 220.0, 277.18, 329.63, 440.0]
+            # "WOO" / "YAY" sound (more stable, higher frequencies)
+            f1_env = [(0.0, 400), (0.2, 600), (0.5, 650), (0.8, 600), (1.0, 400)]
+            f2_env = [(0.0, 1000), (0.2, 1300), (0.5, 1400), (0.8, 1300), (1.0, 1000)]
+            f3_env = [(0.0, 2400), (0.5, 2600), (1.0, 2400)]
+            # Use a dense, slightly detuned major chord to simulate a crowd
+            chord = [110.0, 130.81, 164.81, 196.00, 220.0, 261.63, 329.63, 392.00]
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -3219,14 +3221,14 @@ class WinCurl3:
         pygame.draw.rect(self.static_ice_surface, (30, 35, 40), (BASE_WIDTH - 50, 0, 50, BASE_HEIGHT))
         pygame.draw.rect(self.static_ice_surface, (180, 50, 50), (BASE_WIDTH - 50, 0, 5, BASE_HEIGHT))
         for y in range(0, BASE_HEIGHT, 80):
-            pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (0, y), (BASE_WIDTH, y), 2)
-        pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (0, self.house_pos.y), (BASE_WIDTH, self.house_pos.y), 6)
+            pygame.draw.line(self.static_ice_surface, ICE_SHADOW, (50, y), (BASE_WIDTH - 50, y), 2)
+        pygame.draw.line(self.static_ice_surface, TEE_LINE_COLOR, (50, self.house_pos.y), (BASE_WIDTH - 50, self.house_pos.y), 6)
         pygame.draw.line(self.static_ice_surface, (200, 212, 226), (self.house_pos.x, 0), (self.house_pos.x, BASE_HEIGHT), 3)
         pygame.draw.line(
-            self.static_ice_surface, HOG_LINE_COLOR, (0, self.house_pos.y + 400), (BASE_WIDTH, self.house_pos.y + 400), 10
+            self.static_ice_surface, HOG_LINE_COLOR, (50, self.house_pos.y + 400), (BASE_WIDTH - 50, self.house_pos.y + 400), 10
         )
         pygame.draw.line(
-            self.static_ice_surface, (10, 10, 10), (0, self.house_pos.y - 220), (BASE_WIDTH, self.house_pos.y - 220), 4
+            self.static_ice_surface, (10, 10, 10), (50, self.house_pos.y - 220), (BASE_WIDTH - 50, self.house_pos.y - 220), 4
         )
 
         ring_colors = [HOUSE_BLUE, HOUSE_RED, (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
