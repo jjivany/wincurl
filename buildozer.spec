@@ -31,4 +31,4 @@ ios.ios_deploy_branch = 1.12.2
 
 [buildozer]
 log_level = 2
-android.numeric_version = 127
+android.numeric_version = 128

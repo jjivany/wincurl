@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build 127.1"
+VERSION = "WinCurl 3, build 128.0"
 
 TRANSLATIONS = {
     'fr': {
@@ -886,6 +886,11 @@ class WinCurlAudioEngine:
             f2_env = [(0.0, 1840), (0.3, 1200), (0.5, 1200), (0.8, 1600), (1.0, 1500)]
             f3_env = [(0.0, 2600), (0.3, 2000), (0.5, 2400), (1.0, 2600)]
             chord = [233.08, 293.66]
+        elif phrase == "CHEER":
+            f1_env = [(0.0, 300), (0.1, 700), (0.5, 800), (0.8, 700), (1.0, 300)]
+            f2_env = [(0.0, 1500), (0.1, 1200), (0.5, 1300), (0.8, 1200), (1.0, 1500)]
+            f3_env = [(0.0, 2500), (0.1, 2400), (0.5, 2600), (0.8, 2400), (1.0, 2500)]
+            chord = [110.0, 164.81, 220.0, 277.18, 329.63, 440.0]
         else:  # "HARD" and fallback
             f1_env, f2_env, f3_env = (
                 [(0.0, 400), (0.3, 750), (1.0, 200)],
@@ -963,24 +968,7 @@ class WinCurlAudioEngine:
         return self._create_wav_sound(buf, SR, cache_key="end_match", return_bytes=return_bytes)
 
     def _synthesize_cheer(self, return_bytes=False):
-        cached = self._get_cached_sound("cheer", return_bytes=return_bytes)
-        if cached:
-            return cached
-        SR = 11025
-        duration = 3.5
-        steps = int(SR * duration)
-        buf = bytearray(steps * 4)
-        val = 0.0
-        for i in range(steps):
-            if i % 4000 == 0:
-                import time
-
-                time.sleep(0.001)
-            t = i / SR
-            val += (random.uniform(-1.0, 1.0) - val) * 0.02
-            sample = int(val * math.sin(t * math.pi / duration) * 18000 * (1.0 + 0.3 * math.sin(t * 12)))
-            struct.pack_into("<hh", buf, i * 4, sample, sample)
-        return self._create_wav_sound(buf, SR, cache_key="cheer", return_bytes=return_bytes)
+        return self._synthesize_vosim_phrase("CHEER", 3.5, return_bytes=return_bytes)
 
     def _synthesize_groan(self, return_bytes=False):
         cached = self._get_cached_sound("groan", return_bytes=return_bytes)
@@ -3119,7 +3107,7 @@ class WinCurl3:
         self.btn_options_pause = pygame.Rect(BASE_WIDTH // 2 - 250, BASE_HEIGHT // 2 - 100, 500, 100)
         self.btn_save_quit = pygame.Rect(BASE_WIDTH // 2 - 250, BASE_HEIGHT // 2 + 20, 500, 100)
         self.btn_quit_main = pygame.Rect(BASE_WIDTH // 2 - 250, BASE_HEIGHT // 2 + 140, 500, 100)
-        self.btn_return_menu = pygame.Rect(BASE_WIDTH // 2 - 250, BASE_HEIGHT - 250, 500, 100)
+        self.btn_return_menu = pygame.Rect(BASE_WIDTH // 2 - 250, BASE_HEIGHT - 180, 500, 100)
         self.btn_mute = pygame.Rect(40, 30, 80, 60)
         self.is_music_muted = False
 
@@ -6436,7 +6424,7 @@ class WinCurl3:
                 self.draw_button(self.canvas, self.btn_save_quit, self._t("SAVE & QUIT"), (100, 200, 100), (30, 40, 50))
             self.btn_quit_main = pygame.Rect(cx - 300, 900, 600, 80)
             if self.game_mode in ["HOST", "JOIN", "CHALLENGE"]:
-                self.btn_quit_main.y = 800
+                self.btn_quit_main.y = 880
             self.draw_button(self.canvas, self.btn_quit_main, self._t("RETURN TO MENU"), (200, 100, 100), (30, 40, 50))
 
         if getattr(self, "game_mode", None) == "STORY":
@@ -6445,7 +6433,7 @@ class WinCurl3:
         else:
             self.btn_return_menu = pygame.Rect(cx - 300, 900, 600, 80)
             if getattr(self, "game_mode", None) in ["HOST", "JOIN", "CHALLENGE"]:
-                self.btn_return_menu.y = 800
+                self.btn_return_menu.y = 780
             self.draw_button(self.canvas, self.btn_return_menu, self._t("CONTINUE"), (100, 200, 100), (30, 40, 50))
 
         self.btn_leaderboard = None
@@ -7089,6 +7077,7 @@ class IRCNetworkManager:
                 self.sock.settimeout(0.1)
                 try:
                     data = self.sock.recv(4096).decode("utf-8", errors="ignore")
+                    print(f"IRC RECV: {data}")
                     if not data:
                         break
                     buffer += data

@@ -59,7 +59,6 @@ puppeteer*.js
 
 # Temporary data / builds
 portraits_data.bakpy
-portraits_data.py
 dr_sludge*.txt
 dr_sludge*.png
 itch_html5.zip
