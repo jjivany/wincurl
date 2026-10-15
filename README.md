@@ -1,5 +1,7 @@
 # 🥌 WINCURL 3
 
+💚 Development is temporarily paused for the moment. -Jason, October 15, 2026.  Happy Holloween! 👻👹🧛‍♂️
+
 WinCurl 3, for desktop, mobile and everything else with transistors, simply by running the main.py file! It offers a physics-driven curling experience with local and online multiplayer capabilities.
 
 ## 📋 Overview
