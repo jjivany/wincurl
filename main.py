@@ -114,7 +114,13 @@ TRANSLATIONS = {
         "ON": "OUI",
         "OFF": "NON",
         "Hi-Res Mode: ": "Mode Haute Rés. : ",
-        "Smoothscale: ": "Lissage : "
+        "Smoothscale: ": "Lissage : ",
+        "Holiday Pack: ": "Pack Fêtes : ",
+        "FULL SANTA": "PÈRE NOËL",
+        "SANTA HAT": "BONNET NOËL",
+        "CANDY CANE ROCKS": "SUCRE D'ORGE",
+        "SNOWFALL": "NEIGE",
+        "HOLIDAY LIGHTS": "LUMIÈRES NOËL"
     }
 }
 
@@ -1828,33 +1834,30 @@ class Crowd:
             
         surface.blits(blit_seq)
 
-# --- BUILD 129: Holiday Pack helpers ---
-XMAS_COLORS = [(255, 45, 45), (40, 230, 90), (70, 130, 255), (255, 205, 40), (255, 120, 220)]
+# --- BUILD 129: Holiday Pack helpers (pure procedural vector draws, no bitmaps) ---
+XMAS_COLORS = [(255, 45, 45), (40, 230, 90), (70, 140, 255), (255, 205, 40), (255, 110, 220)]
 HOLIDAY_DLC_MODES = ["OFF", "SANTA HAT", "CANDY CANE ROCKS", "SNOWFALL", "FULL SANTA"]
-_XMAS_GLOW_CACHE = {}
 
 
 def draw_xmas_bulb(surface, x, y, color, lit=True, scale=1.0):
-    """C9-style bulb hanging from a socket at (x, y). Lit bulbs get a soft glow halo."""
+    """C9-style bulb hanging from a socket at (x, y) drawn directly with vector primitives."""
     x, y = int(x), int(y)
     bw, bh = max(4, int(10 * scale)), max(6, int(16 * scale))
+    cy = y + 2 + bh // 2
     if lit:
-        key = (color, bw)
-        glow = _XMAS_GLOW_CACHE.get(key)
-        if glow is None:
-            gr = bw * 2
-            glow = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
-            for r in range(gr, 0, -2):
-                a = int(70 * (1.0 - r / gr) ** 1.5)
-                pygame.draw.circle(glow, (color[0], color[1], color[2], a), (gr, gr), r)
-            _XMAS_GLOW_CACHE[key] = glow
-        surface.blit(glow, (x - glow.get_width() // 2, y + bh // 2 + 2 - glow.get_height() // 2))
+        # Warm 4-point star twinkle around lit bulbs (zero surface allocation)
+        ray_col = (min(255, color[0] // 2 + 95), min(255, color[1] // 2 + 95), min(255, color[2] // 2 + 95))
+        rx, ry = int(bw * 1.15), int(bh * 0.75)
+        pygame.draw.line(surface, ray_col, (x - rx, cy), (x + rx, cy), 1)
+        pygame.draw.line(surface, ray_col, (x, cy - ry), (x, cy + ry), 1)
         body = color
     else:
         body = (color[0] // 4, color[1] // 4, color[2] // 4)
     pygame.draw.rect(surface, (30, 60, 30), (x - bw // 3, y - 2, max(2, bw * 2 // 3), max(3, bh // 3)))
     pygame.draw.ellipse(surface, body, (x - bw // 2, y + 2, bw, bh))
     if lit:
+        core = (min(255, color[0] + 110), min(255, color[1] + 110), min(255, color[2] + 110))
+        pygame.draw.ellipse(surface, core, (x - max(1, bw // 3), y + 4, max(2, bw * 2 // 3), max(2, bh * 2 // 3)))
         pygame.draw.ellipse(surface, (255, 255, 255), (x - bw // 4, y + 4, max(2, bw // 3), max(3, bh // 3)))
 
 
@@ -1874,7 +1877,7 @@ def draw_light_garland(surface, x0, x1, y, sag, count, t, phase=0, scale=1.0):
 class Snowfall:
     def __init__(self, count=110):
         self.flakes = [
-            [random.uniform(0, BASE_WIDTH), random.uniform(0, BASE_HEIGHT), random.uniform(1.5, 5.0), random.uniform(0, 6.28)]
+            [random.uniform(0, BASE_WIDTH), random.uniform(0, BASE_HEIGHT), random.uniform(1.5, 4.0), random.uniform(0, 6.28)]
             for _ in range(count)
         ]
 
@@ -1886,7 +1889,7 @@ class Snowfall:
             f[0] += math.sin(t + f[3]) * 0.6 * time_mult
             if f[1] > h + 10:
                 f[1], f[0] = -10, random.uniform(0, BASE_WIDTH)
-            shade = 200 + int(f[2] * 10)
+            shade = 210 + int(f[2] * 10)
             pygame.draw.circle(surface, (shade, shade, 255), (int(f[0]), int(f[1])), int(f[2]))
 
 
@@ -1902,47 +1905,70 @@ def draw_santa_hat(surface, cx, cy, head_rw, head_rh):
 
 
 class PresentBox:
-    """Wrapped present (body + lid) pre-rendered for the menu intro."""
-    body = None
-    lid = None
-    W, H = 420, 260
+    """Procedural vector present box (body + lid + bow) with zero preloaded bitmaps."""
+    W, H = 300, 170
+    BG = (10, 12, 16)
 
     @classmethod
-    def render_cache(cls):
-        if cls.body is not None:
-            return
-        W, H = cls.W, cls.H
-        body = pygame.Surface((W, H), pygame.SRCALPHA)
-        for y in range(H):
-            k = y / H
-            body.fill((int(200 - 70 * k), int(25 - 10 * k), int(40 - 15 * k)), (0, y, W, 1))
-        rib = (250, 205, 60)
-        pygame.draw.rect(body, rib, (W // 2 - 26, 0, 52, H))
-        pygame.draw.rect(body, (255, 235, 140), (W // 2 - 26, 0, 10, H))
-        # Little gold snowflake dots on the paper
-        for i in range(14):
-            px, py = (37 * i * 7) % (W - 40) + 20, (53 * i * 3) % (H - 40) + 20
-            if abs(px - W // 2) > 45:
-                pygame.draw.circle(body, (255, 220, 120), (px, py), 4)
-        pygame.draw.rect(body, (90, 5, 15), (0, 0, W, H), 4, border_radius=6)
-        mask = pygame.Surface((W, H), pygame.SRCALPHA)
-        pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, W, H), border_radius=10)
-        body.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+    def _fade_col(cls, col, fade):
+        return lerp_color(cls.BG, col, max(0.0, min(1.0, fade)))
 
-        LW, LH = W + 40, 70
-        lid = pygame.Surface((LW, LH + 90), pygame.SRCALPHA)
-        pygame.draw.rect(lid, (220, 35, 50), (0, 90, LW, LH), border_radius=10)
-        pygame.draw.rect(lid, (240, 70, 80), (6, 94, LW - 12, 14), border_radius=6)
-        pygame.draw.rect(lid, rib, (LW // 2 - 28, 90, 56, LH))
-        pygame.draw.rect(lid, (90, 5, 15), (0, 90, LW, LH), 4, border_radius=10)
-        # Bow
+    @classmethod
+    def draw_body(cls, surface, cx, top, fade=1.0, shake=0):
+        W = max(20, int(cls.W * (0.65 + 0.35 * fade)))
+        H = max(16, int(cls.H * (0.55 + 0.45 * fade)))
+        x0 = int(cx - W // 2 + shake)
+        y0 = int(top)
+        rib_w = max(8, int(40 * (W / cls.W)))
+        pygame.draw.rect(surface, cls._fade_col((175, 22, 36), fade), (x0, y0, W, H), border_radius=10)
+        pygame.draw.rect(surface, cls._fade_col((140, 16, 28), fade), (x0, y0 + H // 2, W, H - H // 2), border_bottom_left_radius=10, border_bottom_right_radius=10)
+        # Golden ribbon
+        pygame.draw.rect(surface, cls._fade_col((250, 205, 60), fade), (int(cx + shake) - rib_w // 2, y0, rib_w, H))
+        pygame.draw.rect(surface, cls._fade_col((255, 235, 140), fade), (int(cx + shake) - rib_w // 2, y0, max(2, rib_w // 5), H))
+        # Gold snowflake dots
+        dot_col = cls._fade_col((255, 220, 120), fade)
+        for i in range(10):
+            px = x0 + 20 + ((37 * i * 7) % max(1, W - 40))
+            py = y0 + 20 + ((53 * i * 3) % max(1, H - 40))
+            if abs(px - (cx + shake)) > rib_w:
+                pygame.draw.circle(surface, dot_col, (int(px), int(py)), max(1, int(3 * fade)))
+        pygame.draw.rect(surface, cls._fade_col((90, 5, 15), fade), (x0, y0, W, H), 3, border_radius=10)
+
+    @classmethod
+    def draw_lid(cls, surface, cx, cy, angle_deg=0.0, fade=1.0):
+        LW, LH = cls.W + 30, 52
+        rad = math.radians(angle_deg)
+        ca, sa = math.cos(rad), math.sin(rad)
+
+        def rot(pts):
+            return [(cx + px * ca - py * sa, cy + px * sa + py * ca) for px, py in pts]
+
+        hw, hh = LW / 2.0, LH / 2.0
+        lid_pts = rot([(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)])
+        hl_pts = rot([(-hw + 5, -hh + 4), (hw - 5, -hh + 4), (hw - 5, -hh + 14), (-hw + 5, -hh + 14)])
+        rib_pts = rot([(-21, -hh), (21, -hh), (21, hh), (-21, hh)])
+        pygame.draw.polygon(surface, cls._fade_col((220, 35, 50), fade), lid_pts)
+        pygame.draw.polygon(surface, cls._fade_col((245, 75, 85), fade), hl_pts)
+        pygame.draw.polygon(surface, cls._fade_col((250, 205, 60), fade), rib_pts)
+        pygame.draw.polygon(surface, cls._fade_col((90, 5, 15), fade), lid_pts, 3)
+
+        # Bow loops + center knot rotated with the lid
+        bow_dark = cls._fade_col((200, 150, 30), fade)
+        bow_gold = cls._fade_col((250, 205, 60), fade)
+        bow_hi = cls._fade_col((255, 230, 120), fade)
         for sx in (-1, 1):
-            pygame.draw.ellipse(lid, (200, 150, 30), (LW // 2 + (8 if sx > 0 else -98), 22, 90, 70))
-            pygame.draw.ellipse(lid, rib, (LW // 2 + (14 if sx > 0 else -92), 28, 78, 58))
-            pygame.draw.ellipse(lid, (200, 150, 30), (LW // 2 + (34 if sx > 0 else -72), 44, 38, 26))
-        pygame.draw.circle(lid, (255, 225, 110), (LW // 2, 88), 22)
-        pygame.draw.circle(lid, (200, 150, 30), (LW // 2, 88), 22, 3)
-        cls.body, cls.lid = body.convert_alpha(), lid.convert_alpha()
+            loop_pts = []
+            for a_i in range(12):
+                a = (a_i / 12.0) * math.pi * 2
+                lx = sx * (38 + math.cos(a) * 32)
+                ly = -hh - 16 + math.sin(a) * 18
+                loop_pts.append((lx, ly))
+            pygame.draw.polygon(surface, bow_dark, rot(loop_pts))
+            inner_pts = [(px * 0.8 + sx * 6, py * 0.8 - hh * 0.2 - 3) for px, py in loop_pts]
+            pygame.draw.polygon(surface, bow_gold, rot(inner_pts))
+        knot = rot([(0, -hh - 2)])[0]
+        pygame.draw.circle(surface, bow_hi, (int(knot[0]), int(knot[1])), 15)
+        pygame.draw.circle(surface, bow_dark, (int(knot[0]), int(knot[1])), 15, 2)
 
 
 # OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
@@ -2001,61 +2027,54 @@ class ThreeDStone:
         bx, by = center_x + (mouse_pos[0] - center_x) * 0.03, center_y + (mouse_pos[1] - center_y) * 0.03
         if not self.cached_surf:
             return
-        if intro_t is None or intro_t >= 2.6:
+        if intro_t is None or intro_t >= 2.45:
             surface.blit(self.cached_surf, (bx - 300, by - 310))
             return
 
-        # BUILD 129: The rock bursts out of a Christmas present
-        PresentBox.render_cache()
-        box_cx, box_top = center_x, center_y + 150
+        # BUILD 129: The rock bursts out of a procedural Christmas present above the menu buttons
+        box_cx, box_top = center_x, center_y - 10  # 290..460 on BASE_HEIGHT=1800, below STATUS (210) & above Story Mode (480)
         shake = 0
-        if intro_t < 0.9:
-            shake = int(math.sin(intro_t * 45) * 10 * min(1.0, intro_t * 2))
+        if 0.15 < intro_t < 0.78:
+            shake = int(math.sin(intro_t * 48) * 9 * min(1.0, (intro_t - 0.15) * 3))
 
-        # Stone rises (drawn first so the box front hides its bottom)
-        rise = max(0.0, min(1.0, (intro_t - 0.85) / 0.8))
+        # Stone springs out from inside the box up into (bx, by)
+        rise = max(0.0, min(1.0, (intro_t - 0.75) / 0.75))
         if rise > 0:
             e = 1 + 2.7 * (rise - 1) ** 3 + 1.7 * (rise - 1) ** 2  # ease-out-back
-            scale = 0.4 + 0.6 * e
-            sy = (box_top + 140) + (by - (box_top + 140)) * e
+            scale = 0.32 + 0.68 * e
+            sy0 = box_top + 65
+            sy = sy0 + (by - sy0) * e
             size = max(8, int(self.cached_surf.get_width() * scale))
             img = pygame.transform.smoothscale(self.cached_surf, (size, size))
             surface.blit(img, (bx - 300 * scale, sy - 310 * scale))
 
-        # Box body fades away once the rock is out
-        fade = 1.0 - max(0.0, min(1.0, (intro_t - 1.9) / 0.7))
+        # Box body drops/shrinks away cleanly above the menu buttons
+        fade = 1.0 - max(0.0, min(1.0, (intro_t - 1.65) / 0.75))
         if fade > 0:
-            body = PresentBox.body
-            drop = int((1.0 - fade) * 120)
-            body.set_alpha(int(255 * fade))
-            surface.blit(body, (box_cx - PresentBox.W // 2 + shake, box_top + drop))
-            body.set_alpha(None)
+            drop = int((1.0 - fade) * 45)
+            PresentBox.draw_body(surface, box_cx, box_top + drop, fade=fade, shake=shake)
 
-        # Lid: rattles, then pops off spinning and fades
-        lid = PresentBox.lid
-        lx, ly = box_cx - lid.get_width() // 2 + shake, box_top - lid.get_height() + 20
-        if intro_t < 0.8:
-            surface.blit(lid, (lx, ly - abs(shake)))
+        # Lid: rattles in place, then pops off spinning up and to the right
+        if intro_t < 0.75:
+            PresentBox.draw_lid(surface, box_cx + shake, box_top - 10 - abs(shake), angle_deg=shake * 0.4, fade=1.0)
         else:
-            p = min(1.0, (intro_t - 0.8) / 0.9)
+            p = min(1.0, (intro_t - 0.75) / 0.85)
             if p < 1.0:
-                rl = pygame.transform.rotate(lid, -p * 140)
-                rl.set_alpha(int(255 * (1 - p)))
-                lcx = box_cx + p * 380
-                lcy = ly + lid.get_height() // 2 - 520 * p + 600 * p * p
-                surface.blit(rl, (lcx - rl.get_width() // 2, lcy - rl.get_height() // 2))
+                lcx = box_cx + p * 340
+                lcy = (box_top - 10) - 340 * p + 420 * p * p
+                PresentBox.draw_lid(surface, lcx, lcy, angle_deg=-p * 155, fade=1.0 - p)
 
         # Confetti / sparkle burst
-        if 0.8 < intro_t < 2.4:
-            q = (intro_t - 0.8) / 1.6
+        if 0.75 < intro_t < 2.25:
+            q = (intro_t - 0.75) / 1.5
             rng = random.Random(129)
             for i in range(40):
-                ang = rng.uniform(math.pi * 1.05, math.pi * 1.95)
-                spd = rng.uniform(250, 650)
+                ang = rng.uniform(math.pi * 1.1, math.pi * 1.9)
+                spd = rng.uniform(220, 560)
                 px = box_cx + math.cos(ang) * spd * q
-                py = box_top + math.sin(ang) * spd * q + 500 * q * q
-                col = XMAS_COLORS[i % len(XMAS_COLORS)]
-                r = max(1, int(7 * (1 - q)))
+                py = box_top + math.sin(ang) * spd * q + 420 * q * q
+                col = lerp_color((10, 12, 16), XMAS_COLORS[i % len(XMAS_COLORS)], 1.0 - q)
+                r = max(1, int(6 * (1 - q)))
                 pygame.draw.circle(surface, col, (int(px), int(py)), r)
 
 
@@ -2114,7 +2133,7 @@ class Stone:
                     pts.append((c0 + math.cos(a) * (self.radius - 1), c0 + math.sin(a) * (self.radius - 1)))
                 for j in range(5, -1, -1):
                     a = a0 + 0.25 + (math.pi / 8) * j / 5
-                    pts.append((c0 + math.cos(a) * (self.radius - 9), c0 + math.sin(a) * (self.radius - 9)))
+                    pts.append((c0 + math.cos(a) * (self.radius - 7), c0 + math.sin(a) * (self.radius - 7)))
                 pygame.draw.polygon(s, (250, 250, 250), pts)
         # Highlight ring for 3D depth
         pygame.draw.circle(
@@ -4982,9 +5001,17 @@ class WinCurl3:
                 self.snowfall = Snowfall()
             self.snowfall.draw(self.canvas, getattr(self, "time_mult", 1.0))
         self.menu_stone.draw(self.canvas, cx, 300 + self.menu_dy, self.get_pointer_pos(), intro_t)
-        # BUILD 129: Christmas light garlands swagged across the top of the menu
+        # BUILD 129: Christmas light garlands across top and vertical edge strands
         draw_light_garland(self.canvas, -20, cx, 20 + self.menu_dy, 70, 12, t_ms, 0)
         draw_light_garland(self.canvas, cx, BASE_WIDTH + 20, 20 + self.menu_dy, 70, 12, t_ms, 2)
+        for side_x, phase in ((24, 0), (BASE_WIDTH - 24, 2)):
+            edge_pts = [(side_x + (5 if i % 2 == 0 else -5), y) for i, y in enumerate(range(130, BASE_HEIGHT - 40, 52))]
+            if len(edge_pts) >= 2:
+                pygame.draw.lines(self.canvas, (20, 50, 25), False, edge_pts, 2)
+                for i, (lx, ly) in enumerate(edge_pts):
+                    col = XMAS_COLORS[(i + phase) % len(XMAS_COLORS)]
+                    lit = ((i + int(t_ms * 3.0)) % 3) != 0
+                    draw_xmas_bulb(self.canvas, lx, ly, col, lit, 0.9)
 
         bx, by = cx - self.title_base.get_width() // 2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15)
 
@@ -5090,10 +5117,10 @@ class WinCurl3:
             try:
                 with urllib.request.urlopen(req) as response:
                     new_code = response.read().decode("utf-8")
-                m = re.search(r'VERSION\s*=\s*".*?Build\s+(\d+)"', new_code)
+                m = re.search(r'VERSION\s*=\s*".*?Build\s+(\d+)"', new_code, re.IGNORECASE)
                 remote_build = int(m.group(1)) if m else 0
 
-                local_m = re.search(r"Build\s+(\d+)", VERSION)
+                local_m = re.search(r"Build\s+(\d+)", VERSION, re.IGNORECASE)
                 local_build = int(local_m.group(1)) if local_m else 0
 
                 if remote_build <= local_build:
@@ -5277,10 +5304,26 @@ class WinCurl3:
 
         self.draw_global_ui()
 
+    def _visible_options_buttons(self):
+        y = 480
+        res = []
+        for btn in self.options_buttons:
+            if (not IS_ANDROID and btn["id"] == "hi_res_mode") or (
+                IS_ANDROID and not getattr(self, "hi_res_mode", False) and btn["id"] == "smoothscale"
+            ):
+                continue
+            res.append((btn, y))
+            y += 90
+        return res
+
     def draw_options_menu(self):
         self.canvas.fill((10, 12, 16))
         self.last_starfield_speed = 0.5
         self.starfield.draw(self.canvas, 0.5, getattr(self, "time_mult", 1.0))
+        if getattr(self, "snow_on", False):
+            if not hasattr(self, "snowfall"):
+                self.snowfall = Snowfall()
+            self.snowfall.draw(self.canvas, getattr(self, "time_mult", 1.0))
 
         cx, t_ms = BASE_WIDTH // 2, pygame.time.get_ticks() * 0.001
         self.menu_dy = (BASE_HEIGHT - 1920) // 2
@@ -5298,12 +5341,7 @@ class WinCurl3:
         lbl_build = self.font.render(f"({VERSION})", True, (180, 150, 170))
         self.canvas.blit(lbl_build, (cx - lbl_build.get_width() // 2, 385 + getattr(self, "menu_dy", 0)))
 
-        for btn in self.options_buttons:
-            if (not IS_ANDROID and btn["id"] == "hi_res_mode") or (
-                IS_ANDROID and not getattr(self, "hi_res_mode", False) and btn["id"] == "smoothscale"
-            ):
-                continue
-
+        for btn, eff_y in self._visible_options_buttons():
             is_hovered = self.last_hovered == "opt_" + btn["id"]
             target_scale = 1.07 if is_hovered else 1.0
             if abs(btn["scale"] - target_scale) < 0.005:
@@ -5313,7 +5351,7 @@ class WinCurl3:
 
             rect = pygame.Rect(
                 cx - 300 * btn["scale"],
-                btn["y"] + getattr(self, "menu_dy", 0) - 15 * btn["scale"],
+                eff_y + getattr(self, "menu_dy", 0) - 15 * btn["scale"],
                 600 * btn["scale"],
                 95 * btn["scale"],
             )
@@ -5452,15 +5490,18 @@ class WinCurl3:
                                 hair_poly.append((swatch_x + math.cos(rad) * r, swatch_y + math.sin(rad) * r))
                         pygame.draw.polygon(self.canvas, hair_color, hair_poly)
 
-                    tc = TEAM_YELLOW if getattr(self, "preferred_color", 0) else HOUSE_RED
-                    hat_rw, hat_rh = 15, 17
-                    hat_shade = (max(0, tc[0] - 80), max(0, tc[1] - 80), max(0, tc[2] - 80))
-                    pygame.draw.ellipse(self.canvas, hat_shade, (swatch_x - hat_rw - 1, swatch_y - head_rh - 6, hat_rw * 2 + 2, hat_rh * 2 + 2))
-                    pygame.draw.ellipse(self.canvas, tc, (swatch_x - hat_rw, swatch_y - head_rh - 5, hat_rw * 2, hat_rh * 2))
-                    pygame.draw.ellipse(self.canvas, (min(255, tc[0] + 40), min(255, tc[1] + 40), min(255, tc[2] + 40)), (swatch_x - hat_rw + 4, swatch_y - head_rh - 3, hat_rw * 2 - 8, 6))
-                    pygame.draw.rect(self.canvas, hat_shade, (swatch_x - hat_rw - 2, swatch_y - head_rh + 4, hat_rw * 2 + 4, 10), border_radius=4)
-                    pygame.draw.rect(self.canvas, tc, (swatch_x - hat_rw - 1, swatch_y - head_rh + 5, hat_rw * 2 + 2, 8), border_radius=3)
-                    pygame.draw.rect(self.canvas, (0, 255, 255) if tc == TEAM_YELLOW else (255, 255, 0), (swatch_x - hat_rw - 1, swatch_y - head_rh + 7, hat_rw * 2 + 2, 3), border_radius=1)
+                    if getattr(AnimatedCurler, "santa_hat", False):
+                        draw_santa_hat(self.canvas, swatch_x, swatch_y, head_rw, head_rh)
+                    else:
+                        tc = TEAM_YELLOW if getattr(self, "preferred_color", 0) else HOUSE_RED
+                        hat_rw, hat_rh = 15, 17
+                        hat_shade = (max(0, tc[0] - 80), max(0, tc[1] - 80), max(0, tc[2] - 80))
+                        pygame.draw.ellipse(self.canvas, hat_shade, (swatch_x - hat_rw - 1, swatch_y - head_rh - 6, hat_rw * 2 + 2, hat_rh * 2 + 2))
+                        pygame.draw.ellipse(self.canvas, tc, (swatch_x - hat_rw, swatch_y - head_rh - 5, hat_rw * 2, hat_rh * 2))
+                        pygame.draw.ellipse(self.canvas, (min(255, tc[0] + 40), min(255, tc[1] + 40), min(255, tc[2] + 40)), (swatch_x - hat_rw + 4, swatch_y - head_rh - 3, hat_rw * 2 - 8, 6))
+                        pygame.draw.rect(self.canvas, hat_shade, (swatch_x - hat_rw - 2, swatch_y - head_rh + 4, hat_rw * 2 + 4, 10), border_radius=4)
+                        pygame.draw.rect(self.canvas, tc, (swatch_x - hat_rw - 1, swatch_y - head_rh + 5, hat_rw * 2 + 2, 8), border_radius=3)
+                        pygame.draw.rect(self.canvas, (0, 255, 255) if tc == TEAM_YELLOW else (255, 255, 0), (swatch_x - hat_rw - 1, swatch_y - head_rh + 7, hat_rw * 2 + 2, 3), border_radius=1)
             elif btn["id"] == "ring_color":
                 ring_names = ["Blue", "Red", "Green", "Purple", "Dark", "Cyan"]
                 ring_colors = [(50, 80, 180), (180, 50, 50), (40, 150, 80), (150, 40, 150), (20, 20, 20), (40, 200, 200)]
@@ -5536,12 +5577,9 @@ class WinCurl3:
         menu_my = my - getattr(self, "menu_dy", 0)
 
         curr_hov = None
-        for b in self.options_buttons:
-            if (not IS_ANDROID and b["id"] == "hi_res_mode") or (
-                IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"
-            ):
-                continue
-            if 300 < mx < 900 and b["y"] < menu_my < b["y"] + 90 * b["scale"]:
+        visible_btns = self._visible_options_buttons()
+        for b, eff_y in visible_btns:
+            if 300 < mx < 900 and eff_y - 15 * b["scale"] < menu_my < eff_y + 80 * b["scale"]:
                 curr_hov = "opt_" + b["id"]
                 break
 
@@ -5561,12 +5599,8 @@ class WinCurl3:
                     self.set_typing_target(None)
 
             if 300 < mx < 900:
-                for b in self.options_buttons:
-                    if (not IS_ANDROID and b["id"] == "hi_res_mode") or (
-                        IS_ANDROID and not getattr(self, "hi_res_mode", False) and b["id"] == "smoothscale"
-                    ):
-                        continue
-                    if b["y"] < menu_my < b["y"] + 90 * b["scale"]:
+                for b, eff_y in visible_btns:
+                    if eff_y - 15 * b["scale"] < menu_my < eff_y + 80 * b["scale"]:
                         self.audio.play_click()
                         new_target = None
                         if b["id"] == "language":

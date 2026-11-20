@@ -3,7 +3,8 @@ import os
 with open("main.py", "r") as f:
     code = f.read()
 
-code = code.replace("import collections\n", "import collections\nimport asyncio\nimport sys\n")
+if "import asyncio\n" not in code:
+    code = code.replace("import collections\n", "import collections\nimport asyncio\nimport sys\n")
 code = code.replace('.wav"', '.ogg"')
 code = code.replace(".wav',", ".ogg',")
 
