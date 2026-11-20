@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build 128.0"
+VERSION = "WinCurl 3, build 129.0"
 
 TRANSLATIONS = {
     'fr': {
@@ -1801,20 +1801,19 @@ class Crowd:
         t = pygame.time.get_ticks() / 300.0
 
         if mode == "HOLIDAY LIGHTS":
-            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
-            for m in self.members:
-                # String them neatly down the center of the sideboards (width=50)
-                base_w = surface.get_width()
-                light_x = 25 if m["side"] == 0 else base_w - 25
-                x, y = light_x + offset_x, m["y"] + offset_y
-                color_idx = int((m["offset"] * 10 + t * 2) % 4)
-                if math.sin(t * 3 + m["offset"]) > 0:
-                    # Draw classic C9 Christmas light bulb shape
-                    bulb_rect = pygame.Rect(int(x) - 5, int(y + 25), 10, 16)
-                    pygame.draw.ellipse(surface, colors[color_idx], bulb_rect)
-                    # Base of the bulb
-                    base_rect = pygame.Rect(int(x) - 3, int(y + 20), 6, 6)
-                    pygame.draw.rect(surface, (30, 60, 30), base_rect)
+            # BUILD 129: Twice the bulbs, a real wire, glow halos and a chasing pattern
+            base_w, base_h = surface.get_width(), surface.get_height()
+            for side in (0, 1):
+                lx = (25 if side == 0 else base_w - 25) + offset_x
+                pts = []
+                for i, y in enumerate(range(-30, base_h + 30, 30)):
+                    wob = 6 if i % 2 == 0 else -6
+                    pts.append((lx + wob, y + offset_y))
+                pygame.draw.lines(surface, (20, 50, 25), False, pts, 2)
+                for i, (x, y) in enumerate(pts):
+                    col = XMAS_COLORS[(i + side) % len(XMAS_COLORS)]
+                    lit = ((i + int(t * 2.5)) % 3) != 0
+                    draw_xmas_bulb(surface, x, y + 4, col, lit)
             return
 
         blit_seq = []
@@ -1828,6 +1827,123 @@ class Crowd:
             blit_seq.append((surf, (int(x - 10), int(y))))
             
         surface.blits(blit_seq)
+
+# --- BUILD 129: Holiday Pack helpers ---
+XMAS_COLORS = [(255, 45, 45), (40, 230, 90), (70, 130, 255), (255, 205, 40), (255, 120, 220)]
+HOLIDAY_DLC_MODES = ["OFF", "SANTA HAT", "CANDY CANE ROCKS", "SNOWFALL", "FULL SANTA"]
+_XMAS_GLOW_CACHE = {}
+
+
+def draw_xmas_bulb(surface, x, y, color, lit=True, scale=1.0):
+    """C9-style bulb hanging from a socket at (x, y). Lit bulbs get a soft glow halo."""
+    x, y = int(x), int(y)
+    bw, bh = max(4, int(10 * scale)), max(6, int(16 * scale))
+    if lit:
+        key = (color, bw)
+        glow = _XMAS_GLOW_CACHE.get(key)
+        if glow is None:
+            gr = bw * 2
+            glow = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+            for r in range(gr, 0, -2):
+                a = int(70 * (1.0 - r / gr) ** 1.5)
+                pygame.draw.circle(glow, (color[0], color[1], color[2], a), (gr, gr), r)
+            _XMAS_GLOW_CACHE[key] = glow
+        surface.blit(glow, (x - glow.get_width() // 2, y + bh // 2 + 2 - glow.get_height() // 2))
+        body = color
+    else:
+        body = (color[0] // 4, color[1] // 4, color[2] // 4)
+    pygame.draw.rect(surface, (30, 60, 30), (x - bw // 3, y - 2, max(2, bw * 2 // 3), max(3, bh // 3)))
+    pygame.draw.ellipse(surface, body, (x - bw // 2, y + 2, bw, bh))
+    if lit:
+        pygame.draw.ellipse(surface, (255, 255, 255), (x - bw // 4, y + 4, max(2, bw // 3), max(3, bh // 3)))
+
+
+def draw_light_garland(surface, x0, x1, y, sag, count, t, phase=0, scale=1.0):
+    """A sagging string of lights between (x0, y) and (x1, y)."""
+    pts = []
+    for i in range(count + 1):
+        p = i / count
+        pts.append((x0 + (x1 - x0) * p, y + sag * 4 * p * (1 - p)))
+    pygame.draw.lines(surface, (20, 50, 25), False, pts, 3)
+    for i, (px, py) in enumerate(pts[1:-1], start=1):
+        col = XMAS_COLORS[(i + phase) % len(XMAS_COLORS)]
+        lit = math.sin(t * 3.0 + i * 1.7 + phase) > -0.4
+        draw_xmas_bulb(surface, px, py, col, lit, scale)
+
+
+class Snowfall:
+    def __init__(self, count=110):
+        self.flakes = [
+            [random.uniform(0, BASE_WIDTH), random.uniform(0, BASE_HEIGHT), random.uniform(1.5, 5.0), random.uniform(0, 6.28)]
+            for _ in range(count)
+        ]
+
+    def draw(self, surface, time_mult=1.0):
+        t = pygame.time.get_ticks() * 0.001
+        h = surface.get_height()
+        for f in self.flakes:
+            f[1] += (0.6 + f[2] * 0.35) * time_mult
+            f[0] += math.sin(t + f[3]) * 0.6 * time_mult
+            if f[1] > h + 10:
+                f[1], f[0] = -10, random.uniform(0, BASE_WIDTH)
+            shade = 200 + int(f[2] * 10)
+            pygame.draw.circle(surface, (shade, shade, 255), (int(f[0]), int(f[1])), int(f[2]))
+
+
+def draw_santa_hat(surface, cx, cy, head_rw, head_rh):
+    """Floppy Santa hat sitting on a head centred at (cx, cy)."""
+    base_y = cy - head_rh + 6
+    tip = (cx + head_rw + 12, cy - head_rh - 4)
+    pygame.draw.polygon(surface, (150, 10, 20), [(cx - head_rw - 1, base_y), (cx + head_rw + 1, base_y), (cx + 6, cy - head_rh - 20), tip])
+    pygame.draw.polygon(surface, (210, 25, 35), [(cx - head_rw + 2, base_y - 1), (cx + head_rw - 2, base_y - 1), (cx + 3, cy - head_rh - 17), tip])
+    pygame.draw.rect(surface, (235, 235, 240), (cx - head_rw - 3, base_y - 3, head_rw * 2 + 6, 9), border_radius=4)
+    pygame.draw.circle(surface, (245, 245, 250), tip, 6)
+    pygame.draw.circle(surface, (200, 200, 210), tip, 6, 1)
+
+
+class PresentBox:
+    """Wrapped present (body + lid) pre-rendered for the menu intro."""
+    body = None
+    lid = None
+    W, H = 420, 260
+
+    @classmethod
+    def render_cache(cls):
+        if cls.body is not None:
+            return
+        W, H = cls.W, cls.H
+        body = pygame.Surface((W, H), pygame.SRCALPHA)
+        for y in range(H):
+            k = y / H
+            body.fill((int(200 - 70 * k), int(25 - 10 * k), int(40 - 15 * k)), (0, y, W, 1))
+        rib = (250, 205, 60)
+        pygame.draw.rect(body, rib, (W // 2 - 26, 0, 52, H))
+        pygame.draw.rect(body, (255, 235, 140), (W // 2 - 26, 0, 10, H))
+        # Little gold snowflake dots on the paper
+        for i in range(14):
+            px, py = (37 * i * 7) % (W - 40) + 20, (53 * i * 3) % (H - 40) + 20
+            if abs(px - W // 2) > 45:
+                pygame.draw.circle(body, (255, 220, 120), (px, py), 4)
+        pygame.draw.rect(body, (90, 5, 15), (0, 0, W, H), 4, border_radius=6)
+        mask = pygame.Surface((W, H), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, W, H), border_radius=10)
+        body.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+
+        LW, LH = W + 40, 70
+        lid = pygame.Surface((LW, LH + 90), pygame.SRCALPHA)
+        pygame.draw.rect(lid, (220, 35, 50), (0, 90, LW, LH), border_radius=10)
+        pygame.draw.rect(lid, (240, 70, 80), (6, 94, LW - 12, 14), border_radius=6)
+        pygame.draw.rect(lid, rib, (LW // 2 - 28, 90, 56, LH))
+        pygame.draw.rect(lid, (90, 5, 15), (0, 90, LW, LH), 4, border_radius=10)
+        # Bow
+        for sx in (-1, 1):
+            pygame.draw.ellipse(lid, (200, 150, 30), (LW // 2 + (8 if sx > 0 else -98), 22, 90, 70))
+            pygame.draw.ellipse(lid, rib, (LW // 2 + (14 if sx > 0 else -92), 28, 78, 58))
+            pygame.draw.ellipse(lid, (200, 150, 30), (LW // 2 + (34 if sx > 0 else -72), 44, 38, 26))
+        pygame.draw.circle(lid, (255, 225, 110), (LW // 2, 88), 22)
+        pygame.draw.circle(lid, (200, 150, 30), (LW // 2, 88), 22, 3)
+        cls.body, cls.lid = body.convert_alpha(), lid.convert_alpha()
+
 
 # OPTIMIZATION: Pre-rendered 3D stone for Menu to save drawing calls
 class ThreeDStone:
@@ -1881,10 +1997,66 @@ class ThreeDStone:
         surf.blit(glare, (bx - r_max, by - r_max))
         cls.cached_surf = surf.convert_alpha()
 
-    def draw(self, surface, center_x, center_y, mouse_pos):
+    def draw(self, surface, center_x, center_y, mouse_pos, intro_t=None):
         bx, by = center_x + (mouse_pos[0] - center_x) * 0.03, center_y + (mouse_pos[1] - center_y) * 0.03
-        if self.cached_surf:
+        if not self.cached_surf:
+            return
+        if intro_t is None or intro_t >= 2.6:
             surface.blit(self.cached_surf, (bx - 300, by - 310))
+            return
+
+        # BUILD 129: The rock bursts out of a Christmas present
+        PresentBox.render_cache()
+        box_cx, box_top = center_x, center_y + 150
+        shake = 0
+        if intro_t < 0.9:
+            shake = int(math.sin(intro_t * 45) * 10 * min(1.0, intro_t * 2))
+
+        # Stone rises (drawn first so the box front hides its bottom)
+        rise = max(0.0, min(1.0, (intro_t - 0.85) / 0.8))
+        if rise > 0:
+            e = 1 + 2.7 * (rise - 1) ** 3 + 1.7 * (rise - 1) ** 2  # ease-out-back
+            scale = 0.4 + 0.6 * e
+            sy = (box_top + 140) + (by - (box_top + 140)) * e
+            size = max(8, int(self.cached_surf.get_width() * scale))
+            img = pygame.transform.smoothscale(self.cached_surf, (size, size))
+            surface.blit(img, (bx - 300 * scale, sy - 310 * scale))
+
+        # Box body fades away once the rock is out
+        fade = 1.0 - max(0.0, min(1.0, (intro_t - 1.9) / 0.7))
+        if fade > 0:
+            body = PresentBox.body
+            drop = int((1.0 - fade) * 120)
+            body.set_alpha(int(255 * fade))
+            surface.blit(body, (box_cx - PresentBox.W // 2 + shake, box_top + drop))
+            body.set_alpha(None)
+
+        # Lid: rattles, then pops off spinning and fades
+        lid = PresentBox.lid
+        lx, ly = box_cx - lid.get_width() // 2 + shake, box_top - lid.get_height() + 20
+        if intro_t < 0.8:
+            surface.blit(lid, (lx, ly - abs(shake)))
+        else:
+            p = min(1.0, (intro_t - 0.8) / 0.9)
+            if p < 1.0:
+                rl = pygame.transform.rotate(lid, -p * 140)
+                rl.set_alpha(int(255 * (1 - p)))
+                lcx = box_cx + p * 380
+                lcy = ly + lid.get_height() // 2 - 520 * p + 600 * p * p
+                surface.blit(rl, (lcx - rl.get_width() // 2, lcy - rl.get_height() // 2))
+
+        # Confetti / sparkle burst
+        if 0.8 < intro_t < 2.4:
+            q = (intro_t - 0.8) / 1.6
+            rng = random.Random(129)
+            for i in range(40):
+                ang = rng.uniform(math.pi * 1.05, math.pi * 1.95)
+                spd = rng.uniform(250, 650)
+                px = box_cx + math.cos(ang) * spd * q
+                py = box_top + math.sin(ang) * spd * q + 500 * q * q
+                col = XMAS_COLORS[i % len(XMAS_COLORS)]
+                r = max(1, int(7 * (1 - q)))
+                pygame.draw.circle(surface, col, (int(px), int(py)), r)
 
 
 # --- Game Entities ---
@@ -1931,6 +2103,19 @@ class Stone:
             pygame.draw.circle(s, (shade, shade + 2, shade + 5), (self.radius + 5, self.radius + 5), r)
 
         pygame.draw.circle(s, color, (self.radius + 5, self.radius + 5), self.radius - 4, 6)
+        if getattr(Stone, "candy_cane", False):
+            # BUILD 129 Holiday Pack: candy-cane striped running band
+            c0 = self.radius + 5
+            for k in range(0, 16, 2):
+                a0 = k * math.pi / 8
+                pts = []
+                for j in range(6):
+                    a = a0 + (math.pi / 8) * j / 5
+                    pts.append((c0 + math.cos(a) * (self.radius - 1), c0 + math.sin(a) * (self.radius - 1)))
+                for j in range(5, -1, -1):
+                    a = a0 + 0.25 + (math.pi / 8) * j / 5
+                    pts.append((c0 + math.cos(a) * (self.radius - 9), c0 + math.sin(a) * (self.radius - 9)))
+                pygame.draw.polygon(s, (250, 250, 250), pts)
         # Highlight ring for 3D depth
         pygame.draw.circle(
             s,
@@ -2296,6 +2481,9 @@ class AnimatedCurler:
                         pygame.draw.polygon(surface, light_hair, high_poly)
                 
                 # Always draw the toque over the hair, sitting higher so hair is visible
+                if getattr(AnimatedCurler, "santa_hat", False):
+                    draw_santa_hat(surface, cx, cy, head_rw, head_rh)
+                    return
                 hat_rw, hat_rh = head_rw + 1, head_rh - 2
                 hat_shade = (max(0, self.tc[0]-60), max(0, self.tc[1]-60), max(0, self.tc[2]-60))
                 pygame.draw.ellipse(surface, hat_shade, (cx - hat_rw, cy - head_rh - 8, hat_rw*2, hat_rh*2))
@@ -2382,7 +2570,7 @@ class AnimatedCurler:
             AnimatedCurler._anim_cache = {}
 
         q_prog = round(self.delivery_progress * 30) / 30.0
-        cache_key = (self.state, q_prog, team_color, is_evil, getattr(self, "hair_style", "short"), getattr(self, "hair_color", 0))
+        cache_key = (self.state, q_prog, team_color, is_evil, getattr(self, "hair_style", "short"), getattr(self, "hair_color", 0), getattr(AnimatedCurler, "santa_hat", False))
 
         if cache_key not in AnimatedCurler._anim_cache:
             oy = q_prog * 70 if self.state == "BACKSWING" else 0
@@ -2406,7 +2594,7 @@ class AnimatedCurler:
 
     def render_portrait(self, surface, x, y, size, team_color, is_evil=False, bob_y=0):
         self.tc = team_color
-        cache_key = (size, team_color, is_evil, getattr(self, "hair_style", "short"), getattr(self, "hair_color", 0))
+        cache_key = (size, team_color, is_evil, getattr(self, "hair_style", "short"), getattr(self, "hair_color", 0), getattr(AnimatedCurler, "santa_hat", False))
         
         if not hasattr(AnimatedCurler, "_portrait_cache"):
             AnimatedCurler._portrait_cache = {}
@@ -3126,12 +3314,15 @@ class WinCurl3:
             {"id": "hair_color", "y": 930, "text": "Hair Colour:", "color": (150, 180, 200), "scale": 1.0},
             {"id": "ring_color", "y": 1020, "text": "Ring Color:", "color": (150, 180, 200), "scale": 1.0},
             {"id": "crowd", "y": 1110, "text": "Crowd:", "color": (150, 180, 200), "scale": 1.0},
-            {"id": "hi_res_mode", "y": 1200, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "smoothscale", "y": 1290, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
-            {"id": "update", "y": 1380, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
-            {"id": "back", "y": 1470, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
+            {"id": "holiday", "y": 1200, "text": "Holiday Pack:", "color": (40, 130, 70), "scale": 1.0},
+            {"id": "hi_res_mode", "y": 1290, "text": "Hi-Res Mode:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "smoothscale", "y": 1380, "text": "Smoothscale:", "color": TEAM_YELLOW, "scale": 1.0},
+            {"id": "update", "y": 1470, "text": "Check for update", "color": (150, 200, 255), "scale": 1.0},
+            {"id": "back", "y": 1560, "text": "Back", "color": HOUSE_RED, "scale": 1.0},
         ]
         self.crowd_mode = getattr(self, "crowd_mode", "ON")
+        self.holiday_dlc = getattr(self, "holiday_dlc", "FULL SANTA")
+        self.apply_holiday_dlc()
         self.last_hovered = None
 
         self.bg_pebble_layer = pygame.Surface((BASE_WIDTH, BASE_HEIGHT), pygame.SRCALPHA).convert_alpha()
@@ -3328,6 +3519,8 @@ class WinCurl3:
                         self.current_language = 'en'
                 self.hi_res_mode = data.get("hi_res_mode", False)
                 self.crowd_mode = data.get("crowd_mode", "ON")
+                self.holiday_dlc = data.get("holiday_dlc", "FULL SANTA")
+                self.apply_holiday_dlc()
 
                 if "slots" in data:
                     self.slots_data = data["slots"]
@@ -3432,6 +3625,7 @@ class WinCurl3:
                 "lighter_filter": getattr(self, "lighter_filter", False),
                 "hi_res_mode": getattr(self, "hi_res_mode", False),
                 "crowd_mode": getattr(self, "crowd_mode", "ON"),
+                "holiday_dlc": getattr(self, "holiday_dlc", "FULL SANTA"),
                 "master_vol": getattr(self.audio, "master_volume", 1.0) if getattr(self, "audio", None) else 1.0,
             }
             import os
@@ -3568,6 +3762,20 @@ class WinCurl3:
             self.net = IRCNetworkManager()
         self.app_state = "MENU"
         self.turn_state = "MENU"
+        self.menu_intro_t0 = None  # replay the present-box unwrap
+
+    def apply_holiday_dlc(self):
+        mode = getattr(self, "holiday_dlc", "FULL SANTA")
+        if mode not in HOLIDAY_DLC_MODES:
+            mode = self.holiday_dlc = "FULL SANTA"
+        AnimatedCurler.santa_hat = mode in ("SANTA HAT", "FULL SANTA")
+        cane = mode in ("CANDY CANE ROCKS", "FULL SANTA")
+        if getattr(Stone, "candy_cane", False) != cane:
+            Stone.candy_cane = cane
+            if Stone.cached_red_base is not None:
+                Stone.cached_red_base = None
+                Stone(0, 0, 0)  # re-render shared stone caches
+        self.snow_on = mode in ("SNOWFALL", "FULL SANTA")
 
     def reset_match(self):
         self.score = {0: [0] * 8, 1: [0] * 8}
@@ -4766,7 +4974,17 @@ class WinCurl3:
             self.audio.stop_music()
 
         self.menu_dy = (BASE_HEIGHT - 1920) // 2
-        self.menu_stone.draw(self.canvas, cx, 300 + self.menu_dy, self.get_pointer_pos())
+        if getattr(self, "menu_intro_t0", None) is None:
+            self.menu_intro_t0 = pygame.time.get_ticks()
+        intro_t = (pygame.time.get_ticks() - self.menu_intro_t0) * 0.001
+        if getattr(self, "snow_on", False):
+            if not hasattr(self, "snowfall"):
+                self.snowfall = Snowfall()
+            self.snowfall.draw(self.canvas, getattr(self, "time_mult", 1.0))
+        self.menu_stone.draw(self.canvas, cx, 300 + self.menu_dy, self.get_pointer_pos(), intro_t)
+        # BUILD 129: Christmas light garlands swagged across the top of the menu
+        draw_light_garland(self.canvas, -20, cx, 20 + self.menu_dy, 70, 12, t_ms, 0)
+        draw_light_garland(self.canvas, cx, BASE_WIDTH + 20, 20 + self.menu_dy, 70, 12, t_ms, 2)
 
         bx, by = cx - self.title_base.get_width() // 2, 80 + self.menu_dy + int(math.sin(t_ms * 4.0) * 15)
 
@@ -5131,6 +5349,8 @@ class WinCurl3:
                 text = f"{self._t('Outer Ring: ')}{self._t(ring_names[getattr(self, 'ring_color_idx', 0) % 6])}"
             elif btn["id"] == "crowd":
                 text = f"{self._t('Crowd: ')}{self._t(getattr(self, 'crowd_mode', 'ON'))}"
+            elif btn["id"] == "holiday":
+                text = f"{self._t('Holiday Pack: ')}{self._t(getattr(self, 'holiday_dlc', 'FULL SANTA'))}"
             elif btn["id"] == "master_vol":
                 text = self._t("Volume")
             elif btn["id"] == "hi_res_mode":
@@ -5400,6 +5620,12 @@ class WinCurl3:
                             self.crowd_mode = modes[(modes.index(curr) + 1) % 3] if curr in modes else "ON"
                             self.save_progress()
 
+                        elif b["id"] == "holiday":
+                            curr = getattr(self, "holiday_dlc", "FULL SANTA")
+                            idx = HOLIDAY_DLC_MODES.index(curr) if curr in HOLIDAY_DLC_MODES else 0
+                            self.holiday_dlc = HOLIDAY_DLC_MODES[(idx + 1) % len(HOLIDAY_DLC_MODES)]
+                            self.apply_holiday_dlc()
+                            self.save_progress()
                         elif b["id"] == "update":
                             if not getattr(self, "is_updating", False):
                                 self.is_updating = True
@@ -5786,6 +6012,10 @@ class WinCurl3:
             self.canvas.fill((10, 12, 16))
         self.canvas.blit(self.static_ice_surface, (px, py))
         self.crowd.draw(self.canvas, px, py, getattr(self, "crowd_mode", "ON"))
+        if getattr(self, "snow_on", False):
+            if not hasattr(self, "snowfall"):
+                self.snowfall = Snowfall()
+            self.snowfall.draw(self.canvas, getattr(self, "time_mult", 1.0))
 
         t = pygame.time.get_ticks()
         if not IS_ANDROID:
