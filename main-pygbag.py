@@ -18,7 +18,7 @@ import collections
 import asyncio
 import sys
 # Set up logging and constants
-VERSION = "WinCurl 3, build 129.0"
+VERSION = "WinCurl 3, build 129.1"
 
 TRANSLATIONS = {
     'fr': {
@@ -1894,12 +1894,29 @@ class Snowfall:
 
 
 def draw_santa_hat(surface, cx, cy, head_rw, head_rh):
-    """Floppy Santa hat sitting on a head centred at (cx, cy)."""
-    base_y = cy - head_rh + 6
-    tip = (cx + head_rw + 12, cy - head_rh - 4)
-    pygame.draw.polygon(surface, (150, 10, 20), [(cx - head_rw - 1, base_y), (cx + head_rw + 1, base_y), (cx + 6, cy - head_rh - 20), tip])
-    pygame.draw.polygon(surface, (210, 25, 35), [(cx - head_rw + 2, base_y - 1), (cx + head_rw - 2, base_y - 1), (cx + 3, cy - head_rh - 17), tip])
-    pygame.draw.rect(surface, (235, 235, 240), (cx - head_rw - 3, base_y - 3, head_rw * 2 + 6, 9), border_radius=4)
+    """Floppy Santa hat sitting cleanly on a head centred at (cx, cy)."""
+    base_y = cy - 5
+    tip = (cx + head_rw + 11, cy - head_rh + 2)
+    outer_pts = [
+        (cx - head_rw - 1, base_y),
+        (cx - head_rw + 3, cy - head_rh - 8),
+        (cx + 2, cy - head_rh - 17),
+        (cx + head_rw - 1, cy - head_rh - 9),
+        tip,
+        (cx + head_rw + 1, base_y),
+    ]
+    inner_pts = [
+        (cx - head_rw + 2, base_y - 1),
+        (cx - head_rw + 5, cy - head_rh - 6),
+        (cx + 2, cy - head_rh - 14),
+        (cx + head_rw - 2, cy - head_rh - 7),
+        (tip[0] - 2, tip[1]),
+        (cx + head_rw - 1, base_y - 1),
+    ]
+    pygame.draw.polygon(surface, (155, 12, 22), outer_pts)
+    pygame.draw.polygon(surface, (215, 28, 38), inner_pts)
+    pygame.draw.rect(surface, (210, 212, 220), (cx - head_rw - 3, base_y - 4, head_rw * 2 + 6, 9), border_radius=4)
+    pygame.draw.rect(surface, (245, 245, 250), (cx - head_rw - 2, base_y - 4, head_rw * 2 + 4, 7), border_radius=4)
     pygame.draw.circle(surface, (245, 245, 250), tip, 6)
     pygame.draw.circle(surface, (200, 200, 210), tip, 6, 1)
 
